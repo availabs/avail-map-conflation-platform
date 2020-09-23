@@ -4,6 +4,8 @@ const _ = require('lodash');
 
 const db = require('../../services/DbService');
 
+const logger = require('../../services/Logger');
+
 const formatRow = require('../../utils/formatRowForSqliteInsert');
 
 const createTableFns = require('./createTableFns');
@@ -106,19 +108,20 @@ async function loadAsync(fileName, rowAsyncIterator) {
         .get();
 
       if (tripsWithoutShapes > 0) {
-        console.warn(`
+        const msg = `
           WARNING: The GTFS trips file contains ${tripsWithoutShapes} trips without shapes out of ${totalTrips} total trips.
 
                    The trips.shape_id column is optional per the GTFS specification,
                      however the GTFS conflation pipeline does not currently support such trips.
-                   They will be excluded from the AADT counts.
-        `);
+                   They will be excluded from the AADT counts.`;
+        logger.warn(msg);
       }
     }
     return rowCt;
   } catch (err) {
     // Why we want the transaction.
     // This will rollback the DROP TABLE statements.
+    logger.error(err);
     console.error(err);
     xdb.exec('ROLLBACK;');
     throw err;

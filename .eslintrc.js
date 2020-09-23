@@ -18,7 +18,7 @@ module.exports = {
   },
   extends: [
     'airbnb-typescript/base',
-    'plugin:node/recommended',
+    // 'plugin:node/recommended',
     // 'plugin:@typescript-eslint/recommended-requiring-type-checking',
     'prettier',
     'prettier/@typescript-eslint',
@@ -28,6 +28,6 @@ module.exports = {
     '@typescript-eslint/naming-convention': 'off',
     'no-console': 'off',
     'no-plusplus': 'off',
-    'no-process-exit': 'off'
+    'no-process-exit': 'off',
   }
 };
