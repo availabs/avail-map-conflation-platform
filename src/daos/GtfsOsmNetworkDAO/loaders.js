@@ -1,34 +1,34 @@
-/* eslint-disable no-restricted-syntax, jsdoc/require-jsdoc, no-continue */
+/* eslint-disable no-restricted-syntax, no-continue */
 
 // https://github.com/sharedstreets/sharedstreets-js/blob/d4a340109e10b84688fc4213779585f054171005/src/graph.ts#L260-L275
 
-const turf = require("@turf/turf");
-const _ = require("lodash");
+const turf = require('@turf/turf');
+const _ = require('lodash');
 
-const db = require("../../services/DbService");
+const db = require('../../services/DbService');
 
-const roundGeometryCoordinates = require("../../utils/roundGeometryCoordinates");
+const roundGeometryCoordinates = require('../../utils/roundGeometryCoordinates');
 
-const GtfsNetworkDAO = require("../GtfsNetworkDAO");
+const GtfsNetworkDAO = require('../GtfsNetworkDAO');
 
-const SCHEMA = require("./DATABASE_SCHEMA_NAME");
+const SCHEMA = require('./DATABASE_SCHEMA_NAME');
 
 const {
   matchSegmentedShapeFeatures,
   chooseShstMatchesForShape,
   scoreChosenPaths,
-} = require("../../services/Conflation");
+} = require('../../services/Conflation');
 
 const {
   createTmpShstMatchFeaturesTable,
   createGtfsShapeShstMatchPathsTable,
   createGtfsShapeShstMatchScoresTable,
-} = require("./createTableFns");
+} = require('./createTableFns');
 
 const {
   makeShapeMatchesIterator,
   makeMatchesMultiLineStringsIterator,
-} = require("./generators");
+} = require('./generators');
 
 const PRECISION = 6;
 
@@ -201,20 +201,20 @@ async function load() {
     db.unsafeMode(true);
     xdb.unsafeMode(true);
 
-    xdb.exec("BEGIN");
+    xdb.exec('BEGIN');
     await loadRawShStMatches(xdb);
-    xdb.exec("COMMIT");
+    xdb.exec('COMMIT');
 
-    xdb.exec("BEGIN");
+    xdb.exec('BEGIN');
     loadProcessedShstMatches(xdb);
-    xdb.exec("COMMIT;");
+    xdb.exec('COMMIT;');
 
-    xdb.exec("BEGIN");
+    xdb.exec('BEGIN');
     loadChosenShstMatchesScores(xdb);
-    xdb.exec("COMMIT;");
+    xdb.exec('COMMIT;');
   } catch (err) {
     console.error(err);
-    xdb.exec("ROLLBACK");
+    xdb.exec('ROLLBACK');
     throw err;
   } finally {
     db.unsafeMode(false);

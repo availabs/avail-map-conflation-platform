@@ -1,13 +1,13 @@
 /* eslint-disable no-cond-assign */
 
-const turf = require("@turf/turf");
-const _ = require("lodash");
+const turf = require('@turf/turf');
+const _ = require('lodash');
 
-const { alg: graphAlgs } = require("graphlib");
+const { alg: graphAlgs } = require('graphlib');
 
-const unionPathLineStrings = require("./unionPathLineStrings");
+const unionPathLineStrings = require('./unionPathLineStrings');
 
-const removeRedundantCoords = require("./removeRedundantCoords");
+const removeRedundantCoords = require('./removeRedundantCoords');
 
 const createPathLineStrings = (gtfsNetworkEdge, subGraph, shstMatchesById) => {
   const sources = subGraph.sources();
@@ -38,7 +38,7 @@ const createPathLineStrings = (gtfsNetworkEdge, subGraph, shstMatchesById) => {
           ? subSinks
           : _.intersection(component, subGraphSinks),
       };
-    }
+    },
   );
 
   // Toposorted ShstMatches for each GTFS shape segment
@@ -74,7 +74,7 @@ const createPathLineStrings = (gtfsNetworkEdge, subGraph, shstMatchesById) => {
             return p.length ? p : null;
           })
           .filter((p) => p);
-      })
+      }),
   );
 
   const pathLineStrings =
@@ -126,11 +126,11 @@ const createPathLineStrings = (gtfsNetworkEdge, subGraph, shstMatchesById) => {
                           len: turf.length(shstMatch),
                           coords: turf.getCoords(shstMatch),
                         };
-                      })
+                      }),
                     );
 
                     const pathCoords = removeRedundantCoords(
-                      _.flatten(pathSummary.map(({ coords }) => coords))
+                      _.flatten(pathSummary.map(({ coords }) => coords)),
                     );
 
                     if (pathCoords < 2) {
@@ -138,7 +138,7 @@ const createPathLineStrings = (gtfsNetworkEdge, subGraph, shstMatchesById) => {
                     }
 
                     const pathDecompositionInfo = pathSummary.map((p) =>
-                      _.omit(p, "coords")
+                      _.omit(p, 'coords'),
                     );
 
                     const pathLineString = turf.lineString(pathCoords, {
@@ -169,8 +169,8 @@ const createPathLineStrings = (gtfsNetworkEdge, subGraph, shstMatchesById) => {
               : null;
 
           return shstMatchPaths;
-        }
-      )
+        },
+      ),
     ).filter((p) => p);
 
   // MUTATES THE pathLineStrings ARRAY

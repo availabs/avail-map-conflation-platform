@@ -1,11 +1,9 @@
-/* eslint-disable jsdoc/require-jsdoc */
-
 // Sufficient within same map.
 //   Buffer is too tight for GTFS-ShSt cospatiality.
 
-const turf = require("@turf/turf");
+const turf = require('@turf/turf');
 
-const _ = require("lodash");
+const _ = require('lodash');
 
 const getRelativeBearing = (a, b) => {
   const diff = b - a;
@@ -16,18 +14,18 @@ const getRelativeBearing = (a, b) => {
 const getSequentialityOfLineStrings = (S, T) => {
   try {
     if (S !== null) {
-      turf.featureOf(S, "LineString", "getSequentialityOfLineStrings");
+      turf.featureOf(S, 'LineString', 'getSequentialityOfLineStrings');
     }
 
     if (T !== null) {
-      turf.featureOf(T, "LineString", "getSequentialityOfLineStrings");
+      turf.featureOf(T, 'LineString', 'getSequentialityOfLineStrings');
     }
 
     if (S === null || T === null) {
       return null;
     }
   } catch (err) {
-    throw new Error("getSequentiality takes two GeoJSON LineStrings");
+    throw new Error('getSequentiality takes two GeoJSON LineStrings');
   }
 
   const sLen = turf.length(S);
@@ -59,7 +57,7 @@ const getSequentialityOfLineStrings = (S, T) => {
     tLen,
     segsRelBrng,
     gapDist,
-    gapRelBrng
+    gapRelBrng,
   };
 };
 

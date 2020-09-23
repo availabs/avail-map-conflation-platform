@@ -1,4 +1,4 @@
-/* eslint-disable no-restricted-syntax, jsdoc/require-jsdoc, no-continue, no-param-reassign */
+/* eslint-disable no-restricted-syntax, no-continue, no-param-reassign */
 
 // raw_gtfs> select trip_id, arrival_time, departure_time, stop_id, stop_sequence
 // >         from stop_times where stop_id = '00632' and trip_id = '5644017-SEP19-Albany-Weekday-01';
@@ -10,20 +10,20 @@
 // +---------------------------------+--------------+----------------+---------+---------------+
 // 2 rows in set
 
-const turf = require("@turf/turf");
-const _ = require("lodash");
+const turf = require('@turf/turf');
+const _ = require('lodash');
 
-const db = require("../../../services/DbService");
-const GeoJsonGtfsDAO = require("../../GeoJsonGtfsDAO");
+const db = require('../../../services/DbService');
+const GeoJsonGtfsDAO = require('../../GeoJsonGtfsDAO');
 
-const SCHEMA = require("../DATABASE_SCHEMA_NAME");
+const SCHEMA = require('../DATABASE_SCHEMA_NAME');
 
-const { createShapeSegmentsTable } = require("../createTableFns");
+const { createShapeSegmentsTable } = require('../createTableFns');
 
-const roundGeometryCoordinates = require("../../../utils/roundGeometryCoordinates");
-const getGeoProximityKey = require("../../../utils/getGeoProximityKey");
+const roundGeometryCoordinates = require('../../../utils/roundGeometryCoordinates');
+const getGeoProximityKey = require('../../../utils/getGeoProximityKey');
 
-const snapGtfsStopsSequenceToGtfsShape = require("./snapGtfsStopsSequenceToGtfsShape");
+const snapGtfsStopsSequenceToGtfsShape = require('./snapGtfsStopsSequenceToGtfsShape');
 
 let id = 0;
 
@@ -31,7 +31,7 @@ let id = 0;
 const insertSlicedShape = (shapeLineString, stopPointsSeq) => {
   const orderedSnaps = snapGtfsStopsSequenceToGtfsShape(
     shapeLineString,
-    stopPointsSeq
+    stopPointsSeq,
   );
 
   const snappedStopsInsertStmt = db.prepare(`
@@ -81,7 +81,7 @@ const insertSlicedShape = (shapeLineString, stopPointsSeq) => {
 
       return acc;
     },
-    [headSnapGroup]
+    [headSnapGroup],
   );
 
   let prevSegEndCoords;
@@ -106,10 +106,10 @@ const insertSlicedShape = (shapeLineString, stopPointsSeq) => {
         shapeSliceFeature = turf.lineSliceAlong(
           shapeLineString,
           start_dist,
-          stop_dist
+          stop_dist,
         );
       } catch (err) {
-        console.log("==============================================");
+        console.log('==============================================');
         console.log(
           JSON.stringify(
             {
@@ -121,10 +121,10 @@ const insertSlicedShape = (shapeLineString, stopPointsSeq) => {
               stop_dist,
             },
             null,
-            4
-          )
+            4,
+          ),
         );
-        console.log("==============================================");
+        console.log('==============================================');
         throw err;
       }
 
@@ -172,7 +172,7 @@ function load() {
   db.unsafeMode(true);
 
   try {
-    db.exec("BEGIN");
+    db.exec('BEGIN');
 
     db.exec(`DROP TABLE IF EXISTS ${SCHEMA}.shape_segments; `);
 
@@ -184,9 +184,9 @@ function load() {
       insertSlicedShape(shapeLineString, stopPointsSeq);
     }
 
-    db.exec("COMMIT;");
+    db.exec('COMMIT;');
   } catch (err) {
-    db.exec("ROLLBACK");
+    db.exec('ROLLBACK');
     throw err;
   } finally {
     db.unsafeMode(false);

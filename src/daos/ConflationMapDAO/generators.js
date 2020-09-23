@@ -1,21 +1,21 @@
-/* eslint-disable no-restricted-syntax, jsdoc/require-jsdoc */
+/* eslint-disable no-restricted-syntax */
 
-const turf = require("@turf/turf");
+const turf = require('@turf/turf');
 
-const db = require("../../services/DbService");
+const db = require('../../services/DbService');
 
-const SCHEMA = require("./DATABASE_SCHEMA_NAME");
+const SCHEMA = require('./DATABASE_SCHEMA_NAME');
 
 function* makeConflationMapSegmentsWithinPolygonIterator(polygon) {
   if (!polygon) {
-    throw new Error("requires polygon parameter");
+    throw new Error('requires polygon parameter');
   }
 
   const coords = turf.getCoords(polygon);
 
   if (coords.length !== 1) {
     throw new Error(
-      "Invalid polygon passes to makeConflationMapSegmentsWithinPolygonIterator"
+      'Invalid polygon passes to makeConflationMapSegmentsWithinPolygonIterator',
     );
   }
 
@@ -34,7 +34,7 @@ function* makeConflationMapSegmentsWithinPolygonIterator(polygon) {
                 WHERE geopoly_overlap(_shape, ?)
             ) USING (id)
           ORDER BY id ;
-      `
+      `,
     )
     .raw()
     .iterate([JSON.stringify(queryPolygon)]);

@@ -1,4 +1,4 @@
-/* eslint-disable no-restricted-syntax, jsdoc/require-jsdoc, no-continue */
+/* eslint-disable no-restricted-syntax, no-continue */
 
 // https://developers.google.com/transit/gtfs/reference#shapestxt
 //
@@ -8,21 +8,21 @@
 //
 // 🎉🎉🎉 The shapes are directional. 🎉🎉🎉
 
-const assert = require("assert");
+const assert = require('assert');
 
-const db = require("../../services/DbService");
+const db = require('../../services/DbService');
 
-const RawGtfsDAO = require("../RawGtfsDAO");
+const RawGtfsDAO = require('../RawGtfsDAO');
 
-const { RAW_GTFS } = require("../../constants/databaseSchemaNames");
-const SCHEMA = require("./DATABASE_SCHEMA_NAME");
+const { RAW_GTFS } = require('../../constants/databaseSchemaNames');
+const SCHEMA = require('./DATABASE_SCHEMA_NAME');
 
-const TripTracker = require("./TripTracker");
+const TripTracker = require('./TripTracker');
 
 const {
   createScheduledTransitTrafficTable,
   createServiceDatesTable,
-} = require("./createTableFns");
+} = require('./createTableFns');
 
 function loadTripStopTimes() {
   db.exec(`DROP TABLE IF EXISTS ${SCHEMA}.scheduled_transit_traffic;`);
@@ -78,7 +78,7 @@ function load() {
   db.unsafeMode(true);
 
   try {
-    db.exec("BEGIN");
+    db.exec('BEGIN');
 
     loadTripStopTimes();
     createServiceDatesTable(db);
@@ -87,7 +87,7 @@ function load() {
       .prepare(
         // The scheduled_transit_traffic table contains (departure, arrival) pairs.
         // Therefore, it will have one less row per trip than the stop_times table.
-        `SELECT COUNT(1) - COUNT(DISTINCT trip_id) FROM ${RAW_GTFS}.stop_times ;`
+        `SELECT COUNT(1) - COUNT(DISTINCT trip_id) FROM ${RAW_GTFS}.stop_times ;`,
       )
       .raw()
       .get();
@@ -99,13 +99,13 @@ function load() {
 
     if (rawStopTimesRows !== scheduledTransitTrafficRows) {
       console.warn(
-        `rawStopTimesRows: ${rawStopTimesRows}, scheduledTransitTrafficRows: ${scheduledTransitTrafficRows}`
+        `rawStopTimesRows: ${rawStopTimesRows}, scheduledTransitTrafficRows: ${scheduledTransitTrafficRows}`,
       );
     }
 
-    db.exec("COMMIT;");
+    db.exec('COMMIT;');
   } catch (err) {
-    db.exec("ROLLBACK");
+    db.exec('ROLLBACK');
     throw err;
   } finally {
     db.unsafeMode(false);

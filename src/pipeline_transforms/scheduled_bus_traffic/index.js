@@ -1,8 +1,8 @@
-/* eslint-disable no-restricted-syntax, jsdoc/require-jsdoc */
+/* eslint-disable no-restricted-syntax */
 
-const dao = require("../../daos/GtfsScheduledTrafficDAO");
+const dao = require('../../daos/GtfsScheduledTrafficDAO');
 
-const timerId = "load schduled bus traffic";
+const timerId = 'load schduled bus traffic';
 
 const main = async () => {
   try {

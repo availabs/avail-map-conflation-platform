@@ -1,12 +1,10 @@
-/* eslint-disable jsdoc/require-jsdoc */
-
 // Sufficient within same map.
 //   Buffer is too tight for GTFS-ShSt cospatiality.
 
-const turf = require("@turf/turf");
-const gdal = require("gdal");
+const turf = require('@turf/turf');
+const gdal = require('gdal');
 
-const _ = require("lodash");
+const _ = require('lodash');
 
 const GDAL_BUFF_DIST = 5e-7;
 const SEGMENTS = 100;
@@ -19,8 +17,8 @@ const getGdalLineString = (f) => {
 
   const type = turf.getType(f);
 
-  if (type !== "LineString") {
-    throw new Error("GeoJSON Feature must be a LineString");
+  if (type !== 'LineString') {
+    throw new Error('GeoJSON Feature must be a LineString');
   }
 
   const lineString = new gdal.LineString();
@@ -84,7 +82,7 @@ const analyze = (orig, sub) => {
 
 const getSubGeometryOffsets = (
   { sIntxnAnalysis, sDiffAnalysis, tIntxnAnalysis, tDiffAnalysis },
-  { snapToEndPoints = true } = {}
+  { snapToEndPoints = true } = {},
 ) => {
   const bothIntxnsNull = sIntxnAnalysis === null && tIntxnAnalysis === null;
 
@@ -96,7 +94,7 @@ const getSubGeometryOffsets = (
         .slice(1)
         .every(
           ({ distFromPrevPt, distFromPrevSnappedPt }) =>
-            Math.abs(distFromPrevPt - distFromPrevSnappedPt) < 0.001
+            Math.abs(distFromPrevPt - distFromPrevSnappedPt) < 0.001,
         ));
 
   const tIntxnPasses =
@@ -107,12 +105,12 @@ const getSubGeometryOffsets = (
         .slice(1)
         .every(
           ({ distFromPrevPt, distFromPrevSnappedPt }) =>
-            Math.abs(distFromPrevPt - distFromPrevSnappedPt) < 0.001
+            Math.abs(distFromPrevPt - distFromPrevSnappedPt) < 0.001,
         ));
 
   if (!sIntxnPasses || !tIntxnPasses) {
     throw new Error(
-      "Intersection invariant broken. Need to implement intxnAnalysis corrections."
+      'Intersection invariant broken. Need to implement intxnAnalysis corrections.',
     );
   }
 
@@ -169,12 +167,12 @@ const getSubGeometryOffsets = (
 const lineMerge = (feature, { tolerance = 0 } = {}) => {
   const type = turf.getType(feature);
 
-  if (type === "LineString") {
+  if (type === 'LineString') {
     return [feature];
   }
 
-  if (type !== "MultiLineString") {
-    throw new Error("Input must be LineStrings or MultiLineStrings.");
+  if (type !== 'MultiLineString') {
+    throw new Error('Input must be LineStrings or MultiLineStrings.');
   }
 
   const multiCoords = turf
@@ -235,7 +233,7 @@ const lineMerge = (feature, { tolerance = 0 } = {}) => {
       acc.push(curCoords);
       return acc;
     },
-    [_.head(multiCoords)]
+    [_.head(multiCoords)],
   );
 
   const mergedLineStrings = mergedCoords
@@ -253,7 +251,7 @@ const lineMerge = (feature, { tolerance = 0 } = {}) => {
 
         if (
           !linePts.every(
-            (pt) => turf.pointToLineDistance(pt, other) > tolerance
+            (pt) => turf.pointToLineDistance(pt, other) > tolerance,
           )
         ) {
           return false;
@@ -269,7 +267,7 @@ const lineMerge = (feature, { tolerance = 0 } = {}) => {
 const geometryToGeoJson = (geometry, removeShortSegments) => {
   const feature = JSON.parse(geometry.toJSON());
 
-  if (turf.getType(feature) === "LineString") {
+  if (turf.getType(feature) === 'LineString') {
     try {
       const coords = turf.getCoords(feature);
       if (!_.flatMapDeep(coords).length) {
@@ -284,7 +282,7 @@ const geometryToGeoJson = (geometry, removeShortSegments) => {
       : feature;
   }
 
-  if (turf.getType(feature) === "MultiLineString") {
+  if (turf.getType(feature) === 'MultiLineString') {
     try {
       const coords = turf.getCoords(feature);
       if (!_.flatMapDeep(coords).length) {
@@ -314,9 +312,9 @@ const geometryToGeoJson = (geometry, removeShortSegments) => {
   }
 
   if (
-    turf.getType(feature) === "Point" ||
-    turf.getType(feature) === "MultiPoint" ||
-    turf.getType(feature) === "GeometryCollection"
+    turf.getType(feature) === 'Point' ||
+    turf.getType(feature) === 'MultiPoint' ||
+    turf.getType(feature) === 'GeometryCollection'
   ) {
     return null;
   }
@@ -329,11 +327,11 @@ function getCospatialityOfLinestrings(S, T) {
     if (
       !S ||
       !T ||
-      turf.getType(S) !== "LineString" ||
-      turf.getType(T) !== "LineString"
+      turf.getType(S) !== 'LineString' ||
+      turf.getType(T) !== 'LineString'
     ) {
       throw new Error(
-        "getCospatialityOfLinestrings takes two GeoJSON LineStrings"
+        'getCospatialityOfLinestrings takes two GeoJSON LineStrings',
       );
     }
 
@@ -372,14 +370,14 @@ function getCospatialityOfLinestrings(S, T) {
       console.warn(
         JSON.stringify({
           message:
-            "ASSUMPTION BROKEN: one segment has no intersection, while the other does.",
+            'ASSUMPTION BROKEN: one segment has no intersection, while the other does.',
           payload: {
             S,
             T,
             sIntxnFeature,
             tIntxnFeature,
           },
-        })
+        }),
       );
       return null;
     }
@@ -398,14 +396,14 @@ function getCospatialityOfLinestrings(S, T) {
             console.warn(
               JSON.stringify({
                 message:
-                  "ASSUMPTION BROKEN: one segment has no intersection, while the other does.",
+                  'ASSUMPTION BROKEN: one segment has no intersection, while the other does.',
                 payload: {
                   S,
                   T,
                   sIntxn2: sIntxn2 && geometryToGeoJson(sIntxn),
                   tIntxn2: tIntxn2 && geometryToGeoJson(tIntxn),
                 },
-              })
+              }),
             );
           }
           return null;
@@ -418,32 +416,32 @@ function getCospatialityOfLinestrings(S, T) {
         const tDiff = t.difference(tIntxn2.buffer(GDAL_BUFF_DIST / 2));
 
         const [sIntersection, tIntersection] = [sIntxn2, tIntxn2].map(
-          geometryToGeoJson
+          geometryToGeoJson,
         );
 
         const [sDifference, tDifference] = [sDiff, tDiff].map(
-          geometryToGeoJson
+          geometryToGeoJson,
         );
 
         const expected =
           _.isNil(sIntersection) === _.isNil(tIntersection) &&
           (_.isNil(sIntersection) ||
-            turf.getType(sIntersection) === "LineString") &&
+            turf.getType(sIntersection) === 'LineString') &&
           (_.isNil(tIntersection) ||
-            turf.getType(tIntersection) === "LineString") &&
+            turf.getType(tIntersection) === 'LineString') &&
           (_.isNil(sDifference) ||
-            turf.getType(sDifference) === "LineString" ||
-            (turf.getType(sDifference) === "MultiLineString" &&
+            turf.getType(sDifference) === 'LineString' ||
+            (turf.getType(sDifference) === 'MultiLineString' &&
               sDifference.geometry.coordinates.length === 2)) &&
           (_.isNil(tDifference) ||
-            turf.getType(tDifference) === "LineString" ||
-            (turf.getType(tDifference) === "MultiLineString" &&
+            turf.getType(tDifference) === 'LineString' ||
+            (turf.getType(tDifference) === 'MultiLineString' &&
               tDifference.geometry.coordinates.length === 2));
 
         if (!expected) {
           console.warn(
             JSON.stringify({
-              message: "WARNING: Unexpected cospatiality result",
+              message: 'WARNING: Unexpected cospatiality result',
               payload: {
                 sIntersection,
                 sCoords: turf.getCoords(S),
@@ -454,7 +452,7 @@ function getCospatialityOfLinestrings(S, T) {
                 S,
                 T: { ...T, properties: {} },
               },
-            })
+            }),
           );
         }
 
@@ -469,13 +467,13 @@ function getCospatialityOfLinestrings(S, T) {
           }
 
           try {
-            return turf.getType(sub) === "LineString"
+            return turf.getType(sub) === 'LineString'
               ? [analyze(orig, sub)]
               : turf
                   .getCoords(sub)
                   .map((coords) => analyze(orig, turf.lineString(coords)));
           } catch (err) {
-            console.error("@".repeat(15));
+            console.error('@'.repeat(15));
             console.error(turf.getType(sub));
             console.error(JSON.stringify({ sub }, null, 4));
             console.error(JSON.stringify(turf.getCoords(sub), null, 4));
@@ -504,16 +502,13 @@ function getCospatialityOfLinestrings(S, T) {
       ? null
       : _.uniqWith(
           cospatiality.filter((c) => c !== null),
-          _.isEqual
+          _.isEqual,
         );
   } catch (err) {
     // console.error(JSON.stringify({ S, T }, null, 4));
     console.error(err);
     process.exit();
   }
-
-  // Keep linter happy
-  return null;
 }
 
 module.exports = getCospatialityOfLinestrings;

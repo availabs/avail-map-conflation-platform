@@ -1,9 +1,5 @@
-/* eslint-disable jsdoc/require-jsdoc */
-
-// https://en.wikipedia.org/wiki/Hausdorff_distance
-
-const turf = require("@turf/turf");
-const _ = require("lodash");
+const turf = require('@turf/turf');
+const _ = require('lodash');
 
 const BEARING_CHANGE_THOLD = 45 * 1.5;
 // const MIN_LENGTH_THOLD_KM = 0.1; // 100m
@@ -15,11 +11,11 @@ function splitLineStringUsingSmoothness(
     bearingChangeThreshold = BEARING_CHANGE_THOLD,
     // minLengthThresholdKm = MIN_LENGTH_THOLD_KM,
     // maxLengthThresholdKm = MAX_LENGTH_THOLD_KM,
-  } = {}
+  } = {},
 ) {
-  if (turf.getType(feature) !== "LineString") {
+  if (turf.getType(feature) !== 'LineString') {
     throw new Error(
-      "splitLineStringUsingSmoothness takes a GeoJSON LineString."
+      'splitLineStringUsingSmoothness takes a GeoJSON LineString.',
     );
   }
 
@@ -42,7 +38,7 @@ function splitLineStringUsingSmoothness(
         acc.push([coord]);
         return acc;
       },
-      [[_.head(coords)]]
+      [[_.head(coords)]],
     )
     .slice(0, -1); // last "pair" is only the endPt
 
@@ -77,7 +73,7 @@ function splitLineStringUsingSmoothness(
 
       return acc;
     },
-    [coords.slice(0, 2)]
+    [coords.slice(0, 2)],
   );
 
   // console.log(

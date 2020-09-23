@@ -1,15 +1,15 @@
 /* eslint-disable no-await-in-loop */
 
-const { copyFileSync, writeFileSync } = require("fs");
-const { join } = require("path");
-const { pipeline } = require("stream");
+const { copyFileSync, writeFileSync } = require('fs');
+const { join } = require('path');
+const { pipeline } = require('stream');
 
-const unzipper = require("unzipper");
-const csv = require("fast-csv");
+const unzipper = require('unzipper');
+const csv = require('fast-csv');
 
-const dao = require("../../daos/RawGtfsDAO");
+const dao = require('../../daos/RawGtfsDAO');
 
-const timerId = "load raw gtfs";
+const timerId = 'load raw gtfs';
 
 const main = async ({ agency_name, gtfs_zip, output_dir }) => {
   try {
@@ -36,21 +36,21 @@ const main = async ({ agency_name, gtfs_zip, output_dir }) => {
       }
     }
 
-    const zipArchiveCopyPath = join(output_dir, "gtfs.zip");
+    const zipArchiveCopyPath = join(output_dir, 'gtfs.zip');
 
     if (gtfs_zip !== zipArchiveCopyPath) {
       copyFileSync(gtfs_zip, zipArchiveCopyPath);
     }
 
-    const agencyNameFilePath = join(output_dir, "AGENCY_NAME");
+    const agencyNameFilePath = join(output_dir, 'AGENCY_NAME');
 
     writeFileSync(agencyNameFilePath, agency_name.toLowerCase());
 
     console.timeEnd(timerId);
   } catch (err) {
-    if (err.message === "database is locked") {
+    if (err.message === 'database is locked') {
       console.error(
-        "ERROR: The GTFS file loader must have exclusive access to the database."
+        'ERROR: The GTFS file loader must have exclusive access to the database.',
       );
     }
 

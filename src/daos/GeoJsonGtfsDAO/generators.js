@@ -1,20 +1,20 @@
-/* eslint-disable no-restricted-syntax, jsdoc/require-jsdoc, no-param-reassign */
+/* eslint-disable no-restricted-syntax, no-param-reassign */
 
-const _ = require("lodash");
-const turf = require("@turf/turf");
+const _ = require('lodash');
+const turf = require('@turf/turf');
 
-const db = require("../../services/DbService");
+const db = require('../../services/DbService');
 
-const toParsedFeaturesIterator = require("../../utils/toParsedFeaturesIterator");
+const toParsedFeaturesIterator = require('../../utils/toParsedFeaturesIterator');
 
-const MILES = "miles";
-const KILOMETERS = "kilometers";
+const MILES = 'miles';
+const KILOMETERS = 'kilometers';
 
 const {
   RAW_GTFS: RAW_GTFS_SCHEMA,
-} = require("../../constants/databaseSchemaNames");
+} = require('../../constants/databaseSchemaNames');
 
-const GEOJSON_SCHEMA = require("./DATABASE_SCHEMA_NAME");
+const GEOJSON_SCHEMA = require('./DATABASE_SCHEMA_NAME');
 
 const convertStopsShapeDistTraveledToKilometers = (shape, stopsSeq) => {
   const seq = _.cloneDeep(stopsSeq);
@@ -56,7 +56,7 @@ const convertStopsShapeDistTraveledToKilometers = (shape, stopsSeq) => {
   const m = km * 1000;
 
   const closest = _.sortBy([mi, ft, km, m], (x) =>
-    Math.abs(lastDistTraveled - x)
+    Math.abs(lastDistTraveled - x),
   );
 
   if (closest === mi) {
@@ -83,7 +83,7 @@ const convertStopsShapeDistTraveledToKilometers = (shape, stopsSeq) => {
 
   if (Math.abs((lastDistTraveled - lastDistTraveledKm) / km) > 0.1) {
     throw new Error(
-      `Unit conversion fail. Turf says ${km}. Converted dist = ${lastDistTraveledKm}`
+      `Unit conversion fail. Turf says ${km}. Converted dist = ${lastDistTraveledKm}`,
     );
   }
 
@@ -178,9 +178,9 @@ function* makeShapesWithStopsIterator() {
         (stopSeq) =>
           Object.keys(stopSeq)
             .sort((seq_num_a, seq_num_b) => +seq_num_a - +seq_num_b) // Sort (stop_sequences col) as numbers
-            .map((seqNum) => stopSeq[seqNum]) // output array of { stop_id, shape_dist_traveled } in seq order
+            .map((seqNum) => stopSeq[seqNum]), // output array of { stop_id, shape_dist_traveled } in seq order
       ),
-      _.isEqual // remove dupes
+      _.isEqual, // remove dupes
     ).sort((a, b) => b.length - a.length); // sort in descending order by seq length
 
     const [longestSeq] = stopSeqs;
@@ -260,7 +260,7 @@ function* makeShapesWithStopsIterator() {
     //         or handle it by logging the INVARIANT violation
     //         and moving on to the next shape.
     if (stopsArr.some((stop) => _.isNil(stop))) {
-      throw new Error("Stops from stop_trips not in stops table.");
+      throw new Error('Stops from stop_trips not in stops table.');
     }
 
     yield { shape, stops: stopsArr };

@@ -1,8 +1,8 @@
-/* eslint-disable no-restricted-syntax, jsdoc/require-jsdoc */
+/* eslint-disable no-restricted-syntax */
 
-const dao = require("../../daos/GtfsConflationScheduleJoinDAO");
+const dao = require('../../daos/GtfsConflationScheduleJoinDAO');
 
-const timerId = "gtfs_conflation_schedule_join";
+const timerId = 'gtfs_conflation_schedule_join';
 
 const main = async () => {
   try {

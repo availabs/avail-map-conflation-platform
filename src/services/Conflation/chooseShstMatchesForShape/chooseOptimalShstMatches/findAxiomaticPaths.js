@@ -9,9 +9,9 @@
 //  [x] 2. Sufficiently high lengthRatio
 //
 
-const _ = require("lodash");
+const _ = require('lodash');
 
-const getSequentiality = require("../../../../utils/gis/getSequentiality");
+const getSequentiality = require('../../../../utils/gis/getSequentiality');
 
 const findAxiomaticPaths = ({
   chosenPaths,
@@ -91,7 +91,7 @@ const findAxiomaticPaths = ({
 
       return acc;
     },
-    _.range(0, aggregatedSummary.length).map(() => null)
+    _.range(0, aggregatedSummary.length).map(() => null),
   );
 
   return progress ? axioPaths : null;

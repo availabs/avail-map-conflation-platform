@@ -27,5 +27,7 @@ module.exports = {
   rules: {
     '@typescript-eslint/naming-convention': 'off',
     'no-console': 'off',
+    'no-plusplus': 'off',
+    'no-process-exit': 'off'
   }
 };

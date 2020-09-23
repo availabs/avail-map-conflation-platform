@@ -1,10 +1,10 @@
-/* eslint-disable no-restricted-syntax, jsdoc/require-jsdoc */
+/* eslint-disable no-restricted-syntax */
 
-const memoizeOne = require("memoize-one");
+const memoizeOne = require('memoize-one');
 
-const db = require("../../services/DbService");
+const db = require('../../services/DbService');
 
-const SCHEMA = require("./DATABASE_SCHEMA_NAME");
+const SCHEMA = require('./DATABASE_SCHEMA_NAME');
 
 const getDowsForTrip = memoizeOne((trip_id) => {
   const dows = db
@@ -21,7 +21,7 @@ const getDowsForTrip = memoizeOne((trip_id) => {
         FROM ${SCHEMA}.trips
           INNER JOIN ${SCHEMA}.calendar USING (service_id)
         WHERE ( trip_id = ? )
-      ; `
+      ; `,
     )
     .raw()
     .get([trip_id]);

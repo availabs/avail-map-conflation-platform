@@ -1,8 +1,8 @@
-const _ = require("lodash");
+const _ = require('lodash');
 
 const validateInputs = (a, b) => {
   if (!Array.isArray(a) || !Array.isArray(b)) {
-    throw new Error("Both inputs to the stringAlgorithms must be Arrays.");
+    throw new Error('Both inputs to the stringAlgorithms must be Arrays.');
   }
 };
 
@@ -62,5 +62,5 @@ const isSubstring = (a, b) => {
 module.exports = {
   isSubset,
   isSubsequence,
-  isSubstring
+  isSubstring,
 };

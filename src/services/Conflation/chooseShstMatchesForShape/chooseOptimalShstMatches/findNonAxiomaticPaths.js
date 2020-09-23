@@ -1,11 +1,11 @@
-/* eslint-disable no-continue, no-cond-assign, jsdoc/require-jsdoc, no-param-reassign, no-constant-condition */
+/* eslint-disable no-continue, no-cond-assign, no-param-reassign, no-constant-condition */
 
-const assert = require("assert");
+const assert = require('assert');
 
-const turf = require("@turf/turf");
-const _ = require("lodash");
+const turf = require('@turf/turf');
+const _ = require('lodash');
 
-const getCospatialityOfLinestrings = require("../../../../utils/gis/getCospatialityOfLinestrings");
+const getCospatialityOfLinestrings = require('../../../../utils/gis/getCospatialityOfLinestrings');
 
 const maxOverlapThld = 0.002; // 2 meters
 
@@ -62,7 +62,7 @@ const findNonAxiomaticPaths = ({ chosenPaths, aggregatedSummary }) => {
       // );
 
       const cospatialities = _.range(0, features.length).map(() =>
-        _.range(0, features.length).map(() => [])
+        _.range(0, features.length).map(() => []),
       );
 
       for (let i = 0; i < features.length; ++i) {
@@ -77,8 +77,8 @@ const findNonAxiomaticPaths = ({ chosenPaths, aggregatedSummary }) => {
 
           // TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
 
-          cospatialities[i][j] = cospat !== null ? { self: "S", cospat } : null;
-          cospatialities[j][i] = cospat !== null ? { self: "T", cospat } : null;
+          cospatialities[i][j] = cospat !== null ? { self: 'S', cospat } : null;
+          cospatialities[j][i] = cospat !== null ? { self: 'T', cospat } : null;
         }
       }
 
@@ -116,13 +116,13 @@ const findNonAxiomaticPaths = ({ chosenPaths, aggregatedSummary }) => {
               const sOverLapLen = comboCospat.reduce(
                 (acc3, { sIntxnOffsets: { startAlong, endAlong } }) =>
                   acc3 + endAlong - startAlong,
-                0
+                0,
               );
 
               const tOverLapLen = comboCospat.reduce(
                 (acc3, { tIntxnOffsets: { startAlong, endAlong } }) =>
                   acc3 + endAlong - startAlong,
-                0
+                0,
               );
 
               const overlapLen = Math.max(sOverLapLen, tOverLapLen);
@@ -176,7 +176,7 @@ const findNonAxiomaticPaths = ({ chosenPaths, aggregatedSummary }) => {
                   _.first(comboCospat.cospat).sIntxnOffsets.endAlong -
                     _.first(comboCospat.cospat).sIntxnOffsets.startAlong,
                   _.first(comboCospat.cospat).tIntxnOffsets.endAlong -
-                    _.first(comboCospat.cospat).tIntxnOffsets.startAlong
+                    _.first(comboCospat.cospat).tIntxnOffsets.startAlong,
                 );
 
               const overlapExceedsThld = overlapLen > maxOverlapThld;
@@ -212,12 +212,12 @@ const findNonAxiomaticPaths = ({ chosenPaths, aggregatedSummary }) => {
 
           return acc2;
         },
-        [[]]
+        [[]],
       );
 
       if (acc.length > 2 ** 10) {
         console.warn(
-          "The O(n^2) algo in computeShapeLevelPathCombinationProperties needs improvement."
+          'The O(n^2) algo in computeShapeLevelPathCombinationProperties needs improvement.',
         );
       }
 
@@ -230,7 +230,7 @@ const findNonAxiomaticPaths = ({ chosenPaths, aggregatedSummary }) => {
         const satCombo = satisfactoryCombos[i];
         const v = satCombo.reduce(
           (totalLen, include, j) => totalLen + (include && pathsLengths[j]),
-          0
+          0,
         );
 
         // Since strictly greater, should prefer the pathsLengths
@@ -313,7 +313,7 @@ const findNonAxiomaticPaths = ({ chosenPaths, aggregatedSummary }) => {
 
       return acc;
     },
-    _.range(0, aggregatedSummary.length).map(() => null)
+    _.range(0, aggregatedSummary.length).map(() => null),
   );
 
   return progress ? filteredPaths : null;

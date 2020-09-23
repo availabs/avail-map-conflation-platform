@@ -1,36 +1,36 @@
 /* eslint-disable no-await-in-loop, no-continue */
 
-const assert = require("assert");
-const { existsSync } = require("fs");
-const { join } = require("path");
+const assert = require('assert');
+const { existsSync } = require('fs');
+const { join } = require('path');
 
-const OSRM = require("osrm");
-const turf = require("@turf/turf");
-const memoizeOne = require("memoize-one");
-const _ = require("lodash");
+const OSRM = require('osrm');
+const turf = require('@turf/turf');
+const memoizeOne = require('memoize-one');
+const _ = require('lodash');
 
-const DISTANCE_SLICE_METHOD = "DISTANCE_SLICE_METHOD";
-const BEARING_SLICE_METHOD = "BEARING_SLICE_METHOD";
-const MATCH = "MATCH";
-const ROUTE = "ROUTE";
+const DISTANCE_SLICE_METHOD = 'DISTANCE_SLICE_METHOD';
+const BEARING_SLICE_METHOD = 'BEARING_SLICE_METHOD';
+const MATCH = 'MATCH';
+const ROUTE = 'ROUTE';
 
 // Max number of waypoints to add
 const N = 10;
 const LEN_DIFF_R_REJECT_TH = 0.05;
 const SIMILARITY_THOLD = 0.008;
 
-const splitLineStringUsingSmoothness = require("../../../../utils/splitLineStringUsingSmoothness");
-const lineStringsComparator = require("../../../../utils/lineStringsComparator");
+const splitLineStringUsingSmoothness = require('../../../../utils/splitLineStringUsingSmoothness');
+const lineStringsComparator = require('../../../../utils/lineStringsComparator');
 
 // osrmDir is in the console logged info when running shst match.
 //   It contains the road network subgraph created to match
 //   the set of features passed to shared streets.
 const getOSRM = memoizeOne((osrmDir) => {
   try {
-    const osrmFile = join(osrmDir, "graph.xml.osrm");
+    const osrmFile = join(osrmDir, 'graph.xml.osrm');
 
     if (!existsSync(osrmFile)) {
-      console.log("graph.xml.osrm file does not exist");
+      console.log('graph.xml.osrm file does not exist');
       return null;
     }
 
@@ -46,10 +46,10 @@ const getOsrmMatch = (osrm, feature) =>
     osrm.match(
       {
         coordinates: turf.getCoords(feature),
-        geometries: "geojson",
+        geometries: 'geojson',
         continue_straight: true,
-        overview: "full",
-        snapping: "any",
+        overview: 'full',
+        snapping: 'any',
         // radiuses: osrmRouteCoords.map(() => 20),
         // tidy: true
       },
@@ -63,7 +63,7 @@ const getOsrmMatch = (osrm, feature) =>
           // console.log(JSON.stringify(matchings, null, 4));
 
           const matchCoords = _(matchings)
-            .map("geometry.coordinates")
+            .map('geometry.coordinates')
             .flattenDeep()
             .chunk(2)
             .filter((coord, i, coords) => !_.isEqual(coord, coords[i - 1]))
@@ -77,8 +77,8 @@ const getOsrmMatch = (osrm, feature) =>
           console.error(err2);
           return resolve(null);
         }
-      }
-    )
+      },
+    ),
   );
 
 const getOsrmRoute = (osrm, feature) =>
@@ -88,10 +88,10 @@ const getOsrmRoute = (osrm, feature) =>
         // alternatives: true,
         alternatives: false,
         coordinates: turf.getCoords(feature),
-        geometries: "geojson",
+        geometries: 'geojson',
         continue_straight: true,
-        overview: "full",
-        snapping: "any",
+        overview: 'full',
+        snapping: 'any',
         tidy: true,
       },
       (err, result) => {
@@ -112,8 +112,8 @@ const getOsrmRoute = (osrm, feature) =>
 
           const newFeature = turf.lineString(
             resultRouteCoords.filter(
-              (coord, i) => !_.isEqual(coord, resultRouteCoords[i - 1])
-            )
+              (coord, i) => !_.isEqual(coord, resultRouteCoords[i - 1]),
+            ),
           );
 
           return resolve(newFeature);
@@ -121,8 +121,8 @@ const getOsrmRoute = (osrm, feature) =>
           // console.error(err2);
           return resolve(null);
         }
-      }
-    )
+      },
+    ),
   );
 
 const lineSliceByDistanceMethod = async ({ feature, osrmDir }, osrmMethod) => {
@@ -135,9 +135,13 @@ const lineSliceByDistanceMethod = async ({ feature, osrmDir }, osrmMethod) => {
       const waypointCoords = _.range(0, n).map((m) =>
         _.first(
           turf.getCoords(
-            turf.lineSliceAlong(feature, (featureLength * m) / n, featureLength)
-          )
-        )
+            turf.lineSliceAlong(
+              feature,
+              (featureLength * m) / n,
+              featureLength,
+            ),
+          ),
+        ),
       );
 
       waypointCoords.push(_.last(turf.getCoords(feature)));
@@ -172,8 +176,8 @@ const lineSliceByDistanceMethod = async ({ feature, osrmDir }, osrmMethod) => {
   }
 
   const mappings = _(mappedOptions)
-    .sortBy("lenRatio")
-    .map("osrmMapped")
+    .sortBy('lenRatio')
+    .map('osrmMapped')
     // .take(5)
     .value();
 
@@ -219,7 +223,7 @@ const lineSliceByBearingMethod = async ({ feature, osrmDir }, osrmMethod) => {
           const fullLastChunk = turf.lineSliceAlong(
             lastChunk,
             featureLen - 2.5,
-            featureLen
+            featureLen,
           );
 
           chunkedFeatures.push(fullLastChunk);
@@ -229,7 +233,7 @@ const lineSliceByBearingMethod = async ({ feature, osrmDir }, osrmMethod) => {
       }
 
       return null;
-    })
+    }),
   ).filter((f) => f);
 
   bearingSplitSegments.push(...chunkedBearingSplitSegments);
@@ -241,7 +245,7 @@ const lineSliceByBearingMethod = async ({ feature, osrmDir }, osrmMethod) => {
 
     // [getOsrmRoute].map(async mapFn => {
     const osrmMappedFeatures = await Promise.all(
-      bearingSplitSegments.map((seg) => mapFn(osrm, seg))
+      bearingSplitSegments.map((seg) => mapFn(osrm, seg)),
     );
 
     // console.log(JSON.stringify(osrmMappedFeatures, null, 4));
@@ -291,7 +295,7 @@ const lineSliceByBearingMethod = async ({ feature, osrmDir }, osrmMethod) => {
 const replaceFeaturesGeomsWithOsrmRoute = async (
   params,
   // {lineSliceMethod = DISTANCE_SLICE_METHOD, osrmMethod = ROUTE} = {}
-  { lineSliceMethod = DISTANCE_SLICE_METHOD, osrmMethod = ROUTE } = {}
+  { lineSliceMethod = DISTANCE_SLICE_METHOD, osrmMethod = ROUTE } = {},
 ) => {
   if (lineSliceMethod === DISTANCE_SLICE_METHOD) {
     return lineSliceByDistanceMethod(params, osrmMethod);

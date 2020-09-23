@@ -1,17 +1,17 @@
-const _ = require("lodash");
+const _ = require('lodash');
 
-const db = require("../../services/DbService");
+const db = require('../../services/DbService');
 
-const GtfsNetworkDAO = require("../GtfsNetworkDAO");
+const GtfsNetworkDAO = require('../GtfsNetworkDAO');
 
-const SCHEMA = require("./DATABASE_SCHEMA_NAME");
+const SCHEMA = require('./DATABASE_SCHEMA_NAME');
 
 const MINS_PER_HOUR = 60;
 const SECS_PER_MIN = 60;
 
 // HH:MM:SS => seconds into day
 const getTimestamp = (time) => {
-  const [h, m, s] = time.split(":").map((u) => +u);
+  const [h, m, s] = time.split(':').map((u) => +u);
   // ((hrs * min/hr) + mins) * sec/min + secs => seconds into day
   return (h * MINS_PER_HOUR + m) * SECS_PER_MIN + s;
 };
@@ -44,7 +44,7 @@ class TripTracker {
     //
     //       Conceivable if all stops along the way are unscheduled.
     if (this.segmentedShape.length === 0) {
-      throw new Error("INVARIANT BROKEN: The trip shape contains no segments.");
+      throw new Error('INVARIANT BROKEN: The trip shape contains no segments.');
     }
 
     if (this.segmentedShape.length === 1) {
@@ -56,7 +56,7 @@ class TripTracker {
 
       if (_.intersection(from_stop_ids, to_stop_ids).length > 0) {
         throw new Error(
-          "INVARIANT BROKEN: The TripTracker does not currently support simple loop trip shapes."
+          'INVARIANT BROKEN: The TripTracker does not currently support simple loop trip shapes.',
         );
       }
     }
@@ -77,7 +77,7 @@ class TripTracker {
     //       because we need the segmentedShape and fromStops
     //       arrays to be parallel.
     const orderedStopsAlongShape = this.segmentedShape.map(
-      ({ properties: { from_stop_ids } }) => from_stop_ids
+      ({ properties: { from_stop_ids } }) => from_stop_ids,
     );
 
     // All from_stops are the preceding segment's to_stops.
@@ -100,8 +100,8 @@ class TripTracker {
     //           so we filter them out of consideration here.
     //
     const finalStopIds = _.get(_.last(this.segmentedShape), [
-      "properties",
-      "to_stop_ids",
+      'properties',
+      'to_stop_ids',
     ]).filter((s) => s !== null);
 
     // Because we filtered out the NULL stops, we know that
@@ -169,7 +169,7 @@ class TripTracker {
 
     // Reverse the stops2segsFifo arrays so they are FIFOs when using pop().
     Object.keys(this.stops2segsFifo).forEach((stop_id) =>
-      this.stops2segsFifo[stop_id].reverse()
+      this.stops2segsFifo[stop_id].reverse(),
     );
   }
 
@@ -188,7 +188,7 @@ class TripTracker {
     ) {
       // We throw an error because the trip tracking algorithm's assumptions are unsound.
       throw new Error(
-        `INVARIANT BROKEN: No remaining segments for the stop id ${stop_id}`
+        `INVARIANT BROKEN: No remaining segments for the stop id ${stop_id}`,
       );
     }
 
@@ -230,7 +230,7 @@ class TripTracker {
 
         // Make sure our datastructures are being correctly maintained.
         if (fifoHead !== seg_idx) {
-          throw new Error("The stops2segsFifos are incorrect.");
+          throw new Error('The stops2segsFifos are incorrect.');
         }
       });
     }
@@ -257,7 +257,7 @@ class TripTracker {
       )
     ) {
       throw new Error(
-        "arrival_time and departure_time must be in HH:MM:SS format."
+        'arrival_time and departure_time must be in HH:MM:SS format.',
       );
     }
 
@@ -268,7 +268,7 @@ class TripTracker {
       // Verify invariant
       if (travelTimeSecs < 0) {
         throw new Error(
-          "departure_time -> arrival_time must be monotonically increasing."
+          'departure_time -> arrival_time must be monotonically increasing.',
         );
       }
 

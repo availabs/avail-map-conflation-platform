@@ -1,9 +1,9 @@
-/* eslint-disable no-continue, no-constant-condition, no-cond-assign, jsdoc/require-jsdoc */
+/* eslint-disable no-continue, no-constant-condition, no-cond-assign */
 
-const turf = require("@turf/turf");
-const _ = require("lodash");
+const turf = require('@turf/turf');
+const _ = require('lodash');
 
-const mergeLineStringsGeospatially = require("../../../../utils/gis/mergeLineStringsGeospatially");
+const mergeLineStringsGeospatially = require('../../../../utils/gis/mergeLineStringsGeospatially');
 
 function mergePathSegmentsGeospatially(S, T) {
   const sShstMatchIds = S.properties.pathDecompositionInfo
@@ -32,7 +32,7 @@ function mergePathSegmentsGeospatially(S, T) {
   const mergedPDI = Array.prototype.concat(
     A.properties.pathDecompositionInfo,
     { id: null, len: gapDist, isGap },
-    B.properties.pathDecompositionInfo
+    B.properties.pathDecompositionInfo,
   );
 
   // NOTE: Shallow copy... therefore only make shallow mutations.
@@ -61,7 +61,7 @@ function mergePathSegmentsGeospatially(S, T) {
       : [];
 
   mergeHistory.push({
-    algo: "mergePathSegmentsGeospatially",
+    algo: 'mergePathSegmentsGeospatially',
     shstMatchIds: [
       A.properties.pathDecompositionInfo.map(({ id }) => id),
       B.properties.pathDecompositionInfo.map(({ id }) => id),

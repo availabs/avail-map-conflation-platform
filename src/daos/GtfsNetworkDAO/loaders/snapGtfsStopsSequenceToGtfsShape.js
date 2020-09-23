@@ -1,9 +1,9 @@
-/* eslint-disable no-param-reassign, jsdoc/require-jsdoc */
+/* eslint-disable no-param-reassign */
 
-const turf = require("@turf/turf");
-const _ = require("lodash");
+const turf = require('@turf/turf');
+const _ = require('lodash');
 
-const segmentizeShapeLineString = shapeLineString =>
+const segmentizeShapeLineString = (shapeLineString) =>
   turf.segmentReduce(
     shapeLineString,
     (acc, segment, _0, _1, _2, segment_idx) => {
@@ -12,8 +12,8 @@ const segmentizeShapeLineString = shapeLineString =>
       const {
         properties: {
           start_dist_along: prevSegDistAlong = 0,
-          length_km: prevSegLength = 0
-        } = {}
+          length_km: prevSegLength = 0,
+        } = {},
       } = prevSeg || {};
 
       acc.push({
@@ -21,18 +21,18 @@ const segmentizeShapeLineString = shapeLineString =>
         properties: {
           segment_idx,
           length_km: turf.length(segment),
-          start_dist_along: prevSegDistAlong + prevSegLength
-        }
+          start_dist_along: prevSegDistAlong + prevSegLength,
+        },
       });
       return acc;
     },
-    []
+    [],
   );
 
 // O(S*Ps) where S is the number of stopPoints, and Ps is the number of path segments.
 function getStopsProjectedToPathSegmentsTable(stopPoints, shapeSegments) {
   // Each stop point, mapped to each path segment
-  return stopPoints.map(stopPt => {
+  return stopPoints.map((stopPt) => {
     // For each stopPt, snap it to each path segment.
     return shapeSegments.map((segment, i) => {
       const snapped = turf.pointOnLine(segment, stopPt);
@@ -53,7 +53,7 @@ function getStopsProjectedToPathSegmentsTable(stopPoints, shapeSegments) {
         stop_coords: stopPt.geometry.coordinates,
         snapped_coords: snappedCoords,
         snapped_dist_along_km: snappedDistTraveled,
-        deviation
+        deviation,
       };
     });
   });
@@ -62,10 +62,8 @@ function getStopsProjectedToPathSegmentsTable(stopPoints, shapeSegments) {
 // O(S W lg W) where S is the number of stops, W is the number of waypointCoords in the path.
 // Additional O(SW) space cost, as the table is replicated.
 function trySimpleMinification(theTable) {
-  const possibleOptimal = theTable.map(row =>
-    _(row)
-      .sortBy(["deviation", "snapped_dist_along_km"])
-      .first()
+  const possibleOptimal = theTable.map((row) =>
+    _(row).sortBy(['deviation', 'snapped_dist_along_km']).first(),
   );
 
   // If
@@ -77,7 +75,7 @@ function trySimpleMinification(theTable) {
   }
 
   return _.tail(possibleOptimal).every((currPossOpt, i) =>
-    invariantCheck(possibleOptimal[i], currPossOpt)
+    invariantCheck(possibleOptimal[i], currPossOpt),
   )
     ? possibleOptimal
     : null;
@@ -99,7 +97,7 @@ function fitStopsToPathUsingLeastSquares(theTable) {
   const tailRows = theTable.slice(1);
 
   // Initialize the first row.
-  headRow.forEach(cell => {
+  headRow.forEach((cell) => {
     cell.cost = cell.deviation * cell.deviation;
     cell.path = [cell.segmentNum];
   });
@@ -107,14 +105,14 @@ function fitStopsToPathUsingLeastSquares(theTable) {
   // Do dynamic programing...
   //   Looking for the lowest cost path from the first row
   tailRows.forEach((tableRow, i) => {
-    tableRow.forEach(thisCell => {
+    tableRow.forEach((thisCell) => {
       // thisCell is the geospatial snapping of the stop to the shape segment.
 
       let bestFromPreviousRow = {
-        cost: Number.POSITIVE_INFINITY
+        cost: Number.POSITIVE_INFINITY,
       };
 
-      theTable[i].forEach(fromCell => {
+      theTable[i].forEach((fromCell) => {
         // INTUITION: It seems like the no backtracking constraint can be used to
         //            reduce the search space until it is almost linear.
         if (
@@ -146,7 +144,7 @@ function fitStopsToPathUsingLeastSquares(theTable) {
   //      * the sum of the squares of the distance between the stop's coords
   //        and the snapped point coords, otherwise.
   //   If the constraint failed for EVERY possible path, the min cost path is null.
-  const bestAssignmentOfSegments = _.minBy(_.last(theTable), "cost").path;
+  const bestAssignmentOfSegments = _.minBy(_.last(theTable), 'cost').path;
 
   if (bestAssignmentOfSegments) {
     return bestAssignmentOfSegments.map((segmentNum, stopIndex) => {
@@ -158,7 +156,7 @@ function fitStopsToPathUsingLeastSquares(theTable) {
         stop_coords: bestProjection.stop_coords,
         snapped_coords: bestProjection.snapped_coords,
         snapped_dist_along_km: bestProjection.snapped_dist_along_km,
-        deviation: bestProjection.deviation
+        deviation: bestProjection.deviation,
       };
     });
   }
@@ -171,7 +169,7 @@ function fitStopsToPath(shapeLineString, stopPointsSeq) {
   // first build the table
   const theTable = getStopsProjectedToPathSegmentsTable(
     stopPointsSeq,
-    shapeSegments
+    shapeSegments,
   );
 
   // try the simple case

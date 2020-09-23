@@ -1,15 +1,15 @@
-/* eslint-disable no-restricted-syntax, jsdoc/require-jsdoc */
+/* eslint-disable no-restricted-syntax */
 
-const _ = require("lodash");
+const _ = require('lodash');
 
-const db = require("../../services/DbService");
+const db = require('../../services/DbService');
 
-const formatRow = require("../../utils/formatRowForSqliteInsert");
+const formatRow = require('../../utils/formatRowForSqliteInsert');
 
-const createTableFns = require("./createTableFns");
+const createTableFns = require('./createTableFns');
 
-const SCHEMA = require("./DATABASE_SCHEMA_NAME");
-const SUPPORTED_TABLES = require("./SUPPORTED_TABLES");
+const SCHEMA = require('./DATABASE_SCHEMA_NAME');
+const SUPPORTED_TABLES = require('./SUPPORTED_TABLES');
 
 /**
  * @param { string } fileName The GTFS file name
@@ -50,7 +50,7 @@ async function loadAsync(fileName, rowAsyncIterator) {
 
   const xdb = db.openLoadingConnectionToDb(SCHEMA);
 
-  xdb.exec("BEGIN EXCLUSIVE;");
+  xdb.exec('BEGIN EXCLUSIVE;');
 
   try {
     xdb.exec(`DROP TABLE IF EXISTS ${tableName};`);
@@ -65,15 +65,15 @@ async function loadAsync(fileName, rowAsyncIterator) {
           `SELECT
                 name
               FROM ${SCHEMA}.pragma_table_info('${tableName}')
-              ORDER BY cid ; `
+              ORDER BY cid ; `,
         )
         .raw()
-        .all()
+        .all(),
     );
 
     const insertRowStmt = xdb.prepare(`
         INSERT INTO ${SCHEMA}.${tableName} (${columnsList})
-          VALUES (${columnsList.map(() => "?")}); `);
+          VALUES (${columnsList.map(() => '?')}); `);
 
     let rowCt = 0;
 
@@ -83,8 +83,8 @@ async function loadAsync(fileName, rowAsyncIterator) {
       ++rowCt;
     }
 
-    xdb.exec("COMMIT;");
-    if (tableName === "trips") {
+    xdb.exec('COMMIT;');
+    if (tableName === 'trips') {
       const [totalTrips, tripsWithoutShapes] = db
         .prepare(
           `
@@ -100,7 +100,7 @@ async function loadAsync(fileName, rowAsyncIterator) {
                   FROM ${SCHEMA}.trips
                   WHERE (shape_id IS NULL)
               ) ;
-          `
+          `,
         )
         .raw()
         .get();
@@ -120,7 +120,7 @@ async function loadAsync(fileName, rowAsyncIterator) {
     // Why we want the transaction.
     // This will rollback the DROP TABLE statements.
     console.error(err);
-    xdb.exec("ROLLBACK;");
+    xdb.exec('ROLLBACK;');
     throw err;
   } finally {
     db.closeLoadingConnectionToDb(xdb);

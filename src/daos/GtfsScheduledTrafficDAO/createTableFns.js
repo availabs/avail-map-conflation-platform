@@ -77,9 +77,9 @@
     2. If no calendar_dates table, create
 */
 
-const _ = require("lodash");
-const { RAW_GTFS } = require("../../constants/databaseSchemaNames");
-const SCHEMA = require("./DATABASE_SCHEMA_NAME");
+const _ = require('lodash');
+const { RAW_GTFS } = require('../../constants/databaseSchemaNames');
+const SCHEMA = require('./DATABASE_SCHEMA_NAME');
 
 const createTmpFeedInfo = (db, has_feed_info_table) => {
   if (has_feed_info_table) {
@@ -212,7 +212,7 @@ const createTmpTables = (db) => {
                   AND
                   ( name = 'calendar_dates' )
                 )
-            ) AS has_calendar_dates_table ;`
+            ) AS has_calendar_dates_table ;`,
     )
     .get();
 
@@ -243,7 +243,7 @@ const createFeedDateExtentsTable = (db) => {
             FROM tmp_feed_info
             WHERE ( feed_start_date IS NOT NULL )
           ;
-        `
+        `,
       )
       .get();
 
@@ -270,7 +270,7 @@ const createFeedDateExtentsTable = (db) => {
                 )
             )
           ;
-        `
+        `,
       )
       .get().feed_start_date;
   }
@@ -286,7 +286,7 @@ const createFeedDateExtentsTable = (db) => {
             FROM tmp_feed_info
             WHERE ( feed_end_date IS NOT NULL )
           ;
-        `
+        `,
       )
       .get();
 
@@ -312,13 +312,13 @@ const createFeedDateExtentsTable = (db) => {
                 )
             )
           ;
-        `
+        `,
       )
       .get().feed_end_date;
   }
 
   if (_.isNaN(feed_start_date) || _.isNil(feed_end_date)) {
-    throw new Error("Unable to determine the feed date extent.");
+    throw new Error('Unable to determine the feed date extent.');
   }
 
   db.exec(`

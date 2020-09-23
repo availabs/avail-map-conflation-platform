@@ -1,4 +1,4 @@
-const { getFrechetDistance } = require("./frechet");
+const { getFrechetDistance } = require('./frechet');
 
 const score = (S, T) => {
   const frechet = getFrechetDistance(S, T);

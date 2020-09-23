@@ -1,8 +1,8 @@
-/* eslint-disable no-restricted-syntax, jsdoc/require-jsdoc */
+/* eslint-disable no-restricted-syntax */
 
-const dao = require("../../daos/ConflationMapDAO");
+const dao = require('../../daos/ConflationMapDAO');
 
-const timerId = "load OSM/RIS/NPMRDS conflation map";
+const timerId = 'load OSM/RIS/NPMRDS conflation map';
 
 const main = async ({ conflation_map_sqlite_db }) => {
   try {

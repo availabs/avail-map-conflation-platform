@@ -1,21 +1,21 @@
-const { mkdirSync, statSync, unlinkSync } = require("fs");
-const { join } = require("path");
+const { mkdirSync, statSync, unlinkSync } = require('fs');
+const { join } = require('path');
 
-const Winston = require("winston");
+const Winston = require('winston');
 
 const validLevels = [
-  "error",
-  "warn",
-  "info",
-  "http",
-  "verbose",
-  "debug",
-  "silly",
+  'error',
+  'warn',
+  'info',
+  'http',
+  'verbose',
+  'debug',
+  'silly',
 ];
 
 const {
-  AVL_GTFS_CONFLATION_COMMAND = "",
-  AVL_GTFS_CONFLATION_LOGGING_LEVEL = "info",
+  AVL_GTFS_CONFLATION_COMMAND = '',
+  AVL_GTFS_CONFLATION_LOGGING_LEVEL = 'info',
   AVL_GTFS_CONFLATION_OUTPUT_DIR = process.cwd(),
 } = process.env;
 
@@ -28,10 +28,10 @@ if (!validLevels.includes(level)) {
 
 const timestamp = new Date()
   .toISOString()
-  .replace(/\..*/g, "")
-  .replace(/[^0-9T]/g, "");
+  .replace(/\..*/g, '')
+  .replace(/[^0-9T]/g, '');
 
-const logsDir = join(AVL_GTFS_CONFLATION_OUTPUT_DIR, "logs");
+const logsDir = join(AVL_GTFS_CONFLATION_OUTPUT_DIR, 'logs');
 
 mkdirSync(logsDir, { recursive: true });
 
@@ -54,15 +54,15 @@ const logger = Winston.createLogger({
 });
 
 // If nothing logged to the log file, delete it.
-process.on("exit", () => {
+process.on('exit', () => {
   const { size } = statSync(filename);
   if (size === 0) {
     unlinkSync(filename);
-    console.error("deleted empty logfile.");
+    console.error('deleted empty logfile.');
   }
 });
 
-logger.on("error", (err) => {
+logger.on('error', (err) => {
   console.error(err);
   process.exit(1);
 });

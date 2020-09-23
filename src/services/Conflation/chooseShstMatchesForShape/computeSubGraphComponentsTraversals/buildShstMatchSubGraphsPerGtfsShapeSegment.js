@@ -3,21 +3,21 @@
 // Builds a graph with all the start_nodes and end_nodes in the shstMatches.
 //   The weights of the edges is determined by the getEdgeWeight function defined above.
 
-const turf = require("@turf/turf");
-const { Graph } = require("graphlib");
-const memoizeOne = require("memoize-one");
-const _ = require("lodash");
+const turf = require('@turf/turf');
+const { Graph } = require('graphlib');
+const memoizeOne = require('memoize-one');
+const _ = require('lodash');
 
-const removeRedundantCoords = require("./removeRedundantCoords");
+const removeRedundantCoords = require('./removeRedundantCoords');
 
 const getCleanedCoords = memoizeOne((feature) =>
-  removeRedundantCoords(turf.getCoords(feature))
+  removeRedundantCoords(turf.getCoords(feature)),
 );
 
 const getRootMeanSquareDeviation = (gtfsNetEdge, shstMatch) => {
   // Ordered list of all vertices in the shstMatch
   const shstMatchVertices = getCleanedCoords(shstMatch).map((coord) =>
-    turf.point(coord)
+    turf.point(coord),
   );
 
   return Math.sqrt(
@@ -25,9 +25,9 @@ const getRootMeanSquareDeviation = (gtfsNetEdge, shstMatch) => {
       (acc, pt) =>
         acc +
         // NOTE: Using meters since squaring.
-        turf.pointToLineDistance(pt, gtfsNetEdge, { units: "meters" }) ** 2,
-      0
-    ) / shstMatchVertices.length
+        turf.pointToLineDistance(pt, gtfsNetEdge, { units: 'meters' }) ** 2,
+      0,
+    ) / shstMatchVertices.length,
   );
 };
 
@@ -44,7 +44,7 @@ const getEdgeWeight = (gtfsNetworkEdge, shstMatch) => {
 };
 
 const buildShstMatchSubGraphsPerGtfsShapeSegment = (
-  gtfsNetEdgesShstMatches
+  gtfsNetEdgesShstMatches,
 ) => {
   if (
     !Array.isArray(gtfsNetEdgesShstMatches) ||
@@ -103,7 +103,7 @@ const buildShstMatchSubGraphsPerGtfsShapeSegment = (
       }
 
       return subGraph;
-    }
+    },
   );
 
   return Array.isArray(subGraphsPerGtfsShapeSegment) &&

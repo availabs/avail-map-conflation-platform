@@ -1,10 +1,10 @@
-/* eslint-disable no-restricted-syntax, jsdoc/require-jsdoc, no-underscore-dangle, no-param-reassign */
+/* eslint-disable no-restricted-syntax, no-underscore-dangle, no-param-reassign */
 
-const turf = require("@turf/turf");
-const _ = require("lodash");
-const db = require("../../services/DbService");
+const turf = require('@turf/turf');
+const _ = require('lodash');
+const db = require('../../services/DbService');
 
-const SCHEMA = require("./DATABASE_SCHEMA_NAME");
+const SCHEMA = require('./DATABASE_SCHEMA_NAME');
 
 /*
 CREATE TABLE IF NOT EXISTS ${SCHEMA}.tmp_raw_shst_matches (
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS ${SCHEMA}.tmp_raw_shst_matches (
 
 function getShstMatchesForShapes(shapeIds) {
   const _shapeIds = (Array.isArray(shapeIds) ? shapeIds : [shapeIds]).filter(
-    (shpId) => shpId
+    (shpId) => shpId,
   );
 
   if (_.isEmpty(_shapeIds)) {
@@ -31,7 +31,7 @@ function getShstMatchesForShapes(shapeIds) {
       FROM ${SCHEMA}.tmp_shst_match_features
       WHERE (
         json_extract(feature, '$.properties.pp_shape_id')
-          IN (${shapeIds.map(() => "?")})
+          IN (${shapeIds.map(() => '?')})
       ) ;
   `);
 
@@ -49,7 +49,7 @@ function getShstMatchesForShapes(shapeIds) {
   const byByShapeIdxShapeId = result.reduce((acc, feature) => {
     // Remove the gis* properties that aren't useful.
     feature.properties = _.omit(feature.properties, (_v, k) =>
-      k.startsWith("gis")
+      k.startsWith('gis'),
     );
 
     const {
@@ -59,7 +59,7 @@ function getShstMatchesForShapes(shapeIds) {
     const compositKey = `${pp_shape_id}|${pp_shape_index}|${pp_match_index}`;
 
     if (seenCompositeKeys.has(compositKey)) {
-      throw new Error("compositKeys are not UNIQUE");
+      throw new Error('compositKeys are not UNIQUE');
     }
 
     seenCompositeKeys.add(compositKey);
@@ -92,8 +92,8 @@ function getMatchedMap() {
   `);
 
   const geoComparator = (a, b) =>
-    _.get(a, ["properties", "shstReferenceId"], 1) ===
-      _.get(b, ["properties", "shstReferenceId"], 1) &&
+    _.get(a, ['properties', 'shstReferenceId'], 1) ===
+      _.get(b, ['properties', 'shstReferenceId'], 1) &&
     _.difference(turf.getCoords(b), turf.getCoords(a)).length === 0;
 
   const all = _.flattenDeep(
@@ -104,9 +104,9 @@ function getMatchedMap() {
       .map(([featureArr]) =>
         _.uniqWith(
           JSON.parse(featureArr).sort((a, b) => b.length - a.length),
-          geoComparator
-        )
-      )
+          geoComparator,
+        ),
+      ),
   );
   // geoComparator
   // );

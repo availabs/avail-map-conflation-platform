@@ -1,7 +1,17 @@
-const turf = require("@turf/turf");
-const _ = require("lodash");
+const turf = require('@turf/turf');
+const _ = require('lodash');
 
-const removeRedundantMatches = (matches) => {
+const matchesComparator = (a, b) =>
+  // length of the geometry coordinates array descending
+  turf.getCoords(b).length - turf.getCoords(a).length ||
+  // prefer matches that are not pp_osrm_assisted
+  //   (if not assisted, pp_osrm_assisted = 0, otherwise 1)
+  a.properties.pp_osrm_assisted - b.properties.pp_osrm_assisted;
+
+/**
+ * @param matches
+ */
+function removeRedundantMatches(matches) {
   // Group the shst matches by GTFS network segment
   const matchesByTargetMapId = matches.reduce((acc, matchFeature) => {
     const {
@@ -27,14 +37,7 @@ const removeRedundantMatches = (matches) => {
     const tmId = targetMapIds[i];
 
     // sort the match features array in descending order by coord arr len
-    matchesByTargetMapId[tmId].sort(
-      (a, b) =>
-        // length of the geometry coordinates array descending
-        turf.getCoords(b).length - turf.getCoords(a).length ||
-        // prefer matches that are not pp_osrm_assisted
-        //   (if not assisted, pp_osrm_assisted = 0, otherwise 1)
-        a.properties.pp_osrm_assisted - b.properties.pp_osrm_assisted
-    );
+    matchesByTargetMapId[tmId].sort(matchesComparator);
 
     // for this target map segment
     const matchesByShstRef = matchesByTargetMapId[tmId].reduce(
@@ -55,13 +58,13 @@ const removeRedundantMatches = (matches) => {
               const numCoordsNotInOther = _.differenceWith(
                 coords,
                 turf.getCoords(otherFeature),
-                _.isEqual
+                _.isEqual,
               ).length;
 
               const matchCompletelyOverlapped = numCoordsNotInOther === 0;
 
               return matchCompletelyOverlapped;
-            }
+            },
           );
 
           // If there are unique coords in this match, add it to the
@@ -75,13 +78,13 @@ const removeRedundantMatches = (matches) => {
         }
         return acc;
       },
-      {}
+      {},
     );
 
     keepers.push(..._.flattenDeep(_.values(matchesByShstRef)));
   }
 
   return keepers;
-};
+}
 
 module.exports = removeRedundantMatches;

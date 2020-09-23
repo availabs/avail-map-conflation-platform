@@ -1,11 +1,11 @@
-/* eslint-disable no-restricted-syntax, jsdoc/require-jsdoc */
+/* eslint-disable no-restricted-syntax */
 
-const turf = require("@turf/turf");
-const _ = require("lodash");
+const turf = require('@turf/turf');
+const _ = require('lodash');
 
-const db = require("../../services/DbService");
+const db = require('../../services/DbService');
 
-const SCHEMA = require("./DATABASE_SCHEMA_NAME");
+const SCHEMA = require('./DATABASE_SCHEMA_NAME');
 
 function getStopIdsInGeoOrder() {
   const query = db.prepare(`
@@ -28,11 +28,11 @@ function getGtfsMap() {
     SELECT
         feature
       FROM ${SCHEMA}.stops ;
-  `
+  `,
       )
       .raw()
       .all()
-      .map((f) => JSON.parse(f))
+      .map((f) => JSON.parse(f)),
   );
 
   const shapes = _.flattenDeep(
@@ -42,11 +42,11 @@ function getGtfsMap() {
     SELECT
         feature
       FROM ${SCHEMA}.shapes ;
-  `
+  `,
       )
       .raw()
       .all()
-      .map((f) => JSON.parse(f))
+      .map((f) => JSON.parse(f)),
   );
 
   return turf.featureCollection(Array.prototype.concat(stops, shapes));

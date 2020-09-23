@@ -1,7 +1,7 @@
 /* eslint-disable no-constant-condition */
 
-const turf = require("@turf/turf");
-const _ = require("lodash");
+const turf = require('@turf/turf');
+const _ = require('lodash');
 
 const removeRedundantCoords = (coords) =>
   coords.filter((coord, i) => !_.isEqual(coords[i - 1], coord));
@@ -20,7 +20,7 @@ const mergePathLineStringsUsingMetadata = (S, T, shstMatchesById) => {
     tShstMatchIds.length !== _.uniq(tShstMatchIds).length
   ) {
     throw new Error(
-      "INVARIANT BROKEN: shstMatchIds within the paths are not UNIQUE."
+      'INVARIANT BROKEN: shstMatchIds within the paths are not UNIQUE.',
     );
   }
 
@@ -36,7 +36,7 @@ const mergePathLineStringsUsingMetadata = (S, T, shstMatchesById) => {
     tShstMatchIds.length === intxnShstMatchIdsLength
   ) {
     throw new Error(
-      "INVARIANT BROKEN: One set of shstMatchIds is a subset of the other."
+      'INVARIANT BROKEN: One set of shstMatchIds is a subset of the other.',
     );
   }
 
@@ -109,7 +109,7 @@ const mergePathLineStringsUsingMetadata = (S, T, shstMatchesById) => {
       const intxnId = intxnShstMatchIdsCopy.shift();
       if (id !== intxnId) {
         throw new Error(
-          "INVARIANT BROKEN: Some invalid logic concerning the shstMatchIds intersection."
+          'INVARIANT BROKEN: Some invalid logic concerning the shstMatchIds intersection.',
         );
       }
     }
@@ -122,7 +122,7 @@ const mergePathLineStringsUsingMetadata = (S, T, shstMatchesById) => {
 
   if (_.first(bPostIntxnPathDecompositionInfo).id !== null) {
     console.warn(
-      "UNEXPECTED: the first post intersection shstMatchId from B is not NULL."
+      'UNEXPECTED: the first post intersection shstMatchId from B is not NULL.',
     );
   }
 
@@ -139,17 +139,17 @@ const mergePathLineStringsUsingMetadata = (S, T, shstMatchesById) => {
         acc.push(...coords);
       }
       return acc;
-    }, [])
+    }, []),
   );
 
   const mergedCoords = removeRedundantCoords(
-    Array.prototype.concat(aCoords, bPostIntxnCoords)
+    Array.prototype.concat(aCoords, bPostIntxnCoords),
   );
 
   const mergedProperties = _.cloneDeep(A.properties);
 
   mergedProperties.pathDecompositionInfo.push(
-    ...bPostIntxnPathDecompositionInfo
+    ...bPostIntxnPathDecompositionInfo,
   );
 
   const mergedPath = turf.lineString(mergedCoords, mergedProperties);
@@ -172,7 +172,7 @@ const mergePathLineStringsUsingMetadata = (S, T, shstMatchesById) => {
       : [];
 
   mergeHistory.push({
-    algo: "mergePathLineStringsUsingMetadata",
+    algo: 'mergePathLineStringsUsingMetadata',
     shstMatchIds: [
       A.properties.pathDecompositionInfo.map(({ id }) => id),
       B.properties.pathDecompositionInfo.map(({ id }) => id),

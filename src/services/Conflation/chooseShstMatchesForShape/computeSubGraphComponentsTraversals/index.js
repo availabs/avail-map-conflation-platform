@@ -1,15 +1,15 @@
-/* eslint-disable no-continue, no-cond-assign, jsdoc/require-jsdoc, no-param-reassign */
+/* eslint-disable no-continue, no-cond-assign, no-param-reassign */
 
 // TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
 // Filter out any ShStMatches that FAIL a directionality test.
 
-const _ = require("lodash");
+const _ = require('lodash');
 
-const getCospatialityOfLinestrings = require("../../../../utils/gis/getCospatialityOfLinestrings");
+const getCospatialityOfLinestrings = require('../../../../utils/gis/getCospatialityOfLinestrings');
 
-const buildShstMatchSubGraphsPerGtfsShapeSegment = require("./buildShstMatchSubGraphsPerGtfsShapeSegment");
+const buildShstMatchSubGraphsPerGtfsShapeSegment = require('./buildShstMatchSubGraphsPerGtfsShapeSegment');
 
-const createPathLineStrings = require("./createPathLineStrings");
+const createPathLineStrings = require('./createPathLineStrings');
 
 const getPathsPairwiseCospatiality = (pathLineStrings) =>
   pathLineStrings.reduce((acc, S, sIdx) => {
@@ -41,7 +41,7 @@ const getPathsPairwiseCospatiality = (pathLineStrings) =>
 //    ]
 const computeSubGraphComponentsTraversals = (
   gtfsNetEdgesShstMatches,
-  shstMatchesById
+  shstMatchesById,
 ) => {
   if (
     !(Array.isArray(gtfsNetEdgesShstMatches) && gtfsNetEdgesShstMatches.length)
@@ -50,7 +50,7 @@ const computeSubGraphComponentsTraversals = (
   }
 
   const subGraphs = buildShstMatchSubGraphsPerGtfsShapeSegment(
-    gtfsNetEdgesShstMatches
+    gtfsNetEdgesShstMatches,
   );
 
   if (subGraphs === null) {
@@ -67,11 +67,11 @@ const computeSubGraphComponentsTraversals = (
     const pathLineStrings = createPathLineStrings(
       gtfsNetworkEdge,
       subGraph,
-      shstMatchesById
+      shstMatchesById,
     );
 
     const pathsPairwiseCospatiality = getPathsPairwiseCospatiality(
-      pathLineStrings
+      pathLineStrings,
     );
 
     // Use finalPaths and pathsPairwiseCospatiality to

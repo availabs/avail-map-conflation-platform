@@ -1,11 +1,11 @@
-/* eslint-disable no-restricted-syntax, no-await-in-loop, jsdoc/require-jsdoc */
+/* eslint-disable no-restricted-syntax, no-await-in-loop */
 
-const _ = require("lodash");
+const _ = require('lodash');
 
 const BATCH_SIZE = 25;
 
-const shstMatchFeatures = require("./shstMatchFeatures");
-const removeRedundantMatches = require("./removeRedundantMatches");
+const shstMatchFeatures = require('./shstMatchFeatures');
+const removeRedundantMatches = require('./removeRedundantMatches');
 
 const initializeUnmatchedFeaturesArray = (features) =>
   Array.isArray(features) && features.length
@@ -23,14 +23,14 @@ const initializeUnmatchedFeaturesArray = (features) =>
         const { id: propId } = properties;
 
         if (id && propId && id !== propId) {
-          throw new Error("INVARIANT BROKEN: Feature id !== properties.id");
+          throw new Error('INVARIANT BROKEN: Feature id !== properties.id');
         }
 
         const featureId = id || propId;
 
         if (featureId === undefined) {
           throw new Error(
-            "An id must be defined on the feature or in its properties."
+            'An id must be defined on the feature or in its properties.',
           );
         }
 

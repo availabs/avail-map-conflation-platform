@@ -1,9 +1,7 @@
-/* eslint-disable jsdoc/require-param-type, jsdoc/require-returns-type, jsdoc/require-param */
-
 // https://en.wikipedia.org/wiki/Hausdorff_distance
 
-const turf = require("@turf/turf");
-const gdal = require("gdal");
+const turf = require('@turf/turf');
+const gdal = require('gdal');
 
 const TRANSLATE_DIST_THRESHOLD = 50 / 1000; /* km */
 
@@ -17,10 +15,10 @@ const TRANSLATE_DIST_THRESHOLD = 50 / 1000; /* km */
 function lineStringsComparator(
   f1,
   f2,
-  { translateDistThreshold = TRANSLATE_DIST_THRESHOLD } = {}
+  { translateDistThreshold = TRANSLATE_DIST_THRESHOLD } = {},
 ) {
-  if (turf.getType(f1) !== "LineString" || turf.getType(f2) !== "LineString") {
-    throw new Error("lineStringsComparator takes two GeoJSON LineStrings.");
+  if (turf.getType(f1) !== 'LineString' || turf.getType(f2) !== 'LineString') {
+    throw new Error('lineStringsComparator takes two GeoJSON LineStrings.');
   }
 
   // First we translate the 2nd line so that the lines share a start point
@@ -51,10 +49,10 @@ function lineStringsComparator(
   // https://en.wikipedia.org/wiki/Ramer%E2%80%93Douglas%E2%80%93Peucker_algorithm
   turf
     .getCoords(f1)
-    .forEach(coord => geom1.points.add(new gdal.Point(...coord)));
+    .forEach((coord) => geom1.points.add(new gdal.Point(...coord)));
   turf
     .getCoords(s2)
-    .forEach(coord => geom2.points.add(new gdal.Point(...coord)));
+    .forEach((coord) => geom2.points.add(new gdal.Point(...coord)));
 
   // http://naturalatlas.github.io/node-gdal/classes/gdal.LineString.html#method-difference
   return geom1.difference(geom2).getLength() * distTholdMultr;

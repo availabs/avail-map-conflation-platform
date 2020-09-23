@@ -5,7 +5,7 @@
     Not sure how effective (or counter-productive) it is.
 */
 
-const turf = require("@turf/turf");
+const turf = require('@turf/turf');
 
 const doubleLineStringPoints = (feature) => {
   const { features: explodedPoints } = turf.explode(feature);
@@ -29,7 +29,7 @@ const doubleLineStringPoints = (feature) => {
 
       return acc;
     },
-    [[startLon, startLat]]
+    [[startLon, startLat]],
   );
 
   return turf.lineString(enhancedCoords, feature.properties, {

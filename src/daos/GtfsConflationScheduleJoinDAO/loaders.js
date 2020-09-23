@@ -1,4 +1,4 @@
-/* eslint-disable no-restricted-syntax, jsdoc/require-jsdoc, no-continue, no-underscore-dangle */
+/* eslint-disable no-restricted-syntax, no-continue, no-underscore-dangle */
 
 /*
 https://github.com/availabs/npmrds-osm-conflation/blob/6ed6d7bd50d3ea58860489ce60b9c825aac9cd26/src/conflation/constants.js
@@ -38,22 +38,22 @@ npmrds_production=# select floor(networklev), avg(posted_speed_limit) from confl
   (8 rows)
 */
 
-const _ = require("lodash");
-const db = require("../../services/DbService");
+const _ = require('lodash');
+const db = require('../../services/DbService');
 
 const {
   GTFS_SCHEDULED_TRAFFIC,
   CONFLATION_MAP,
   GTFS_CONFLATION_MAP_JOIN,
-} = require("../../constants/databaseSchemaNames");
+} = require('../../constants/databaseSchemaNames');
 
-const SCHEMA = require("./DATABASE_SCHEMA_NAME");
+const SCHEMA = require('./DATABASE_SCHEMA_NAME');
 
 const {
   createGtfsSyntheticProbeDataTable,
   createGtfsAggregations,
   createConflationMapAadtBreakdownTable,
-} = require("./createTableFns");
+} = require('./createTableFns');
 
 const networklevelAvgPostedSpeedlimt = {
   0: 57.5,
@@ -216,7 +216,7 @@ function loadGtfsSyntheticProbeDataTable() {
     confl_map_path,
   ] of iter) {
     const conflationMapPath = _(JSON.parse(confl_map_path))
-      .sortBy("along_idx")
+      .sortBy('along_idx')
       .value();
 
     const conflMapPathWeights = conflationMapPath.map(
@@ -227,19 +227,19 @@ function loadGtfsSyntheticProbeDataTable() {
         const len = length_km - conf_map_pre_len - conf_map_post_len;
 
         return len / speedlimit; // Note: Units mismatch, but just looking for c scalar
-      }
+      },
     );
 
     const totalWeight = _.sum(conflMapPathWeights);
 
     const normalizedConfPathWeights = conflMapPathWeights.map(
-      (w) => w / totalWeight
+      (w) => w / totalWeight,
     );
 
     const ttSecs = arrival_time_sec - departure_time_sec;
 
     const distributedTravelTimes = normalizedConfPathWeights.map(
-      (w) => ttSecs * w
+      (w) => ttSecs * w,
     );
 
     const conflMapSegDeptTimes = distributedTravelTimes.slice(0, -1).reduce(
@@ -248,7 +248,7 @@ function loadGtfsSyntheticProbeDataTable() {
         acc.push(prevDept + tt);
         return acc;
       },
-      [departure_time_sec]
+      [departure_time_sec],
     );
 
     const conflMapSegDeptEpochs = conflMapSegDeptTimes.map(sec2epoch);
@@ -289,15 +289,15 @@ function load() {
   db.unsafeMode(true);
 
   try {
-    db.exec("BEGIN");
+    db.exec('BEGIN');
 
     loadGtfsSyntheticProbeDataTable(db);
     createGtfsAggregations(db);
     createConflationMapAadtBreakdownTable(db);
 
-    db.exec("COMMIT;");
+    db.exec('COMMIT;');
   } catch (err) {
-    db.exec("ROLLBACK");
+    db.exec('ROLLBACK');
     throw err;
   } finally {
     db.unsafeMode(false);

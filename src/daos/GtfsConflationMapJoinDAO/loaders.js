@@ -1,4 +1,4 @@
-/* eslint-disable no-restricted-syntax, jsdoc/require-jsdoc, no-continue, no-underscore-dangle */
+/* eslint-disable no-restricted-syntax, no-continue, no-underscore-dangle */
 
 /*
     gtfs_osm_network> \d gtfs_shape_shst_match_paths
@@ -43,24 +43,24 @@
 //   Hopefully that means the one with the longest length as well.
 //     TODO: Confirm we aren't using a truncated geometry for a Shst Reference
 
-const _ = require("lodash");
-const db = require("../../services/DbService");
+const _ = require('lodash');
+const db = require('../../services/DbService');
 
 const {
   GTFS_OSM_NETWORK,
   CONFLATION_MAP,
-} = require("../../constants/databaseSchemaNames");
+} = require('../../constants/databaseSchemaNames');
 
-const SCHEMA = require("./DATABASE_SCHEMA_NAME");
+const SCHEMA = require('./DATABASE_SCHEMA_NAME');
 
 const INTXN_LEN_THOLD = 0.001; // 1m
 
 const {
   createMapSegmentsCospatialityTable,
   createGtfsMatchesConflationMapJoinTable,
-} = require("./createTableFns");
+} = require('./createTableFns');
 
-const getCospatialityOfLinestrings = require("../../utils/gis/getCospatialityOfLinestrings");
+const getCospatialityOfLinestrings = require('../../utils/gis/getCospatialityOfLinestrings');
 
 function loadCospatialityTable() {
   db.exec(`DROP TABLE IF EXISTS ${SCHEMA}.map_segments_cospatiality ;`);
@@ -194,7 +194,7 @@ function loadCospatialityTable() {
 
     let cospatiality = getCospatialityOfLinestrings(
       conflationMapFeature,
-      gtfsMatchesFeature
+      gtfsMatchesFeature,
     );
 
     // If cospatiality is null, there is no intersection.
@@ -207,13 +207,13 @@ function loadCospatialityTable() {
         cospatiality = {
           sLen,
           sIntxnOffsets: {
-            startAlong: _(cospatiality).map("sIntxnOffsets.startAlong").min(),
-            endFromEnd: _(cospatiality).map("sIntxnOffsets.endFromEnd").min(),
+            startAlong: _(cospatiality).map('sIntxnOffsets.startAlong').min(),
+            endFromEnd: _(cospatiality).map('sIntxnOffsets.endFromEnd').min(),
           },
           tLen,
           tIntxnOffsets: {
-            startAlong: _(cospatiality).map("tIntxnOffsets.startAlong").min(),
-            endFromEnd: _(cospatiality).map("tIntxnOffsets.endFromEnd").min(),
+            startAlong: _(cospatiality).map('tIntxnOffsets.startAlong').min(),
+            endFromEnd: _(cospatiality).map('tIntxnOffsets.endFromEnd').min(),
           },
         };
       }
@@ -368,7 +368,7 @@ function loadGtfsMatchesConflationMapJoinTable() {
                 INNER JOIN ${SCHEMA}.map_segments_cospatiality AS b
                   ON (a.shst_match_id = b.gtfs_matches_id)
               ORDER BY gtfs_shape_id, gtfs_shape_index
-        ) AS toposorted_conflation_map_segments ; `
+        ) AS toposorted_conflation_map_segments ; `,
   ).run();
 }
 
@@ -376,14 +376,14 @@ function load() {
   db.unsafeMode(true);
 
   try {
-    db.exec("BEGIN");
+    db.exec('BEGIN');
 
     loadCospatialityTable();
     loadGtfsMatchesConflationMapJoinTable();
 
-    db.exec("COMMIT;");
+    db.exec('COMMIT;');
   } catch (err) {
-    db.exec("ROLLBACK");
+    db.exec('ROLLBACK');
     throw err;
   } finally {
     db.unsafeMode(false);

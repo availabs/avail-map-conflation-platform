@@ -1,4 +1,4 @@
-const SCHEMA = require("./DATABASE_SCHEMA_NAME");
+const SCHEMA = require('./DATABASE_SCHEMA_NAME');
 
 const createConflationMapTable = (db) =>
   db.exec(`

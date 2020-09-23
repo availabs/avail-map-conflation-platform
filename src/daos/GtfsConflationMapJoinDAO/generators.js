@@ -1,4 +1,4 @@
-/* eslint-disable no-restricted-syntax, jsdoc/require-jsdoc, no-param-reassign */
+/* eslint-disable no-restricted-syntax, no-param-reassign */
 
 /*
     conflation_map> \d conflation_map
@@ -23,15 +23,15 @@
     +-----+-------------------+---------+---------+------------+----+
 */
 
-const _ = require("lodash");
-const turf = require("@turf/turf");
+const _ = require('lodash');
+const turf = require('@turf/turf');
 
-const db = require("../../services/DbService");
+const db = require('../../services/DbService');
 
 const {
   CONFLATION_MAP,
   GTFS_CONFLATION_MAP_JOIN,
-} = require("../../constants/databaseSchemaNames");
+} = require('../../constants/databaseSchemaNames');
 
 const SLICE_THLD = 0.005;
 
@@ -78,7 +78,7 @@ function* makeGtfsConflationMapJoinIterator() {
             gtfs_shape_index: curShapeIdx,
             join_metadata: acc.meta,
           },
-          { id }
+          { id },
         );
 
         ++id;
@@ -124,7 +124,7 @@ function* makeGtfsConflationMapJoinIterator() {
         gtfs_shape_index: curShapeIdx,
         join_metadata: acc.meta,
       },
-      { id }
+      { id },
     );
 
     yield joinMultiLine;

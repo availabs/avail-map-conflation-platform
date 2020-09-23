@@ -1,5 +1,5 @@
-const computeSubGraphComponentsTraversals = require("./computeSubGraphComponentsTraversals");
-const chooseOptimalShstMatches = require("./chooseOptimalShstMatches");
+const computeSubGraphComponentsTraversals = require('./computeSubGraphComponentsTraversals');
+const chooseOptimalShstMatches = require('./chooseOptimalShstMatches');
 
 //  The gtfsNetEdgesShstMatches data structure:
 //    [
@@ -25,12 +25,12 @@ const chooseShstMatchesForShape = (gtfsNetEdgesShstMatches) => {
 
       return acc;
     },
-    {}
+    {},
   );
 
   const subGraphComponentsTraversals = computeSubGraphComponentsTraversals(
     gtfsNetEdgesShstMatches,
-    shstMatchesById
+    shstMatchesById,
   );
 
   const chosenPaths =

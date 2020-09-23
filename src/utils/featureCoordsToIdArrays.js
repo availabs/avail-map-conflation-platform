@@ -1,13 +1,13 @@
-const turf = require("@turf/turf");
-const _ = require("lodash");
+const turf = require('@turf/turf');
+const _ = require('lodash');
 
 // get the coords, removing adjacent equivalent coords
-const getCoords = feature => {
+const getCoords = (feature) => {
   const type = turf.getType(feature);
   switch (type) {
-    case "Point":
+    case 'Point':
       return [turf.getCoord(feature)];
-    case "LineString":
+    case 'LineString':
       return turf.getCoords(feature).reduce((acc, coord, i, coords) => {
         if (!_.isEqual(coord, coords[i - 1])) {
           acc.push(coord);
@@ -21,8 +21,8 @@ const getCoords = feature => {
 
 const featuresCoordsToIdArrays = (...args) => {
   const featuresCoords = args.map(getCoords);
-  const featuresCoordsStrs = featuresCoords.map(coords =>
-    coords.map(c => JSON.stringify(c))
+  const featuresCoordsStrs = featuresCoords.map((coords) =>
+    coords.map((c) => JSON.stringify(c)),
   );
 
   // We assign IDs to each (lon, lat) pair in the
@@ -33,8 +33,8 @@ const featuresCoordsToIdArrays = (...args) => {
   }, {});
 
   // Each LineString's geometry becomes the array of coordinate IDs.
-  const idArrays = featuresCoordsStrs.map(coords =>
-    coords.map(c => coordIds[c])
+  const idArrays = featuresCoordsStrs.map((coords) =>
+    coords.map((c) => coordIds[c]),
   );
 
   return args.length > 1 ? idArrays : idArrays[0];

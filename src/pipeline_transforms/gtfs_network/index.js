@@ -1,8 +1,8 @@
-/* eslint-disable no-restricted-syntax, jsdoc/require-jsdoc */
+/* eslint-disable no-restricted-syntax */
 
-const dao = require("../../daos/GtfsNetworkDAO");
+const dao = require('../../daos/GtfsNetworkDAO');
 
-const timerId = "load GTFS network";
+const timerId = 'load GTFS network';
 
 const main = async () => {
   try {

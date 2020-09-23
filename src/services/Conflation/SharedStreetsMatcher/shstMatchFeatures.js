@@ -1,32 +1,32 @@
 /* eslint-disable no-restricted-syntax, no-await-in-loop, no-param-reassign */
 
-const { spawn } = require("child_process");
-const { writeFileSync, readFileSync, existsSync } = require("fs");
-const { join, dirname } = require("path");
+const { spawn } = require('child_process');
+const { writeFileSync, readFileSync, existsSync } = require('fs');
+const { join, dirname } = require('path');
 
-const tmp = require("tmp");
-const turf = require("@turf/turf");
-const _ = require("lodash");
-const { pipe, through } = require("mississippi");
-const split = require("split2");
+const tmp = require('tmp');
+const turf = require('@turf/turf');
+const _ = require('lodash');
+const { pipe, through } = require('mississippi');
+const split = require('split2');
 
-const replaceFeaturesGeomsWithOsrmRoute = require("./geometryMutators/replaceFeaturesGeomsWithOsrmRoute");
-const doubleLineStringPoints = require("./geometryMutators/doubleLineStringPoints");
+const replaceFeaturesGeomsWithOsrmRoute = require('./geometryMutators/replaceFeaturesGeomsWithOsrmRoute');
+const doubleLineStringPoints = require('./geometryMutators/doubleLineStringPoints');
 
-const UTF8_ENCODING = "utf8";
+const UTF8_ENCODING = 'utf8';
 
-const INF_PATH = "features.geojson";
-const OUTF_PATH = "shst_match_output.geojson";
-const MATCHED_PATH = OUTF_PATH.replace(/geojson$/, "matched.geojson");
+const INF_PATH = 'features.geojson';
+const OUTF_PATH = 'shst_match_output.geojson';
+const MATCHED_PATH = OUTF_PATH.replace(/geojson$/, 'matched.geojson');
 
-const PROJECT_ROOT = join(__dirname, "../../../../");
-const SHST_DATA_DIR = join(PROJECT_ROOT, "data/shst/");
-const SHST_PATH = join(PROJECT_ROOT, "node_modules/.bin/shst");
+const PROJECT_ROOT = join(__dirname, '../../../../');
+const SHST_DATA_DIR = join(PROJECT_ROOT, 'data/shst/');
+const SHST_PATH = join(PROJECT_ROOT, 'node_modules/.bin/shst');
 
-const MATCH = "MATCH";
-const ROUTE = "ROUTE";
-const DISTANCE_SLICE_METHOD = "DISTANCE_SLICE_METHOD";
-const BEARING_SLICE_METHOD = "BEARING_SLICE_METHOD";
+const MATCH = 'MATCH';
+const ROUTE = 'ROUTE';
+const DISTANCE_SLICE_METHOD = 'DISTANCE_SLICE_METHOD';
+const BEARING_SLICE_METHOD = 'BEARING_SLICE_METHOD';
 
 const SHST_CHILD_PROC_OPTS = {
   cwd: PROJECT_ROOT,
@@ -34,7 +34,7 @@ const SHST_CHILD_PROC_OPTS = {
 };
 
 const SHST_DATA_DIR_REGEXP = new RegExp(
-  `(${SHST_DATA_DIR.replace(".", "\n").replace("/", "\\/")}.*)`
+  `(${SHST_DATA_DIR.replace('.', '\n').replace('/', '\\/')}.*)`,
 );
 
 // const PEDESTRIAN = "--match-pedestrian";
@@ -53,15 +53,15 @@ const runShstMatch = (inFilePath, outFilePath, flags) => {
       `${SHST_PATH}`,
       _.concat(
         [
-          "match",
+          'match',
           `${inFilePath}`,
-          "--follow-line-direction",
-          "--tile-hierarchy=8",
+          '--follow-line-direction',
+          '--tile-hierarchy=8',
           `--out=${outFilePath}`,
         ],
-        flags
+        flags,
       ).filter(_.negate(_.isNil)),
-      SHST_CHILD_PROC_OPTS
+      SHST_CHILD_PROC_OPTS,
     );
 
     let osrmDir = null;
@@ -85,7 +85,7 @@ const runShstMatch = (inFilePath, outFilePath, flags) => {
         if (err) {
           console.error(err);
         }
-      }
+      },
     );
 
     // FIXME: Why?
@@ -100,14 +100,14 @@ const runShstMatch = (inFilePath, outFilePath, flags) => {
         if (err) {
           console.error(err);
         }
-      }
+      },
     );
 
-    cp.on("error", (err) => {
+    cp.on('error', (err) => {
       console.error(err);
     });
 
-    cp.on("exit", (code) => {
+    cp.on('exit', (code) => {
       if (code !== 0) {
         console.error(`WARNING: shst match exited with code ${code}.`);
       }
@@ -122,7 +122,7 @@ const collectMatchedFeatures = (matchedFilePath) => {
     ? JSON.parse(readFileSync(matchedFilePath, UTF8_ENCODING))
     : null;
 
-  const matchedFeatures = _.get(matchedFeatureCollection, "features", []);
+  const matchedFeatures = _.get(matchedFeatureCollection, 'features', []);
 
   return matchedFeatures.length ? matchedFeatures : null;
 };
@@ -230,7 +230,7 @@ const updateMatches = (matches, newMatches) => {
       // same source_map feature id
       a.properties.shstReferenceId === b.properties.shstReferenceId &&
       // same source_map coordinates
-      _.isEqual(turf.getCoords(a), turf.getCoords(b))
+      _.isEqual(turf.getCoords(a), turf.getCoords(b)),
   );
 
   // Clear the original array. MUTATION
@@ -266,7 +266,7 @@ const updateUnmatched = (unmatched, matches) => {
     const featureLength = turf.length(feature);
     const totalMatchesLength = matchesForFeature.reduce(
       (acc, shstMatch) => acc + turf.length(shstMatch),
-      0
+      0,
     );
 
     const matchesLenRatio =
@@ -333,7 +333,7 @@ const shstMatchFeatures = async (features, flags = []) => {
               osrmDir,
               feature,
             },
-            { lineSliceMethod, osrmMethod }
+            { lineSliceMethod, osrmMethod },
           );
           if (mapped) {
             osrmMapped.push(...mapped);

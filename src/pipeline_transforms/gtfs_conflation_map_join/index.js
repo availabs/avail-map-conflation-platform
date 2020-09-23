@@ -1,8 +1,8 @@
-/* eslint-disable no-restricted-syntax, jsdoc/require-jsdoc */
+/* eslint-disable no-restricted-syntax */
 
-const dao = require("../../daos/GtfsConflationMapJoinDAO");
+const dao = require('../../daos/GtfsConflationMapJoinDAO');
 
-const timerId = "join GTFS shapes to conflation map";
+const timerId = 'join GTFS shapes to conflation map';
 
 const main = async () => {
   try {

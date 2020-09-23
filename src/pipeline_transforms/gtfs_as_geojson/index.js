@@ -1,8 +1,8 @@
-/* eslint-disable no-restricted-syntax, jsdoc/require-jsdoc */
+/* eslint-disable no-restricted-syntax */
 
-const dao = require("../../daos/GeoJsonGtfsDAO");
+const dao = require('../../daos/GeoJsonGtfsDAO');
 
-const timerId = "load gtfs as geojson";
+const timerId = 'load gtfs as geojson';
 
 const main = async () => {
   try {

@@ -1,35 +1,33 @@
-/* eslint-disable jsdoc/require-jsdoc */
-
 // Sufficient within same map.
 //   Buffer is too tight for GTFS-ShSt cospatiality.
 
-const turf = require("@turf/turf");
-const _ = require("lodash");
-const ss = require("simple-statistics");
+const turf = require('@turf/turf');
+const _ = require('lodash');
+const ss = require('simple-statistics');
 
 const validate = (S, T) => {
   try {
     if (S !== null) {
-      turf.featureOf(S, "LineString", "getSequentialityOfLineStrings");
+      turf.featureOf(S, 'LineString', 'getSequentialityOfLineStrings');
     }
 
     if (T !== null) {
-      turf.featureOf(T, "LineString", "getSequentialityOfLineStrings");
+      turf.featureOf(T, 'LineString', 'getSequentialityOfLineStrings');
     }
   } catch (err) {
-    throw new Error("getSequentiality takes two GeoJSON LineStrings");
+    throw new Error('getSequentiality takes two GeoJSON LineStrings');
   }
 };
 
 const quantiles = [0, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 1.0];
 
-const getSummaryStats = arr => ({
+const getSummaryStats = (arr) => ({
   mean: ss.mean(arr),
   stdDev: ss.standardDeviation(arr),
   quantiles: quantiles.reduce((acc, q) => {
     acc[q] = ss.quantile(arr, q);
     return acc;
-  }, {})
+  }, {}),
 });
 
 const getSnappingStats = (pts, line) => {
@@ -47,8 +45,8 @@ const getSnappingStats = (pts, line) => {
       properties: {
         index: snapLineSegIdx,
         dist: snapDist,
-        location: snappedPtDistAlong
-      }
+        location: snappedPtDistAlong,
+      },
     } = turf.nearestPointOnLine(line, pt);
 
     const snappedPtDistFromEnd = lineLen - snappedPtDistAlong;
@@ -61,7 +59,7 @@ const getSnappingStats = (pts, line) => {
       distFromPrevPt: null,
       distFromNextPt: null,
       snappedPtDistFromPrevSnappedPt: null,
-      snappedPtDistFromNextSnappedPt: null
+      snappedPtDistFromNextSnappedPt: null,
     };
 
     const prev = _.last(acc);
@@ -82,20 +80,17 @@ const getSnappingStats = (pts, line) => {
 
   const summaryStats = {
     snapDistDeviance: getSummaryStats(
-      _(snapStats)
-        .map("snapDist")
-        .sort()
-        .value()
+      _(snapStats).map('snapDist').sort().value(),
     ),
     snapDistAlongDeviance: getSummaryStats(
       _(snapStats.slice(1))
         .map(
           ({ distFromPrevPt, snappedPtDistFromPrevSnappedPt }) =>
-            distFromPrevPt - snappedPtDistFromPrevSnappedPt
+            distFromPrevPt - snappedPtDistFromPrevSnappedPt,
         )
         .sort()
-        .value()
-    )
+        .value(),
+    ),
   };
 
   return { snapStats, summaryStats };
@@ -138,11 +133,11 @@ const getSimilarityOfLineStrings = (S, T) => {
   const tKinks = turf.kinks(tCleaned);
 
   if (
-    !_.isEmpty(_.get(sKinks, "features")) ||
-    !_.isEmpty(_.get(tKinks, "features"))
+    !_.isEmpty(_.get(sKinks, 'features')) ||
+    !_.isEmpty(_.get(tKinks, 'features'))
   ) {
     console.warn(
-      "getSimilarityOfLineStrings does not currently handle self-intersecting LineStrings"
+      'getSimilarityOfLineStrings does not currently handle self-intersecting LineStrings',
     );
 
     // console.error();

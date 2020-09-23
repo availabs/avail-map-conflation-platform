@@ -1,5 +1,5 @@
-const loaders = require("./loaders");
-const generators = require("./generators");
+const loaders = require('./loaders');
+const generators = require('./generators');
 
 module.exports = {
   ...loaders,

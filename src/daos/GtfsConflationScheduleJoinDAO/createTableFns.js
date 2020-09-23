@@ -1,8 +1,8 @@
 const {
   RAW_GTFS,
   GTFS_SCHEDULED_TRAFFIC,
-} = require("../../constants/databaseSchemaNames");
-const SCHEMA = require("./DATABASE_SCHEMA_NAME");
+} = require('../../constants/databaseSchemaNames');
+const SCHEMA = require('./DATABASE_SCHEMA_NAME');
 
 const createGtfsSyntheticProbeDataTable = (db) =>
   // NOTE: Will need to sum travel times for (conflation_map_id, trip_id, epoch)

@@ -1,23 +1,23 @@
-/* eslint-disable no-restricted-syntax, jsdoc/require-jsdoc */
+/* eslint-disable no-restricted-syntax */
 
-const assert = require("assert");
-const turf = require("@turf/turf");
-const _ = require("lodash");
+const assert = require('assert');
+const turf = require('@turf/turf');
+const _ = require('lodash');
 
-const db = require("../../services/DbService");
-const RawGtfsDAO = require("../RawGtfsDAO");
+const db = require('../../services/DbService');
+const RawGtfsDAO = require('../RawGtfsDAO');
 
-const getGeoProximityKey = require("../../utils/getGeoProximityKey");
-const roundGeometryCoordinates = require("../../utils/roundGeometryCoordinates");
-const formatRow = require("../../utils/formatRowForSqliteInsert");
+const getGeoProximityKey = require('../../utils/getGeoProximityKey');
+const roundGeometryCoordinates = require('../../utils/roundGeometryCoordinates');
+const formatRow = require('../../utils/formatRowForSqliteInsert');
 
-const SCHEMA = require("./DATABASE_SCHEMA_NAME");
-const { createStopsTable, createShapesTable } = require("./createTableFns");
+const SCHEMA = require('./DATABASE_SCHEMA_NAME');
+const { createStopsTable, createShapesTable } = require('./createTableFns');
 
 function* toPointsIterator(gtfsStopsIterator) {
   for (const row of gtfsStopsIterator) {
     const { stop_id, stop_lon, stop_lat } = row;
-    const properties = _.omit(row, ["stop_lon", "stop_lat"]);
+    const properties = _.omit(row, ['stop_lon', 'stop_lat']);
 
     const feature = turf.point([stop_lon, stop_lat], properties, {
       id: stop_id,
@@ -44,7 +44,7 @@ function* toLineStringsIterator(gtfsShapesIterator) {
       if (curShapeId === shape_id) {
         assert(
           (curShapePtSeq === null && shape_pt_sequence === null) ||
-            curShapePtSeq <= shape_pt_sequence
+            curShapePtSeq <= shape_pt_sequence,
         );
       } else {
         assert(curShapeId < shape_id);
@@ -73,7 +73,7 @@ function* toLineStringsIterator(gtfsShapesIterator) {
     const feature = turf.lineString(
       coordinates,
       { shape_id: curShapeId },
-      { id: curShapeId }
+      { id: curShapeId },
     );
 
     roundGeometryCoordinates(feature);
@@ -86,13 +86,13 @@ function loadFeatures(tableName, featureIterator) {
   db.unsafeMode(true);
 
   try {
-    db.exec("BEGIN");
+    db.exec('BEGIN');
 
     db.exec(`DROP TABLE IF EXISTS ${SCHEMA}.${tableName};`);
 
-    if (tableName === "stops") {
+    if (tableName === 'stops') {
       createStopsTable(db);
-    } else if (tableName === "shapes") {
+    } else if (tableName === 'shapes') {
       createShapesTable(db);
     } else {
       throw new Error(`UNSUPPORTED table ${tableName}`);
@@ -113,7 +113,7 @@ function loadFeatures(tableName, featureIterator) {
 
       const stringifiedFeature = JSON.stringify(feature);
 
-      const params = formatRow(["id", "geoproxKey", "feature"], {
+      const params = formatRow(['id', 'geoproxKey', 'feature'], {
         id,
         geoproxKey,
         feature: stringifiedFeature,
@@ -122,9 +122,9 @@ function loadFeatures(tableName, featureIterator) {
       featureInsertStmt.run(params);
     }
 
-    db.exec("COMMIT;");
+    db.exec('COMMIT;');
   } catch (err) {
-    db.exec("ROLLBACK");
+    db.exec('ROLLBACK');
     throw err;
   } finally {
     db.unsafeMode(false);
@@ -135,14 +135,14 @@ function loadStops(opts) {
   const gtfsStopsIterator = RawGtfsDAO.makeStopsIterator();
   const pointsIterator = toPointsIterator(gtfsStopsIterator);
 
-  loadFeatures("stops", pointsIterator, opts);
+  loadFeatures('stops', pointsIterator, opts);
 }
 
 function loadShapes(opts) {
   const gtfsShapesIterator = RawGtfsDAO.makeShapesIterator();
   const lineStringsIterator = toLineStringsIterator(gtfsShapesIterator);
 
-  loadFeatures("shapes", lineStringsIterator, opts);
+  loadFeatures('shapes', lineStringsIterator, opts);
 }
 
 function load(opts) {

@@ -1,41 +1,41 @@
-/* eslint-disable no-restricted-syntax, jsdoc/require-jsdoc, no-continue */
+/* eslint-disable no-restricted-syntax, no-continue */
 
-const { join, isAbsolute } = require("path");
+const { join, isAbsolute } = require('path');
 
-const Database = require("better-sqlite3");
+const Database = require('better-sqlite3');
 
-const turf = require("@turf/turf");
-const _ = require("lodash");
+const turf = require('@turf/turf');
+const _ = require('lodash');
 
-const db = require("../../services/DbService");
+const db = require('../../services/DbService');
 
-const SCHEMA = require("./DATABASE_SCHEMA_NAME");
-const { createConflationMapTable } = require("./createTableFns");
-const roundGeometryCoordinates = require("../../utils/roundGeometryCoordinates");
+const SCHEMA = require('./DATABASE_SCHEMA_NAME');
+const { createConflationMapTable } = require('./createTableFns');
+const roundGeometryCoordinates = require('../../utils/roundGeometryCoordinates');
 
 const BUFFER_SIZE = 0.005; // 5 meters
 
 const targetMaps = [
-  "ris_2016",
-  "ris_2017",
-  "ris_2018",
-  "ris_2019",
-  "npmrds_2017",
-  "npmrds_2019",
+  'ris_2016',
+  'ris_2017',
+  'ris_2018',
+  'ris_2019',
+  'npmrds_2017',
+  'npmrds_2019',
 ];
 
 const usefulTargetMapProperties = [
-  "targetMapId",
-  "targetMapMesoId",
-  "targetMapMacroId",
-  "targetMapMegaId",
-  "targetMapNetHrchyRank",
-  "targetMapMesoLevelIdx",
+  'targetMapId',
+  'targetMapMesoId',
+  'targetMapMacroId',
+  'targetMapMegaId',
+  'targetMapNetHrchyRank',
+  'targetMapMesoLevelIdx',
 ];
 
 function load(conflationMapSqlitePath) {
   try {
-    db.prepare("BEGIN;").run();
+    db.prepare('BEGIN;').run();
 
     createConflationMapTable(db);
 
@@ -70,7 +70,7 @@ function load(conflationMapSqlitePath) {
             feature
           FROM conflation_map
           ORDER BY id
-        ; `
+        ; `,
       )
       .raw()
       .iterate();
@@ -101,21 +101,21 @@ function load(conflationMapSqlitePath) {
 
       roundGeometryCoordinates(feature);
 
-      let b = turf.buffer(feature, BUFFER_SIZE, { units: "kilometers" });
+      let b = turf.buffer(feature, BUFFER_SIZE, { units: 'kilometers' });
       let polyCoords = turf.getCoords(b);
 
       if (polyCoords.length !== 1) {
         const convexHull = turf.convex(feature, { concavity: Infinity });
 
-        b = turf.buffer(convexHull, BUFFER_SIZE, { units: "kilometers" });
+        b = turf.buffer(convexHull, BUFFER_SIZE, { units: 'kilometers' });
 
         polyCoords = turf.getCoords(b);
       }
 
       if (polyCoords.length !== 1) {
         console.warn(
-          "  Attempts to handle complex poly failed. polyCoords.length =",
-          polyCoords.length
+          '  Attempts to handle complex poly failed. polyCoords.length =',
+          polyCoords.length,
         );
       }
 
@@ -132,9 +132,9 @@ function load(conflationMapSqlitePath) {
       geopolyInsertStmt.run([JSON.stringify(coords), id, networklevel]);
     }
 
-    db.prepare("COMMIT;").run();
+    db.prepare('COMMIT;').run();
   } catch (err) {
-    db.exec("ROLLBACK");
+    db.exec('ROLLBACK');
     throw err;
   }
 }

@@ -1,4 +1,4 @@
-/* eslint-disable no-continue, no-cond-assign, jsdoc/require-jsdoc, no-param-reassign, no-constant-condition */
+/* eslint-disable no-continue, no-cond-assign, no-param-reassign, no-constant-condition */
 
 // MODULE PURPOSE: Cherry-pick the best shstMatches across the GTFS Shape.
 //
@@ -12,19 +12,19 @@
 //     a single ShstMatches Path that spans most of the Shape Seg
 //     as the Ground Truths for further deductions.
 
-const assert = require("assert");
+const assert = require('assert');
 
-const turf = require("@turf/turf");
-const _ = require("lodash");
+const turf = require('@turf/turf');
+const _ = require('lodash');
 
-const findAxiomaticPaths = require("./findAxiomaticPaths");
-const findNonAxiomaticPaths = require("./findNonAxiomaticPaths");
+const findAxiomaticPaths = require('./findAxiomaticPaths');
+const findNonAxiomaticPaths = require('./findNonAxiomaticPaths');
 
 const {
   minPathLengthThld,
   maxSegPathLengthDiffRatioThld,
   maxGapDistThld,
-} = require("./constants");
+} = require('./constants');
 
 const computeShapeLevelPathCombinationProperties = ({
   gtfsNetEdgesShstMatches,
@@ -40,7 +40,7 @@ const computeShapeLevelPathCombinationProperties = ({
   }
 
   assert(
-    gtfsNetEdgesShstMatches.length === subGraphComponentsTraversals.length
+    gtfsNetEdgesShstMatches.length === subGraphComponentsTraversals.length,
   );
 
   const {
@@ -95,7 +95,7 @@ const computeShapeLevelPathCombinationProperties = ({
       pathLengths &&
       pathLengths.map(
         (pathLength) =>
-          Math.abs(gtfsNetworkEdgeLength - pathLength) / gtfsNetworkEdgeLength
+          Math.abs(gtfsNetworkEdgeLength - pathLength) / gtfsNetworkEdgeLength,
       );
 
     aggregatedSummary.push({
@@ -146,7 +146,7 @@ const computeShapeLevelPathCombinationProperties = ({
   //   Length = number of GTFS Shape Segments.
   //   All values initialized to NULL, signifying no choice made.
   const chosenPaths = _.range(0, gtfsNetEdgesShstMatches.length).map(
-    () => null
+    () => null,
   );
 
   // TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
@@ -197,7 +197,7 @@ const computeShapeLevelPathCombinationProperties = ({
 
       segPathLengthDiffRatioThld = Math.min(
         segPathLengthDiffRatioThld * thldScaler,
-        maxSegPathLengthDiffRatioThld
+        maxSegPathLengthDiffRatioThld,
       );
 
       gapDistThld = Math.min(gapDistThld * thldScaler, maxGapDistThld);
@@ -220,13 +220,13 @@ const computeShapeLevelPathCombinationProperties = ({
 
   const metadata = {
     shapeLength: _.sumBy(gtfsNetEdgesShstMatches, ({ gtfsNetworkEdge }) =>
-      turf.length(gtfsNetworkEdge)
+      turf.length(gtfsNetworkEdge),
     ),
     numSegments: gtfsNetEdgesShstMatches.length,
     numSegmentsWithChosenPaths: chosenPaths.reduce((sum, p) => sum + !!p, 0),
     chosenPathsTotalLength: chosenPaths.reduce(
       (acc, p) => acc + (p ? _.sumBy(p, turf.length) : 0),
-      0
+      0,
     ),
     segmentPathsLengthRatios: gtfsNetEdgesShstMatches.map(
       ({ gtfsNetworkEdge }, i) => {
@@ -234,12 +234,12 @@ const computeShapeLevelPathCombinationProperties = ({
         const shstLen = chosenPaths[i]
           ? chosenPaths[i].reduce(
               (sum, path) => (path ? sum + turf.length(path) : sum),
-              0
+              0,
             )
           : 0;
 
         return shstLen / gtfsLen;
-      }
+      },
     ),
   };
 

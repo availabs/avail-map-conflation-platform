@@ -1,17 +1,17 @@
-/* eslint-disable no-continue, no-constant-condition, no-cond-assign, jsdoc/require-jsdoc */
+/* eslint-disable no-continue, no-constant-condition, no-cond-assign */
 
-const turf = require("@turf/turf");
-const _ = require("lodash");
+const turf = require('@turf/turf');
+const _ = require('lodash');
 
 const TOLERANCE = 0.002; // 2m
 
 function mergeLineStringsGeospatially(S, T, { tolerance = TOLERANCE } = {}) {
   try {
-    turf.featureOf(S, "LineString", "mergeLineStringsGeospatially");
-    turf.featureOf(T, "LineString", "mergeLineStringsGeospatially");
+    turf.featureOf(S, 'LineString', 'mergeLineStringsGeospatially');
+    turf.featureOf(T, 'LineString', 'mergeLineStringsGeospatially');
   } catch (err) {
     console.error(err);
-    throw new Error("mergeLineStringsGeospatially takes two LineStrings.");
+    throw new Error('mergeLineStringsGeospatially takes two LineStrings.');
   }
 
   const sCoords = turf.getCoords(S);
@@ -29,7 +29,7 @@ function mergeLineStringsGeospatially(S, T, { tolerance = TOLERANCE } = {}) {
     turf.distance(tStartPt, tEndPt) === 0
   ) {
     console.warn(
-      "WARNING: mergeLineStringsGeospatially currently does not handle LineStrings that are loops."
+      'WARNING: mergeLineStringsGeospatially currently does not handle LineStrings that are loops.',
     );
     return null;
   }
@@ -62,13 +62,13 @@ function mergeLineStringsGeospatially(S, T, { tolerance = TOLERANCE } = {}) {
   const aSlice = turf.lineSliceAlong(
     A,
     Math.max(aLen - 2 * tolerance, 0),
-    aLen
+    aLen,
   );
   const aSliceLen = turf.length(aSlice);
 
   // Snap the successor's start point to the predecessor's end slice.
   const {
-    properties: { location: bSnappedDistAlongSlice }
+    properties: { location: bSnappedDistAlongSlice },
   } = turf.nearestPointOnLine(aSlice, bStartPt);
 
   const bSnappedDistFromSliceEnd = aSliceLen - bSnappedDistAlongSlice;
@@ -100,7 +100,7 @@ function mergeLineStringsGeospatially(S, T, { tolerance = TOLERANCE } = {}) {
     order: sPrecedesT ? [S, T] : [T, S],
     isGap,
     gapDist,
-    mergedPath
+    mergedPath,
   };
 }
 

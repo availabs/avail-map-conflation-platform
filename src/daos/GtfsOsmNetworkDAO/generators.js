@@ -1,13 +1,13 @@
-/* eslint-disable no-restricted-syntax, jsdoc/require-jsdoc, no-param-reassign */
+/* eslint-disable no-restricted-syntax, no-param-reassign */
 
-const turf = require("@turf/turf");
-const _ = require("lodash");
-const db = require("../../services/DbService");
+const turf = require('@turf/turf');
+const _ = require('lodash');
+const db = require('../../services/DbService');
 
 const {
   GTFS_NETWORK,
   GTFS_OSM_NETWORK,
-} = require("../../constants/databaseSchemaNames");
+} = require('../../constants/databaseSchemaNames');
 
 // CREATE TABLE IF NOT EXISTS ${SCHEMA}.shape_segments (
 //   shape_id       TEXT,
@@ -122,8 +122,8 @@ function* makeShapeMatchesIterator() {
     // Sort by the shape segments topologically.
     gtfsShapeShstMatches.sort(
       (a, b) =>
-        _.get(a, ["gtfsNetworkEdge", "properties", "shape_index"], 0) -
-        _.get(b, ["gtfsNetworkEdge", "properties", "shape_index"], 0)
+        _.get(a, ['gtfsNetworkEdge', 'properties', 'shape_index'], 0) -
+        _.get(b, ['gtfsNetworkEdge', 'properties', 'shape_index'], 0),
     );
 
     yield gtfsShapeShstMatches;
@@ -235,8 +235,8 @@ function* makeMatchesMultiLineStringsIterator() {
   for (const [gtfs_network_edge, chosen_shst_matches] of iter) {
     const gtfsNetworkEdge = JSON.parse(gtfs_network_edge);
     const chosenShstMatches = _.sortBy(JSON.parse(chosen_shst_matches), [
-      "properties.path_index",
-      "properties.path_edge_index",
+      'properties.path_index',
+      'properties.path_edge_index',
     ]);
 
     const matchesMultiLineString = _.isEmpty(chosenShstMatches)

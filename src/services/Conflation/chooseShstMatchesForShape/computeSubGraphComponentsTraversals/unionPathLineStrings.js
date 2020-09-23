@@ -1,9 +1,9 @@
 /* eslint-disable no-continue, no-param-reassign */
 
-const _ = require("lodash");
+const _ = require('lodash');
 
-const mergePathSegmentsGeospatially = require("./mergePathSegmentsGeospatially");
-const mergePathLineStringsUsingMetadata = require("./mergePathLineStringsUsingMetadata");
+const mergePathSegmentsGeospatially = require('./mergePathSegmentsGeospatially');
+const mergePathLineStringsUsingMetadata = require('./mergePathLineStringsUsingMetadata');
 
 // When we fill a gap, the id is set to null.
 const noGapFill = ({ id }) => id !== null;
@@ -12,7 +12,7 @@ const noGapFill = ({ id }) => id !== null;
 const filterOutOverlappedPaths = (newPaths) => {
   // Get the shstMatch IDs for each path
   const newPathShstMatchIds = newPaths.map((path) =>
-    path.properties.pathDecompositionInfo.filter(noGapFill).map(({ id }) => id)
+    path.properties.pathDecompositionInfo.filter(noGapFill).map(({ id }) => id),
   );
 
   // Filter out the paths where the shstMatch IDs for the path
@@ -107,17 +107,17 @@ const unionPathLineStrings = (pathLineStrings, shstMatchesById) => {
         pathLineStrings.filter(
           (_$, pathIdx) =>
             !mergedPaths.find(
-              ({ sIdx, tIdx }) => sIdx === pathIdx || tIdx === pathIdx
-            )
+              ({ sIdx, tIdx }) => sIdx === pathIdx || tIdx === pathIdx,
+            ),
         ),
         // Concat merged paths
-        mergedPaths.map(({ mergedPath }) => mergedPath)
+        mergedPaths.map(({ mergedPath }) => mergedPath),
       );
 
       newPaths.sort(
         (a, b) =>
           a.properties.pathDecompositionInfo.filter(noGapFill).length -
-          b.properties.pathDecompositionInfo.filter(noGapFill).length
+          b.properties.pathDecompositionInfo.filter(noGapFill).length,
       );
 
       const filteredPaths = filterOutOverlappedPaths(newPaths);

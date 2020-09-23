@@ -1,4 +1,4 @@
-const generators = require("./generators");
+const generators = require('./generators');
 
 module.exports = {
   ...generators,

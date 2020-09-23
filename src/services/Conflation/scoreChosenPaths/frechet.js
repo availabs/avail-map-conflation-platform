@@ -1,7 +1,7 @@
-const turf = require("@turf/turf");
-const _ = require("lodash");
+const turf = require('@turf/turf');
+const _ = require('lodash');
 
-const { rebalanceCurve, shapeSimilarity } = require("curve-matcher");
+const { rebalanceCurve, shapeSimilarity } = require('curve-matcher');
 
 const MIN_POINTS_PER_KM = 50;
 
@@ -25,7 +25,7 @@ const getFrechetDistance = (S, T) => {
 
   const numPoints = Math.min(
     Math.max(sCoords.length, tCoords.length),
-    minPoints
+    minPoints,
   );
 
   const s = coordsToCurve(sCoords, numPoints);
