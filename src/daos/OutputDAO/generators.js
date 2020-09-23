@@ -7,7 +7,7 @@ const gdal = require('gdal');
 const _ = require('lodash');
 
 const {
-  GEOJSON_GTFS,
+  GTFS_GEOJSON,
   GTFS_NETWORK,
 } = require('../../constants/databaseSchemaNames');
 
@@ -23,7 +23,7 @@ const addFieldToLayer = (layer, name, type) =>
 
 const addGeoJsonStopsLayer = (dataset) => {
   const layer = dataset.layers.create(
-    `${GEOJSON_GTFS}_stops`,
+    `${GTFS_GEOJSON}_stops`,
     wgs84,
     gdal.Point,
   );
@@ -113,7 +113,7 @@ const addGeoJsonStopsLayer = (dataset) => {
 
 const addGeoJsonShapesLayer = (dataset) => {
   const layer = dataset.layers.create(
-    `${GEOJSON_GTFS}_shapes`,
+    `${GTFS_GEOJSON}_shapes`,
     wgs84,
     gdal.LineString,
   );

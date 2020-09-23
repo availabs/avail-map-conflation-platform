@@ -1,6 +1,6 @@
 module.exports = {
   GTFS_RAW: 'gtfs_raw',
-  GEOJSON_GTFS: 'geojson_gtfs',
+  GTFS_GEOJSON: 'gtfs_geojson',
   GTFS_NETWORK: 'gtfs_network',
   GTFS_OSM_NETWORK: 'gtfs_osm_network',
   CONFLATION_MAP: 'conflation_map',
