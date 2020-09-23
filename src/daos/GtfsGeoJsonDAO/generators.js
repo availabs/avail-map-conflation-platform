@@ -11,7 +11,7 @@ const MILES = 'miles';
 const KILOMETERS = 'kilometers';
 
 const {
-  RAW_GTFS: RAW_GTFS_SCHEMA,
+  GTFS_RAW: GTFS_RAW_SCHEMA,
 } = require('../../constants/databaseSchemaNames');
 
 const GEOJSON_SCHEMA = require('./DATABASE_SCHEMA_NAME');
@@ -114,8 +114,8 @@ function* makeShapesWithStopsIterator() {
               group_concat( DISTINCT geojson_stops.feature ) ||
               ']'
             ) AS stop_features
-          FROM ${RAW_GTFS_SCHEMA}.trips AS trips
-            INNER JOIN ${RAW_GTFS_SCHEMA}.stop_times USING (trip_id)
+          FROM ${GTFS_RAW_SCHEMA}.trips AS trips
+            INNER JOIN ${GTFS_RAW_SCHEMA}.stop_times USING (trip_id)
             INNER JOIN ${GEOJSON_SCHEMA}.stops AS geojson_stops ON (stop_times.stop_id = geojson_stops.id)
             INNER JOIN ${GEOJSON_SCHEMA}.shapes AS geojson_shapes ON (trips.shape_id = geojson_shapes.id)
           -- GROUP BY geojson_shapes.feature -- Was there a reason why I had this instead of the following...
@@ -154,8 +154,8 @@ function* makeShapesWithStopsIterator() {
                     stop_sequence,
                     shape_dist_traveled,
                     stop_id
-                  FROM ${RAW_GTFS_SCHEMA}.trips
-                    INNER JOIN ${RAW_GTFS_SCHEMA}.stop_times USING (trip_id)
+                  FROM ${GTFS_RAW_SCHEMA}.trips
+                    INNER JOIN ${GTFS_RAW_SCHEMA}.stop_times USING (trip_id)
                   ORDER BY shape_id, trip_id, stop_sequence
               ) AS ordered_stop_seq
               GROUP BY shape_id, trip_id

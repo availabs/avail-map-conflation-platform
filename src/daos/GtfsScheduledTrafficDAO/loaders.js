@@ -14,7 +14,7 @@ const db = require('../../services/DbService');
 
 const GtfsRawDAO = require('../GtfsRawDAO');
 
-const { RAW_GTFS } = require('../../constants/databaseSchemaNames');
+const { GTFS_RAW } = require('../../constants/databaseSchemaNames');
 const SCHEMA = require('./DATABASE_SCHEMA_NAME');
 
 const TripTracker = require('./TripTracker');
@@ -87,7 +87,7 @@ function load() {
       .prepare(
         // The scheduled_transit_traffic table contains (departure, arrival) pairs.
         // Therefore, it will have one less row per trip than the stop_times table.
-        `SELECT COUNT(1) - COUNT(DISTINCT trip_id) FROM ${RAW_GTFS}.stop_times ;`,
+        `SELECT COUNT(1) - COUNT(DISTINCT trip_id) FROM ${GTFS_RAW}.stop_times ;`,
       )
       .raw()
       .get();

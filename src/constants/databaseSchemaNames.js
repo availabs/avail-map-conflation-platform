@@ -1,5 +1,5 @@
 module.exports = {
-  RAW_GTFS: 'raw_gtfs',
+  GTFS_RAW: 'gtfs_raw',
   GEOJSON_GTFS: 'geojson_gtfs',
   GTFS_NETWORK: 'gtfs_network',
   GTFS_OSM_NETWORK: 'gtfs_osm_network',

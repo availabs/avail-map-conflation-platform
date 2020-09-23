@@ -78,7 +78,7 @@
 */
 
 const _ = require('lodash');
-const { RAW_GTFS } = require('../../constants/databaseSchemaNames');
+const { GTFS_RAW } = require('../../constants/databaseSchemaNames');
 const SCHEMA = require('./DATABASE_SCHEMA_NAME');
 
 const createTmpFeedInfo = (db, has_feed_info_table) => {
@@ -86,7 +86,7 @@ const createTmpFeedInfo = (db, has_feed_info_table) => {
     db.exec(`
       -- Create an alias VIEW
       CREATE TEMPORARY VIEW tmp_feed_info
-        AS SELECT * FROM ${RAW_GTFS}.feed_info
+        AS SELECT * FROM ${GTFS_RAW}.feed_info
       ;
     `);
   } else {
@@ -105,7 +105,7 @@ const createTmpCalendar = (db, has_calendar_table) => {
     db.exec(`
       -- Create an alias VIEW
       CREATE TEMPORARY VIEW tmp_calendar
-        AS SELECT * FROM ${RAW_GTFS}.calendar
+        AS SELECT * FROM ${GTFS_RAW}.calendar
       ;
     `);
   } else {
@@ -135,7 +135,7 @@ const createTmpCalendarDates = (db, has_calendar_dates_table) => {
     db.exec(`
       -- Create an alias VIEW
       CREATE TEMPORARY VIEW tmp_calendar_dates
-        AS SELECT * FROM ${RAW_GTFS}.calendar_dates
+        AS SELECT * FROM ${GTFS_RAW}.calendar_dates
       ;
     `);
   } else {
@@ -186,7 +186,7 @@ const createTmpTables = (db) => {
             EXISTS (
               SELECT
                   1
-                FROM ${RAW_GTFS}.sqlite_master
+                FROM ${GTFS_RAW}.sqlite_master
                 WHERE (
                   ( type = 'table' )
                   AND
@@ -196,7 +196,7 @@ const createTmpTables = (db) => {
             EXISTS (
               SELECT
                   1
-                FROM ${RAW_GTFS}.sqlite_master
+                FROM ${GTFS_RAW}.sqlite_master
                 WHERE (
                   ( type = 'table' )
                   AND
@@ -206,7 +206,7 @@ const createTmpTables = (db) => {
             EXISTS (
               SELECT
                   1
-                FROM ${RAW_GTFS}.sqlite_master
+                FROM ${GTFS_RAW}.sqlite_master
                 WHERE (
                   ( type = 'table' )
                   AND

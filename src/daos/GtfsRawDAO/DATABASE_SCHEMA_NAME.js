@@ -1,1 +1,1 @@
-module.exports = require('../../constants/databaseSchemaNames').RAW_GTFS;
+module.exports = require('../../constants/databaseSchemaNames').GTFS_RAW;

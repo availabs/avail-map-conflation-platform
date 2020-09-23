@@ -1,5 +1,5 @@
 const {
-  RAW_GTFS,
+  GTFS_RAW,
   GTFS_SCHEDULED_TRAFFIC,
 } = require('../../constants/databaseSchemaNames');
 const SCHEMA = require('./DATABASE_SCHEMA_NAME');
@@ -62,8 +62,8 @@ const createGtfsAggregations = (db) => {
               1
             ) AS avg_weekly_count,
             group_concat(DISTINCT trip_id) AS trip_ids
-          FROM ${RAW_GTFS}.routes
-            INNER JOIN ${RAW_GTFS}.trips
+          FROM ${GTFS_RAW}.routes
+            INNER JOIN ${GTFS_RAW}.trips
               USING (route_id)
             INNER JOIN ${GTFS_SCHEDULED_TRAFFIC}.service_dates
               USING (service_id)

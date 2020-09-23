@@ -1,6 +1,6 @@
 /* eslint-disable no-restricted-syntax, no-continue, no-param-reassign */
 
-// raw_gtfs> select trip_id, arrival_time, departure_time, stop_id, stop_sequence
+// gtfs_raw> select trip_id, arrival_time, departure_time, stop_id, stop_sequence
 // >         from stop_times where stop_id = '00632' and trip_id = '5644017-SEP19-Albany-Weekday-01';
 // +---------------------------------+--------------+----------------+---------+---------------+
 // | trip_id                         | arrival_time | departure_time | stop_id | stop_sequence |
