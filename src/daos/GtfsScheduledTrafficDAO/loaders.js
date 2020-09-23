@@ -12,7 +12,7 @@ const assert = require('assert');
 
 const db = require('../../services/DbService');
 
-const RawGtfsDAO = require('../RawGtfsDAO');
+const GtfsRawDAO = require('../GtfsRawDAO');
 
 const { RAW_GTFS } = require('../../constants/databaseSchemaNames');
 const SCHEMA = require('./DATABASE_SCHEMA_NAME');
@@ -29,7 +29,7 @@ function loadTripStopTimes() {
 
   createScheduledTransitTrafficTable(db);
 
-  const scheduledStopsIter = RawGtfsDAO.makeScheduledStopsIterator();
+  const scheduledStopsIter = GtfsRawDAO.makeScheduledStopsIterator();
 
   let tripTracker = null;
   let prevWarnedTripId;

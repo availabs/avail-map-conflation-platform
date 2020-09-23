@@ -5,7 +5,7 @@ const turf = require('@turf/turf');
 const _ = require('lodash');
 
 const db = require('../../services/DbService');
-const RawGtfsDAO = require('../RawGtfsDAO');
+const GtfsRawDAO = require('../GtfsRawDAO');
 
 const getGeoProximityKey = require('../../utils/getGeoProximityKey');
 const roundGeometryCoordinates = require('../../utils/roundGeometryCoordinates');
@@ -132,14 +132,14 @@ function loadFeatures(tableName, featureIterator) {
 }
 
 function loadStops(opts) {
-  const gtfsStopsIterator = RawGtfsDAO.makeStopsIterator();
+  const gtfsStopsIterator = GtfsRawDAO.makeStopsIterator();
   const pointsIterator = toPointsIterator(gtfsStopsIterator);
 
   loadFeatures('stops', pointsIterator, opts);
 }
 
 function loadShapes(opts) {
-  const gtfsShapesIterator = RawGtfsDAO.makeShapesIterator();
+  const gtfsShapesIterator = GtfsRawDAO.makeShapesIterator();
   const lineStringsIterator = toLineStringsIterator(gtfsShapesIterator);
 
   loadFeatures('shapes', lineStringsIterator, opts);

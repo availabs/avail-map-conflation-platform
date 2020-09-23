@@ -7,7 +7,7 @@ const { pipeline } = require('stream');
 const unzipper = require('unzipper');
 const csv = require('fast-csv');
 
-const dao = require('../../daos/RawGtfsDAO');
+const dao = require('../../daos/GtfsRawDAO');
 
 const timerId = 'load raw gtfs';
 
