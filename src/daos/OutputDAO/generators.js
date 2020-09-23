@@ -11,7 +11,7 @@ const {
   GTFS_NETWORK,
 } = require('../../constants/databaseSchemaNames');
 
-const GeoJsonGtfsDAO = require('../GeoJsonGtfsDAO');
+const GtfsGeoJsonDAO = require('../GtfsGeoJsonDAO');
 const GtfsNetworkDAO = require('../GtfsNetworkDAO');
 const GtfsOsmNetworkDAO = require('../GtfsOsmNetworkDAO');
 const GtfsConflationMapJoinDAO = require('../GtfsConflationMapJoinDAO');
@@ -85,7 +85,7 @@ const addGeoJsonStopsLayer = (dataset) => {
     addFieldToLayer(layer, name, type);
   }
 
-  const iter = GeoJsonGtfsDAO.makeStopsIterator();
+  const iter = GtfsGeoJsonDAO.makeStopsIterator();
 
   for (const geojsonPoint of iter) {
     const gdalFeature = new gdal.Feature(layer);
@@ -120,7 +120,7 @@ const addGeoJsonShapesLayer = (dataset) => {
 
   addFieldToLayer(layer, 'shape_id', gdal.OFTString);
 
-  const iter = GeoJsonGtfsDAO.makeShapesIterator();
+  const iter = GtfsGeoJsonDAO.makeShapesIterator();
 
   for (const geojsonLineString of iter) {
     const gdalFeature = new gdal.Feature(layer);

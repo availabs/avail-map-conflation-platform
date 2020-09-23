@@ -1,6 +1,6 @@
 /* eslint-disable no-restricted-syntax */
 
-const dao = require('../../daos/GeoJsonGtfsDAO');
+const dao = require('../../daos/GtfsGeoJsonDAO');
 
 const timerId = 'load gtfs as geojson';
 

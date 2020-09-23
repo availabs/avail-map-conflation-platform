@@ -14,7 +14,7 @@ const turf = require('@turf/turf');
 const _ = require('lodash');
 
 const db = require('../../../services/DbService');
-const GeoJsonGtfsDAO = require('../../GeoJsonGtfsDAO');
+const GtfsGeoJsonDAO = require('../../GtfsGeoJsonDAO');
 
 const SCHEMA = require('../DATABASE_SCHEMA_NAME');
 
@@ -178,7 +178,7 @@ function load() {
 
     createShapeSegmentsTable(db);
 
-    const iter = GeoJsonGtfsDAO.makeShapesWithStopsIterator();
+    const iter = GtfsGeoJsonDAO.makeShapesWithStopsIterator();
 
     for (const { shape: shapeLineString, stops: stopPointsSeq } of iter) {
       insertSlicedShape(shapeLineString, stopPointsSeq);
