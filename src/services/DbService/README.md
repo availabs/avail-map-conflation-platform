@@ -42,3 +42,7 @@ See:
 
 * [configurable extension 'entry point' #363](https://github.com/JoshuaWise/better-sqlite3/issues/363)
 * [loadExtension: allow specifying extension entry point #364](https://github.com/JoshuaWise/better-sqlite3/pull/364)
+
+## References
+
+[Using SQLite](https://www.google.com/books/edition/Using_SQLite/v5OYlkt6uKYC?gbpv=1)
