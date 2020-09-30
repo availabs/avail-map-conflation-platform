@@ -39,9 +39,10 @@ const getTableNameForGtfsFileName = (fileName) => {
  * Since this happens in a transaction, that DROP TABLE will be rolled back
  * if the load fails.
  *
+ * @async
  * @param { string } fileName The GTFS file name
  * @param { symbol.async_iterator } rowAsyncIterator Async iterator of table row objects
- * @returns { number|null } Number of rows added, or NULL if table was not created.
+ * @returns { Promise<number|null> } Number of rows added, or NULL if table was not created.
  */
 async function loadAsync(fileName, rowAsyncIterator) {
   const tableName = getTableNameForGtfsFileName(fileName);

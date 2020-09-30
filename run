@@ -6,48 +6,65 @@ const { join } = require("path");
 
 const yargs = require("yargs");
 
+// https://www.npmjs.com/package/ts-node#programmatic
+//   You can require ts-node and register the loader for future requires by using
+//     require('ts-node').register({ /* options */ }).
+// https://www.npmjs.com/package/ts-node#options-via-tsconfigjson
+//   Most options can be specified by a "ts-node" object in tsconfig.json using
+//   their programmatic, camelCase names.
+require('ts-node').register()
+
+const { default: DbService } = require('./src/services/DbService')
+
+// OSM & SharedStreets Source Maps
+const source_map_load = require('./src/pipeline_transforms/source_map_load/yargs_wrapper')
+
+const conflation_map = require("./src/pipeline_transforms/conflation_map/yargs_wrapper");
+
+// GTFS
 const raw_gtfs_into_sqlite = require("./src/pipeline_transforms/raw_gtfs_into_sqlite/yargs_wrapper");
 const gtfs_as_geojson = require("./src/pipeline_transforms/gtfs_as_geojson/yargs_wrapper");
 const gtfs_network = require("./src/pipeline_transforms/gtfs_network/yargs_wrapper");
 const gtfs_osm_network = require("./src/pipeline_transforms/gtfs_osm_network/yargs_wrapper");
 const scheduled_bus_traffic = require("./src/pipeline_transforms/scheduled_bus_traffic/yargs_wrapper");
-const conflation_map = require("./src/pipeline_transforms/conflation_map/yargs_wrapper");
 const gtfs_conflation_map_join = require("./src/pipeline_transforms/gtfs_conflation_map_join/yargs_wrapper");
 const gtfs_conflation_schedule_join = require("./src/pipeline_transforms/gtfs_conflation_schedule_join/yargs_wrapper");
+
 const output = require("./src/pipeline_transforms/output/yargs_wrapper");
 
 function addOutputDirToEnvironment(argv) {
-  const { output_dir } = argv;
-  process.env.AVL_GTFS_CONFLATION_OUTPUT_DIR = output_dir;
-  return argv;
+    const { output_dir } = argv;
+    DbService.setOutputDirectory(output_dir)
+    return argv;
 }
 
 yargs
-  .middleware(addOutputDirToEnvironment)
-  .parserConfiguration({
-    "camel-case-expansion": false,
-    "flatten-duplicate-arrays": false,
-  })
-  .option({
-    output_dir: {
-      type: "string",
-      desc:
-        "Path to the output directory. (Can be set using ENV variable AVL_GTFS_CONFLATION_OUTPUT_DIR.)",
-      default:
-        process.env.AVL_GTFS_CONFLATION_OUTPUT_DIR ||
-        join(process.cwd(), "output"),
-    },
-  })
-  .command(raw_gtfs_into_sqlite)
-  .command(gtfs_as_geojson)
-  .command(gtfs_network)
-  .command(gtfs_osm_network)
-  .command(scheduled_bus_traffic)
-  .command(conflation_map)
-  .command(gtfs_conflation_map_join)
-  .command(gtfs_conflation_schedule_join)
-  .command(output)
-  .demandCommand()
-  .recommendCommands()
-  .strict()
-  .wrap(yargs.terminalWidth() / 1.618).argv;
+    .middleware(addOutputDirToEnvironment)
+    .parserConfiguration({
+        "camel-case-expansion": false,
+        "flatten-duplicate-arrays": false,
+    })
+    .option({
+        output_dir: {
+            type: "string",
+            desc:
+                "Path to the output directory. (Can be set using ENV variable AVL_GTFS_CONFLATION_OUTPUT_DIR.)",
+            default:
+                process.env.AVL_GTFS_CONFLATION_OUTPUT_DIR ||
+                join(process.cwd(), "output"),
+        },
+    })
+    .command(source_map_load)
+    .command(raw_gtfs_into_sqlite)
+    .command(gtfs_as_geojson)
+    .command(gtfs_network)
+    .command(gtfs_osm_network)
+    .command(scheduled_bus_traffic)
+    .command(conflation_map)
+    .command(gtfs_conflation_map_join)
+    .command(gtfs_conflation_schedule_join)
+    .command(output)
+    .demandCommand()
+    .recommendCommands()
+    .strict()
+    .wrap(yargs.terminalWidth() / 1.618).argv;

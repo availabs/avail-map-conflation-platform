@@ -7,5 +7,5 @@ module.exports = {
   GTFS_SCHEDULED_TRAFFIC: 'gtfs_scheduled_traffic',
   GTFS_CONFLATION_MAP_JOIN: 'gtfs_conflation_map_join',
   GTFS_CONFLATION_SCHEDULE_JOIN: 'gtfs_conflation_schedule_join',
-  SHST_TILESET: 'shst_tileset',
+  SOURCE_MAP: 'source_map',
 };
