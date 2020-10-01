@@ -1,5 +1,13 @@
 # SourceMap Database
 
+## TODO
+
+Implement specifying source map entities, such as `--shst_intersections` for
+  quicker dev.
+
+Currently, dev can comment out code in
+  src/pipeline_transforms/source_map_load/loadSharedStreetsTileset/index.ts.
+
 ## Canonical Source Map
 
 This platform should have

@@ -58,7 +58,9 @@ CREATE TABLE __SCHEMA__.shst_references_location_references (
   geojson_point            TEXT NOT NULL, -- GeoJSON Point
 
   PRIMARY KEY (shst_reference_id, location_reference_idx),
-  FOREIGN KEY (shst_reference_id) REFERENCES shst_references(id)
+  FOREIGN KEY (shst_reference_id)
+    REFERENCES shst_references(id)
+    ON DELETE CASCADE
 ) WITHOUT ROWID;
 
 CREATE INDEX __SCHEMA__.shst_location_references_shst_ref_id_idx

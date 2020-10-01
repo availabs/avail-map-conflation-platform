@@ -64,11 +64,13 @@ CREATE TABLE __SCHEMA__.shst_metadata_gis_metadata (
   source               TEXT,
 
   PRIMARY KEY (shst_metadata_id, gis_metadata_idx),
-  FOREIGN KEY (shst_metadata_id) REFERENCES shst_metadata(_id)
+  FOREIGN KEY (shst_metadata_id)
+    REFERENCES shst_metadata(_id)
+    ON DELETE CASCADE
 ) WITHOUT ROWID;
 
 
--- ========== shst_osm_metadata_way_sections ==========
+-- ========== shst_metadata_osm_metadata_way_sections ==========
 --
 -- Normalizes SharedStreetsMetadata?.osmMetadata?.waySections: WaySection[]
 --
@@ -99,9 +101,9 @@ CREATE TABLE __SCHEMA__.shst_metadata_gis_metadata (
 --   name?: string;
 -- }
 
-DROP TABLE IF EXISTS __SCHEMA__.shst_osm_metadata_way_sections ;
+DROP TABLE IF EXISTS __SCHEMA__.shst_metadata_osm_metadata_way_sections ;
 
-CREATE TABLE __SCHEMA__.shst_osm_metadata_way_sections (
+CREATE TABLE __SCHEMA__.shst_metadata_osm_metadata_way_sections (
   shst_metadata_id               INTEGER,
   osm_metadata_way_section_idx   INTEGER,
 
@@ -113,12 +115,14 @@ CREATE TABLE __SCHEMA__.shst_osm_metadata_way_sections (
   name                           INTEGER,
 
   PRIMARY KEY (shst_metadata_id, osm_metadata_way_section_idx),
-  FOREIGN KEY (shst_metadata_id) REFERENCES shst_metadata(_id)
+  FOREIGN KEY (shst_metadata_id)
+    REFERENCES shst_metadata(_id)
+    ON DELETE CASCADE
 ) WITHOUT ROWID;
 
 -- Index for JOINing with original OSM ways.
-CREATE INDEX __SCHEMA__.shst_osm_metadata_way_sections_way_id_idx
-  ON shst_osm_metadata_way_sections (way_id) ;
+CREATE INDEX __SCHEMA__.shst_metadata_osm_metadata_way_sections_way_id_idx
+  ON shst_metadata_osm_metadata_way_sections (way_id) ;
 
 
 
@@ -140,11 +144,12 @@ CREATE TABLE __SCHEMA__.shst_metadata_osm_metadata_way_section_nodes (
 
   PRIMARY KEY (shst_metadata_id, osm_metadata_way_section_idx, way_section_nodes_idx, osm_node_id),
   FOREIGN KEY (shst_metadata_id, osm_metadata_way_section_idx)
-    REFERENCES shst_osm_metadata_way_sections(shst_metadata_id, osm_metadata_way_section_idx)
+    REFERENCES shst_metadata_osm_metadata_way_sections(shst_metadata_id, osm_metadata_way_section_idx)
+    ON DELETE CASCADE
 ) WITHOUT ROWID;
 
 -- Index for JOINing with original OSM nodes.
-CREATE INDEX __SCHEMA__.shst_osm_metadata_way_section_nodes_node_id_idx
+CREATE INDEX __SCHEMA__.shst_metadata_osm_metadata_way_section_nodes_node_id_idx
   ON shst_metadata_osm_metadata_way_section_nodes (osm_node_id) ;
 
 
@@ -186,4 +191,5 @@ CREATE TABLE __SCHEMA__.shst_metadata_gis_metadata_section_metadata (
   PRIMARY KEY (shst_metadata_id, gis_metadata_idx, gis_metadata_section_idx),
   FOREIGN KEY (shst_metadata_id, gis_metadata_idx)
     REFERENCES shst_metadata_gis_metadata (shst_metadata_id, gis_metadata_idx)
+    ON DELETE CASCADE
 ) WITHOUT ROWID;

@@ -67,7 +67,7 @@ const insertWaySections = (
 
     db.prepare(
       `
-        INSERT INTO ${SCHEMA}.shst_osm_metadata_way_sections (
+        INSERT INTO ${SCHEMA}.shst_metadata_osm_metadata_way_sections (
           shst_metadata_id,
           osm_metadata_way_section_idx,
           way_id,
