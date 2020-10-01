@@ -1,4 +1,4 @@
-const { mkdirSync, statSync, unlinkSync } = require('fs');
+const { mkdirSync, statSync, existsSync, unlinkSync } = require('fs');
 const { join } = require('path');
 
 const Winston = require('winston');
@@ -55,10 +55,12 @@ const logger = Winston.createLogger({
 
 // If nothing logged to the log file, delete it.
 process.on('exit', () => {
-  const { size } = statSync(filename);
-  if (size === 0) {
-    unlinkSync(filename);
-    console.error('deleted empty logfile.');
+  if (existsSync(filename)) {
+    const { size } = statSync(filename);
+    if (size === 0) {
+      unlinkSync(filename);
+      console.error('deleted empty logfile.');
+    }
   }
 });
 
