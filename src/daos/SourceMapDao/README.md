@@ -1,5 +1,29 @@
 # SourceMap Database
 
+## OSM
+
+Currently, OSM is loaded into the source_map database
+  ONLY to enrich the SharedStreets map metadata.
+
+There MUST be a step that loads OSM into a temporary database using
+
+* spatialite_osm_raw
+* spatialite_osm_map
+* spatialite_osm_net
+
+We then MUST test SharedStreets map's OSM references,
+  and the results of this separate testing step MUST
+  be written to the source_map database as `qa_* tables`.
+
+If we know that SharedStreets faithfully represents OSM,
+  the SharedStreets metadata can be used in place of OSM data,
+  simplifying downstream reasoning/logic/processing.
+However, if we determine that SharedStreets does not faithfully
+  represent OSM, we will need to load a full representation of
+  OSM into the source_map database so that our conflation map
+  does represent OSM faithfully.
+The current plan is to proceed optimistically.
+
 ## TODO
 
 Implement specifying source map entities, such as `--shst_intersections` for

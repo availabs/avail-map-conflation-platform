@@ -9,6 +9,10 @@ import {
 
 import db from '../../../services/DbService';
 
+import { SOURCE_MAP } from '../../../constants/databaseSchemaNames';
+
+import { createOsmTables, insertOsmNode, insertOsmWay } from './openStreetMap';
+
 import {
   createSharedStreetsIntersectionTables,
   insertSharedStreetsIntersection,
@@ -28,6 +32,33 @@ import {
   createSharedStreetsReferenceTables,
   insertSharedStreetsReference,
 } from './sharedStreetsReference';
+
+// https://basarat.gitbook.io/typescript/main-1/typed-event
+export async function loadOpenStreetMaps(osmElementEmitter: any) {
+  const xdb = db.openLoadingConnectionToDb(SOURCE_MAP);
+
+  try {
+    xdb.exec('BEGIN EXCLUSIVE;');
+
+    createOsmTables(xdb);
+
+    const sentinel = new Promise((resolve, reject) =>
+      osmElementEmitter
+        .on('node', insertOsmNode.bind(null, xdb))
+        .on('way', insertOsmWay.bind(null, xdb))
+        .on('done', resolve)
+        .on('error', reject),
+    );
+
+    await sentinel;
+    xdb.exec('COMMIT');
+  } catch (err) {
+    xdb.exec('ROLLBACK;');
+    throw err;
+  } finally {
+    db.closeLoadingConnectionToDb(xdb);
+  }
+}
 
 export function loadSharedStreetsGeometries(
   iter: Generator<SharedStreetsGeometry, void, unknown>,

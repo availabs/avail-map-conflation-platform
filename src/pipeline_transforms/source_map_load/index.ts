@@ -6,10 +6,18 @@ import { existsSync, writeFileSync } from 'fs';
 
 import { join, isAbsolute } from 'path';
 
+import loadOpenStreetMap from './loadOpenStreetMap';
 import loadSharedStreetsTileset from './loadSharedStreetsTileset';
 
-const main = async ({ shst_tile_cache_dir, shst_tile_source, output_dir }) => {
+const main = async ({
+  osm_xml,
+  shst_tile_cache_dir,
+  shst_tile_source,
+  output_dir,
+}) => {
   try {
+    await loadOpenStreetMap(osm_xml);
+
     const shstCacheDir = isAbsolute(shst_tile_cache_dir)
       ? shst_tile_cache_dir
       : join(process.cwd(), shst_tile_cache_dir);
