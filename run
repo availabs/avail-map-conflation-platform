@@ -2,7 +2,7 @@
 
 /* eslint-disable no-unused-expressions, jsdoc/require-jsdoc */
 
-const { join } = require("path");
+const {join} = require("path");
 
 const yargs = require("yargs");
 
@@ -14,12 +14,14 @@ const yargs = require("yargs");
 //   their programmatic, camelCase names.
 require('ts-node').register()
 
-const { default: DbService } = require('./src/services/DbService')
+const {default: DbService} = require('./src/services/DbService')
 
 // OSM & SharedStreets Source Maps
 const source_map_load = require('./src/pipeline_transforms/source_map_load/yargs_wrapper')
 
 const conflation_map = require("./src/pipeline_transforms/conflation_map/yargs_wrapper");
+
+const load_npmrds = require('./src/pipeline_transforms/load_npmrds/yargs_wrapper');
 
 // GTFS
 const raw_gtfs_into_sqlite = require("./src/pipeline_transforms/raw_gtfs_into_sqlite/yargs_wrapper");
@@ -33,38 +35,39 @@ const gtfs_conflation_schedule_join = require("./src/pipeline_transforms/gtfs_co
 const output = require("./src/pipeline_transforms/output/yargs_wrapper");
 
 function addOutputDirToEnvironment(argv) {
-    const { output_dir } = argv;
-    DbService.setOutputDirectory(output_dir)
-    return argv;
+  const {output_dir} = argv;
+  DbService.setOutputDirectory(output_dir)
+  return argv;
 }
 
 yargs
-    .middleware(addOutputDirToEnvironment)
-    .parserConfiguration({
-        "camel-case-expansion": false,
-        "flatten-duplicate-arrays": false,
-    })
-    .option({
-        output_dir: {
-            type: "string",
-            desc:
-                "Path to the output directory. (Can be set using ENV variable AVL_GTFS_CONFLATION_OUTPUT_DIR.)",
-            default:
-                process.env.AVL_GTFS_CONFLATION_OUTPUT_DIR ||
-                join(process.cwd(), "output"),
-        },
-    })
-    .command(source_map_load)
-    .command(raw_gtfs_into_sqlite)
-    .command(gtfs_as_geojson)
-    .command(gtfs_network)
-    .command(gtfs_osm_network)
-    .command(scheduled_bus_traffic)
-    .command(conflation_map)
-    .command(gtfs_conflation_map_join)
-    .command(gtfs_conflation_schedule_join)
-    .command(output)
-    .demandCommand()
-    .recommendCommands()
-    .strict()
-    .wrap(yargs.terminalWidth() / 1.618).argv;
+  .middleware(addOutputDirToEnvironment)
+  .parserConfiguration({
+    "camel-case-expansion": false,
+    "flatten-duplicate-arrays": false,
+  })
+  .option({
+    output_dir: {
+      type: "string",
+      desc:
+        "Path to the output directory. (Can be set using ENV variable AVL_GTFS_CONFLATION_OUTPUT_DIR.)",
+      default:
+        process.env.AVL_GTFS_CONFLATION_OUTPUT_DIR ||
+        join(process.cwd(), "output"),
+    },
+  })
+  .command(source_map_load)
+  .command(load_npmrds)
+  .command(raw_gtfs_into_sqlite)
+  .command(gtfs_as_geojson)
+  .command(gtfs_network)
+  .command(gtfs_osm_network)
+  .command(scheduled_bus_traffic)
+  .command(conflation_map)
+  .command(gtfs_conflation_map_join)
+  .command(gtfs_conflation_schedule_join)
+  .command(output)
+  .demandCommand()
+  .recommendCommands()
+  .strict()
+  .wrap(yargs.terminalWidth() / 1.618).argv;
