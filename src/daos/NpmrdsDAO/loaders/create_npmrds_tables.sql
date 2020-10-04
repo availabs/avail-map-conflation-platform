@@ -107,4 +107,4 @@ CREATE VIEW __SCHEMA__.npmrds_features
           )
         ) as feature
     FROM tmc_identification
-    INNER JOIN npmrds_shapefile USING(tmc)
+      INNER JOIN npmrds_shapefile USING(tmc)
