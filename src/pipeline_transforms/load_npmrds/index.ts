@@ -17,48 +17,9 @@ import tar from 'tar';
 
 import { loadNpmrds } from '../../daos/NpmrdsDAO';
 
-const validDirectionsRE = /N|NORTBOUND|E|EASTBOUND|S|SOUTHBOUND|W|WESTBOUND/i;
-
 const timerId = 'load npmrds';
 
-const emitTmcMetadata = (
-  npmrdsEmitter: any,
-  npmrds_tmc_identification_gz: string,
-) =>
-  new Promise((resolve, reject) =>
-    pump(
-      csv.parseStream(
-        pipeline(
-          createReadStream(npmrds_tmc_identification_gz),
-          createGunzip(),
-        ),
-        { headers: true, trim: true },
-      ),
-      through2.obj(function loader(raw, _$, cb) {
-        const tmcMetadata = _.mapKeys(raw, (_v, k) => k.toLowerCase());
-
-        if (!tmcMetadata?.direction?.match(validDirectionsRE)) {
-          tmcMetadata.direction = null;
-        }
-
-        npmrdsEmitter.emit('metadata', tmcMetadata);
-
-        return cb();
-      }),
-      (err) => {
-        if (err) {
-          return reject(err);
-        }
-
-        return resolve();
-      },
-    ),
-  );
-
-function emitTmcGeoJsonShapes(
-  npmrdsEmitter: any,
-  npmrds_shapefile_tgz: string,
-) {
+const getShapefileDirectoryFromTarArchive = (npmrds_shapefile_tgz: string) => {
   let shpFile: null | string = null;
 
   tar.list({
@@ -86,35 +47,88 @@ function emitTmcGeoJsonShapes(
 
   const shpFileDir = dirname(shpFile) === '.' ? '' : `/${dirname(shpFile)}`;
 
+  return shpFileDir;
+};
+
+const emitTmcMetadata = (
+  npmrdsEmitter: any,
+  npmrds_tmc_identification_gz: string,
+) =>
+  new Promise((resolve, reject) =>
+    pump(
+      csv.parseStream(
+        pipeline(
+          createReadStream(npmrds_tmc_identification_gz),
+          createGunzip(),
+        ),
+        { headers: true, trim: true },
+      ),
+      through2.obj(function loader(raw, _$, cb) {
+        const tmcMetadata = _.mapKeys(raw, (_v, k) => k.toLowerCase());
+
+        npmrdsEmitter.emit('metadata', tmcMetadata);
+
+        return cb();
+      }),
+      (err) => {
+        if (err) {
+          return reject(err);
+        }
+
+        return resolve();
+      },
+    ),
+  );
+
+const handleShapefileFeatureAsync = (
+  npmrdsEmitter: any,
+  feature: gdal.Feature,
+) =>
+  new Promise((resolve) =>
+    process.nextTick(() => {
+      // @ts-ignore
+      const geometry:
+        | turf.LineString
+        | turf.MultiLineString = feature.getGeometry().toObject();
+      const geometryType = turf.getType(geometry);
+
+      assert(
+        geometryType === 'LineString' || geometryType === 'MultiLineString',
+      );
+
+      const coords = turf.getCoords(geometry);
+
+      const properties = feature.fields.toObject();
+      // @ts-ignore
+      const { Tmc: tmc } = properties;
+
+      const tmcGeoJson =
+        geometryType === 'LineString'
+          ? turf.lineString(coords, { tmc }, { id: tmc })
+          : turf.multiLineString(coords, { tmc }, { id: tmc });
+
+      npmrdsEmitter.emit('shape', tmcGeoJson);
+      resolve();
+    }),
+  );
+
+async function emitTmcGeoJsonShapes(
+  npmrdsEmitter: any,
+  npmrds_shapefile_tgz: string,
+) {
+  const shpFileDir = getShapefileDirectoryFromTarArchive(npmrds_shapefile_tgz);
+
   gdal.verbose();
   const dataset = gdal.open(`/vsitar/${npmrds_shapefile_tgz}${shpFileDir}`);
 
   const { features } = dataset.layers.get(0);
 
-  // NOTE: synchronous
-  // https://github.com/naturalatlas/node-gdal/blob/c013781c7564f759145eb1e17a30ca0451ce4057/lib/gdal.js#L142-L160
-  features.forEach((feature) => {
-    // @ts-ignore
-    const geometry:
-      | turf.LineString
-      | turf.MultiLineString = feature.getGeometry().toObject();
-    const geometryType = turf.getType(geometry);
+  let feature: null | gdal.Feature = null;
 
-    assert(geometryType === 'LineString' || geometryType === 'MultiLineString');
-
-    const coords = turf.getCoords(geometry);
-
-    const properties = feature.fields.toObject();
-    // @ts-ignore
-    const { Tmc: tmc } = properties;
-
-    const tmcGeoJson =
-      geometryType === 'LineString'
-        ? turf.lineString(coords, { tmc }, { id: tmc })
-        : turf.multiLineString(coords, { tmc }, { id: tmc });
-
-    npmrdsEmitter.emit('shape', tmcGeoJson);
-  });
+  // eslint-disable-next-line no-cond-assign
+  while ((feature = features.next())) {
+    await handleShapefileFeatureAsync(npmrdsEmitter, feature);
+  }
 }
 
 export default async ({
@@ -128,8 +142,10 @@ export default async ({
   try {
     loadNpmrds(npmrdsEmitter);
 
-    await emitTmcMetadata(npmrdsEmitter, npmrds_tmc_identification_gz);
-    emitTmcGeoJsonShapes(npmrdsEmitter, npmrds_shapefile_tgz);
+    await Promise.all([
+      emitTmcMetadata(npmrdsEmitter, npmrds_tmc_identification_gz),
+      emitTmcGeoJsonShapes(npmrdsEmitter, npmrds_shapefile_tgz),
+    ]);
 
     npmrdsEmitter.emit('done');
   } catch (err) {

@@ -12,6 +12,8 @@ import { NPMRDS as SCHEMA } from '../../../constants/databaseSchemaNames';
 
 import { handleTmcGeometryIrregularBoundingPolygon } from './anomalyHandlers';
 
+const validDirectionsRE = /N|NORTBOUND|E|EASTBOUND|S|SOUTHBOUND|W|WESTBOUND/i;
+
 const tmcIdentificationColumns = [
   'tmc',
   'type',
@@ -54,6 +56,14 @@ const tmcIdentificationColumns = [
   'active_end_date',
 ];
 
+const createNpmrdsTables = (xdb: any) => {
+  const sql = readFileSync(join(__dirname, './create_npmrds_tables.sql'))
+    .toString()
+    .replace(/__SCHEMA__/g, SCHEMA);
+
+  xdb.exec(sql);
+};
+
 const insertTmcMetadata = (xdb: any, metadata: any) =>
   xdb
     .prepare(
@@ -67,6 +77,10 @@ const insertTmcMetadata = (xdb: any, metadata: any) =>
         const v = metadata[k];
 
         if (_.isNil(v)) {
+          return null;
+        }
+
+        if (k === 'direction' && !v?.match(validDirectionsRE)) {
           return null;
         }
 
@@ -111,14 +125,6 @@ const insertTmcShape = (
         ) VALUES (?, ?) ; `,
     )
     .run([JSON.stringify(_.first(polyCoords)), feature.id]);
-};
-
-const createNpmrdsTables = (xdb: any) => {
-  const sql = readFileSync(join(__dirname, './create_npmrds_tables.sql'))
-    .toString()
-    .replace(/__SCHEMA__/g, SCHEMA);
-
-  xdb.exec(sql);
 };
 
 // https://basarat.gitbook.io/typescript/main-1/typed-event

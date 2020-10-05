@@ -14,7 +14,7 @@ export const handleTmcGeometryIrregularBoundingPolygon = (
   logger.warn({
     type: 'IRREGULAR_BOUNDING_POLYGON',
     payload: {
-      msg: `SharedStreetsGeometry bounding polygon is MultiPolygon.`,
+      msg: `NPMRDS TMC geometry bounding polygon is MultiPolygon.`,
       tmcShapeGeoJson,
       _moduleId: moduleId,
     },
