@@ -22,6 +22,7 @@ const source_map_load = require('./src/pipeline_transforms/source_map_load/yargs
 const conflation_map = require("./src/pipeline_transforms/conflation_map/yargs_wrapper");
 
 const load_npmrds = require('./src/pipeline_transforms/load_npmrds/yargs_wrapper');
+const load_nys_ris = require('./src/pipeline_transforms/load_nys_ris/yargs_wrapper');
 
 // GTFS
 const raw_gtfs_into_sqlite = require("./src/pipeline_transforms/raw_gtfs_into_sqlite/yargs_wrapper");
@@ -58,6 +59,7 @@ yargs
   })
   .command(source_map_load)
   .command(load_npmrds)
+  .command(load_nys_ris)
   .command(raw_gtfs_into_sqlite)
   .command(gtfs_as_geojson)
   .command(gtfs_network)
