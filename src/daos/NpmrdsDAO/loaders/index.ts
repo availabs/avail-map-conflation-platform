@@ -1,7 +1,8 @@
+// eslint-disable
+
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-import * as turf from '@turf/turf';
 import _ from 'lodash';
 
 import db from '../../../services/DbService';
@@ -12,9 +13,22 @@ import { NPMRDS as SCHEMA } from '../../../constants/databaseSchemaNames';
 
 import { handleTmcGeometryIrregularBoundingPolygon } from './anomalyHandlers';
 
-const validDirectionsRE = /N|NORTBOUND|E|EASTBOUND|S|SOUTHBOUND|W|WESTBOUND/i;
+import {
+  tmcIdentificationValidator,
+  npmrdsShapefileFeatureValidator,
+  TmcIdentificationProperties,
+  NpmrdsShapefileFeature,
+} from '../typing';
 
-const tmcIdentificationColumns = [
+interface TmcIdentificationAsyncIterator
+  extends AsyncGenerator<TmcIdentificationProperties, void, unknown> {}
+
+interface NpmrdsShapefileIterator
+  extends AsyncGenerator<NpmrdsShapefileFeature, void, unknown> {}
+
+export const validDirectionsRE = /N|NORTBOUND|E|EASTBOUND|S|SOUTHBOUND|W|WESTBOUND/i;
+
+export const tmcIdentificationColumns = [
   'tmc',
   'type',
   'road',
@@ -56,6 +70,22 @@ const tmcIdentificationColumns = [
   'active_end_date',
 ];
 
+export const npmrdsShapefileColumns = [
+  'tmc',
+  'type',
+  'roadnumber',
+  'roadname',
+  'firstname',
+  'lineartmc',
+  'country',
+  'state',
+  'county',
+  'zip',
+  'direction',
+  'frc',
+  'feature',
+];
+
 const createNpmrdsTables = (xdb: any) => {
   const sql = readFileSync(join(__dirname, './create_npmrds_tables.sql'))
     .toString()
@@ -64,7 +94,7 @@ const createNpmrdsTables = (xdb: any) => {
   xdb.exec(sql);
 };
 
-const insertTmcMetadata = (xdb: any, metadata: any) =>
+const insertTmcMetadata = (xdb: any, metadata: TmcIdentificationProperties) =>
   xdb
     .prepare(
       `
@@ -76,7 +106,7 @@ const insertTmcMetadata = (xdb: any, metadata: any) =>
       tmcIdentificationColumns.map((k) => {
         const v = metadata[k];
 
-        if (_.isNil(v)) {
+        if (_.isNil(v) || v === '') {
           return null;
         }
 
@@ -92,19 +122,46 @@ const insertTmcMetadata = (xdb: any, metadata: any) =>
       }),
     );
 
-const insertTmcShape = (
-  xdb: any,
-  feature: turf.Feature<turf.LineString | turf.MultiLineString>,
-) => {
+const insertTmcShape = (xdb: any, feature: NpmrdsShapefileFeature) => {
+  const {
+    properties: { tmc },
+  } = feature;
+
   xdb
     .prepare(
       `
-        INSERT INTO npmrds_shapefile(
-          tmc,
-          geojson_feature
-        ) VALUES(?, json(?)) ; `,
+        INSERT INTO ${SCHEMA}.npmrds_shapefile(
+          ${npmrdsShapefileColumns}
+        ) VALUES(${npmrdsShapefileColumns.map((c) =>
+          c === 'feature' ? 'json(?)' : '?',
+        )}) ; `,
     )
-    .run([feature.id, JSON.stringify(feature)]);
+    .run(
+      npmrdsShapefileColumns.map((k) => {
+        const v = feature.properties[k];
+
+        if (k === 'feature') {
+          const f: any = { ...feature };
+          f.properties = { tmc };
+          f.id = tmc;
+          return JSON.stringify(f);
+        }
+
+        if (_.isNil(v) || v === '') {
+          return null;
+        }
+
+        if (k === 'direction' && !v?.match(validDirectionsRE)) {
+          return null;
+        }
+
+        if (Number.isFinite(+v)) {
+          return +v;
+        }
+
+        return v;
+      }),
+    );
 
   // Coordinates of the feature's bounding polygon.
   const polyCoords = getBufferPolygonCoords(feature);
@@ -127,9 +184,37 @@ const insertTmcShape = (
     .run([JSON.stringify(_.first(polyCoords)), feature.id]);
 };
 
-// https://basarat.gitbook.io/typescript/main-1/typed-event
+async function loadTmcIdentfication(
+  xdb: any,
+  tmcIdentificationAsyncIterator: TmcIdentificationAsyncIterator,
+) {
+  // eslint-disable-next-line no-restricted-syntax
+  for await (const metadata of tmcIdentificationAsyncIterator) {
+    if (!tmcIdentificationValidator(metadata)) {
+      console.log(JSON.stringify(tmcIdentificationValidator.errors, null, 4));
+      throw new Error('Invalid TMC Identification entry.');
+    }
+
+    insertTmcMetadata(xdb, metadata);
+  }
+}
+
+async function loadNpmrdsShapefile(
+  xdb: any,
+  npmrdsShapefileIterator: NpmrdsShapefileIterator,
+) {
+  // eslint-disable-next-line no-restricted-syntax
+  for await (const shape of npmrdsShapefileIterator) {
+    npmrdsShapefileFeatureValidator(shape);
+    insertTmcShape(xdb, shape);
+  }
+}
+
 // eslint-disable-next-line import/prefer-default-export
-export async function loadNpmrds(npmrdsEmitter: any) {
+export async function loadNpmrds(
+  tmcIdentificationAsyncIterator: TmcIdentificationAsyncIterator,
+  npmrdsShapefileIterator: NpmrdsShapefileIterator,
+) {
   const xdb = db.openLoadingConnectionToDb(SCHEMA);
 
   try {
@@ -137,21 +222,17 @@ export async function loadNpmrds(npmrdsEmitter: any) {
 
     createNpmrdsTables(xdb);
 
-    const sentinel = new Promise((resolve, reject) =>
-      npmrdsEmitter
-        .on('metadata', insertTmcMetadata.bind(null, xdb))
-        .on('shape', insertTmcShape.bind(null, xdb))
-        .on('done', resolve)
-        .on('error', reject),
-    );
-
-    await sentinel;
+    await Promise.all([
+      loadTmcIdentfication(xdb, tmcIdentificationAsyncIterator),
+      loadNpmrdsShapefile(xdb, npmrdsShapefileIterator),
+    ]);
 
     xdb.exec('COMMIT');
   } catch (err) {
     xdb.exec('ROLLBACK;');
     throw err;
   } finally {
+    xdb.exec(`VACUUM ${SCHEMA};`);
     db.closeLoadingConnectionToDb(xdb);
   }
 }

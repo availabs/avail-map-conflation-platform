@@ -1,6 +1,5 @@
 /* eslint-disable no-restricted-syntax, no-await-in-loop */
 
-import { EventEmitter } from 'events';
 import { createReadStream } from 'fs';
 import { createGunzip } from 'zlib';
 import { pipeline } from 'stream';
@@ -11,11 +10,14 @@ import * as turf from '@turf/turf';
 import _ from 'lodash';
 import gdal from 'gdal';
 import * as csv from 'fast-csv';
-import pump from 'pump';
-import through2 from 'through2';
 import tar from 'tar';
 
-import { loadNpmrds } from '../../daos/NpmrdsDAO';
+import {
+  loadNpmrds,
+  validDirectionsRE,
+  TmcIdentificationProperties,
+  NpmrdsShapefileFeature,
+} from '../../daos/NpmrdsDAO';
 
 const timerId = 'load npmrds';
 
@@ -50,72 +52,45 @@ const getShapefileDirectoryFromTarArchive = (npmrds_shapefile_tgz: string) => {
   return shpFileDir;
 };
 
-const emitTmcMetadata = (
-  npmrdsEmitter: any,
+const castTmcIdentificationRowValues = (v: any, k: string) => {
+  if (_.isNil(v) || v === '') {
+    return null;
+  }
+
+  if (k === 'road' || k === 'zip') {
+    return v;
+  }
+
+  if (k === 'direction' && !v?.match(validDirectionsRE)) {
+    return null;
+  }
+
+  if (Number.isFinite(+v)) {
+    return +v;
+  }
+
+  return v;
+};
+
+async function* makeTmcIdentificationIterator(
   npmrds_tmc_identification_gz: string,
-) =>
-  new Promise((resolve, reject) =>
-    pump(
-      csv.parseStream(
-        pipeline(
-          createReadStream(npmrds_tmc_identification_gz),
-          createGunzip(),
-        ),
-        { headers: true, trim: true },
-      ),
-      through2.obj(function loader(raw, _$, cb) {
-        const tmcMetadata = _.mapKeys(raw, (_v, k) => k.toLowerCase());
-
-        npmrdsEmitter.emit('metadata', tmcMetadata);
-
-        return cb();
-      }),
-      (err) => {
-        if (err) {
-          return reject(err);
-        }
-
-        return resolve();
-      },
-    ),
-  );
-
-const handleShapefileFeatureAsync = (
-  npmrdsEmitter: any,
-  feature: gdal.Feature,
-) =>
-  new Promise((resolve) =>
-    process.nextTick(() => {
-      // @ts-ignore
-      const geometry:
-        | turf.LineString
-        | turf.MultiLineString = feature.getGeometry().toObject();
-      const geometryType = turf.getType(geometry);
-
-      assert(
-        geometryType === 'LineString' || geometryType === 'MultiLineString',
-      );
-
-      const coords = turf.getCoords(geometry);
-
-      const properties = feature.fields.toObject();
-      // @ts-ignore
-      const { Tmc: tmc } = properties;
-
-      const tmcGeoJson =
-        geometryType === 'LineString'
-          ? turf.lineString(coords, { tmc }, { id: tmc })
-          : turf.multiLineString(coords, { tmc }, { id: tmc });
-
-      npmrdsEmitter.emit('shape', tmcGeoJson);
-      resolve();
-    }),
-  );
-
-async function emitTmcGeoJsonShapes(
-  npmrdsEmitter: any,
-  npmrds_shapefile_tgz: string,
 ) {
+  const stream = csv.parseStream(
+    pipeline(createReadStream(npmrds_tmc_identification_gz), createGunzip()),
+    { headers: true, trim: true },
+  );
+
+  for await (const row of stream) {
+    const tmcMetadata: any | TmcIdentificationProperties = _(row)
+      .mapKeys((_v, k: string) => k.toLowerCase())
+      .mapValues(castTmcIdentificationRowValues)
+      .value();
+
+    yield tmcMetadata;
+  }
+}
+
+async function* makeNpmrdsShapesIterator(npmrds_shapefile_tgz: string) {
   const shpFileDir = getShapefileDirectoryFromTarArchive(npmrds_shapefile_tgz);
 
   gdal.verbose();
@@ -127,7 +102,30 @@ async function emitTmcGeoJsonShapes(
 
   // eslint-disable-next-line no-cond-assign
   while ((feature = features.next())) {
-    await handleShapefileFeatureAsync(npmrdsEmitter, feature);
+    const properties: any = _.mapKeys(feature.fields.toObject(), (_v, k) =>
+      k.toLowerCase(),
+    );
+
+    // @ts-ignore
+    const geometry:
+      | turf.LineString
+      | turf.MultiLineString = feature.getGeometry().toObject();
+
+    const geometryType = turf.getType(geometry);
+
+    assert(geometryType === 'LineString' || geometryType === 'MultiLineString');
+
+    const coords = turf.getCoords(geometry);
+
+    const id = properties?.tmc ?? null;
+
+    const tmcGeoJson: NpmrdsShapefileFeature | any =
+      geometryType === 'LineString'
+        ? turf.lineString(coords, properties, { id })
+        : turf.multiLineString(coords, properties, { id });
+
+    yield tmcGeoJson;
+    await new Promise((resolve) => process.nextTick(resolve));
   }
 }
 
@@ -137,20 +135,10 @@ export default async ({
 }) => {
   console.time(timerId);
 
-  const npmrdsEmitter = new EventEmitter();
+  await loadNpmrds(
+    makeTmcIdentificationIterator(npmrds_tmc_identification_gz),
+    makeNpmrdsShapesIterator(npmrds_shapefile_tgz),
+  );
 
-  try {
-    loadNpmrds(npmrdsEmitter);
-
-    await Promise.all([
-      emitTmcMetadata(npmrdsEmitter, npmrds_tmc_identification_gz),
-      emitTmcGeoJsonShapes(npmrdsEmitter, npmrds_shapefile_tgz),
-    ]);
-
-    npmrdsEmitter.emit('done');
-  } catch (err) {
-    npmrdsEmitter.emit('error', err);
-  } finally {
-    console.timeEnd(timerId);
-  }
+  console.timeEnd(timerId);
 };
