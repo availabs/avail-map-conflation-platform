@@ -16,7 +16,8 @@
     "isolatedModules": true,
     "noEmit": true,
     "noImplicitAny": false,
-    "noImplicitThis": false
+    "noImplicitThis": false,
+    "strictNullChecks": true
   },
   "include": [
     "."

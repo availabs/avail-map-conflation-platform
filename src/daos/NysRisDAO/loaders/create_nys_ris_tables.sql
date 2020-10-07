@@ -2,14 +2,14 @@ DROP TABLE IF EXISTS __SCHEMA__.nys_ris;
 
 CREATE TABLE __SCHEMA__.nys_ris (
   fid                           INTEGER PRIMARY KEY,
-  region                        INTEGER,
-  gis_id                        INTEGER,
-  dot_id                        INTEGER,
-  direction                     INTEGER,
-  region_co                     INTEGER,
-  fips_co                       INTEGER,
-  county_name                   TEXT,
-  county                        TEXT,
+  region                        INTEGER NOT NULL,
+  gis_id                        INTEGER NOT NULL,
+  dot_id                        INTEGER NOT NULL,
+  direction                     INTEGER NOT NULL,
+  region_co                     INTEGER NOT NULL,
+  fips_co                       INTEGER NOT NULL,
+  county_name                   TEXT NOT NULL,
+  county                        TEXT NOT NULL,
   route                         TEXT,
   signing                       TEXT,
   route_no                      INTEGER,
@@ -19,9 +19,9 @@ CREATE TABLE __SCHEMA__.nys_ris (
   begin_description             TEXT,
   end_description               TEXT,
   county_order                  INTEGER,
-  beg_mp                        REAL,
-  end_mp                        REAL,
-  section_length                REAL,
+  beg_mp                        REAL NOT NULL,
+  end_mp                        REAL NOT NULL,
+  section_length                REAL NOT NULL,
   muni_geocode                  INTEGER,
   muni_type                     TEXT,
   muni_name                     TEXT,
@@ -30,7 +30,7 @@ CREATE TABLE __SCHEMA__.nys_ris (
   muni_owner_geocode            INTEGER,
   muni_owner_type               TEXT,
   muni_owner_name               TEXT,
-  functional_class              INTEGER,
+  functional_class              INTEGER NOT NULL,
   federal_aid_highway__stp_er_  TEXT,
   nhs_value                     TEXT,
   "primary"                     TEXT,
@@ -141,7 +141,13 @@ CREATE TABLE __SCHEMA__.nys_ris (
   aadt_combo                    INTEGER,
   pavement_layer                INTEGER,
   shape_length                  REAL,
-  feature                       TEXT
+  feature                       TEXT,
+
+  UNIQUE (gis_id, beg_mp),
+  UNIQUE (gis_id, end_mp),
+  CHECK (beg_mp < end_mp),
+  CHECK (direction = 1 OR direction = 2),
+  CHECK (functional_class IN (1, 2, 4, 6, 7, 8, 9, 11, 12, 14, 16, 17, 18, 19))
 ) WITHOUT ROWID;
 
 -- Create a spatial index on the geometry
