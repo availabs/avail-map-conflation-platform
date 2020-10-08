@@ -7,7 +7,7 @@ import getModuleId from '../../../../utils/getModuleId';
 import SCHEMA from '../../DATABASE_SCHEMA_NAME';
 
 // For logging.
-const moduleId = getModuleId(__dirname, __filename);
+const moduleId = getModuleId(__filename);
 
 export const handleSharedStreetsReferenceInsertFailure = (
   db: any,

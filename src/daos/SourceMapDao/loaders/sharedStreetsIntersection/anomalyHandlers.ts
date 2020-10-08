@@ -7,7 +7,7 @@ import logger from '../../../../services/Logger';
 import SCHEMA from '../../DATABASE_SCHEMA_NAME';
 
 // For logging.
-const moduleId = getModuleId(__dirname, __filename);
+const moduleId = getModuleId(__filename);
 
 // import {
 //   handleSharedStreetsIntersectionToGeoJsonFailure,

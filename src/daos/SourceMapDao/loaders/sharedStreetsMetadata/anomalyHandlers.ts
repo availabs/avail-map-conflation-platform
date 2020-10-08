@@ -5,7 +5,7 @@ import getModuleId from '../../../../utils/getModuleId';
 import logger from '../../../../services/Logger';
 
 // For logging.
-const moduleId = getModuleId(__dirname, __filename);
+const moduleId = getModuleId(__filename);
 
 export const handleNoOsmMetadata = (
   shstMetadata: SharedStreetsMetadata,

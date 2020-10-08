@@ -50,6 +50,10 @@ const logger = Winston.createLogger({
       format: Winston.format.json(),
       filename,
     }),
+    new Winston.transports.Console({
+      format: Winston.format.json(),
+      level: 'warn',
+    }),
   ],
 });
 
