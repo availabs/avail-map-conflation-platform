@@ -1,9 +1,9 @@
-// eslint-disable
-
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
 import _ from 'lodash';
+
+import { Database } from 'better-sqlite3';
 
 import db from '../../../services/DbService';
 
@@ -11,80 +11,26 @@ import getBufferPolygonCoords from '../../../utils/getBufferPolygonCoords';
 
 import { NPMRDS as SCHEMA } from '../../../constants/databaseSchemaNames';
 
-import { handleTmcGeometryIrregularBoundingPolygon } from './anomalyHandlers';
+import {
+  handleTmcGeometryIrregularBoundingPolygon,
+  handleTmcIdentificationInputDataSchemaInconsistency,
+  handleAlwaysNullTmcIdentificationColumns,
+  handleNpmrdsShapefileInputDataSchemaInconsistency,
+  handleAlwaysNullNpmrdsShapefileColumns,
+} from './anomalyHandlers';
 
 import {
-  tmcIdentificationValidator,
-  npmrdsShapefileFeatureValidator,
+  validateTmcIdentificationProperties,
+  validateNpmrdsShapefileFeature,
   TmcIdentificationProperties,
   NpmrdsShapefileFeature,
 } from '../typing';
 
-interface TmcIdentificationAsyncIterator
+export interface TmcIdentificationAsyncIterator
   extends AsyncGenerator<TmcIdentificationProperties, void, unknown> {}
 
-interface NpmrdsShapefileIterator
+export interface NpmrdsShapefileIterator
   extends AsyncGenerator<NpmrdsShapefileFeature, void, unknown> {}
-
-export const validDirectionsRE = /N|NORTBOUND|E|EASTBOUND|S|SOUTHBOUND|W|WESTBOUND/i;
-
-export const tmcIdentificationColumns = [
-  'tmc',
-  'type',
-  'road',
-  'road_order',
-  'intersection',
-  'tmclinear',
-  'country',
-  'state',
-  'county',
-  'zip',
-  'direction',
-  'start_latitude',
-  'start_longitude',
-  'end_latitude',
-  'end_longitude',
-  'miles',
-  'frc',
-  'border_set',
-  'isprimary',
-  'f_system',
-  'urban_code',
-  'faciltype',
-  'structype',
-  'thrulanes',
-  'route_numb',
-  'route_sign',
-  'route_qual',
-  'altrtename',
-  'aadt',
-  'aadt_singl',
-  'aadt_combi',
-  'nhs',
-  'nhs_pct',
-  'strhnt_typ',
-  'strhnt_pct',
-  'truck',
-  'timezone_name',
-  'active_start_date',
-  'active_end_date',
-];
-
-export const npmrdsShapefileColumns = [
-  'tmc',
-  'type',
-  'roadnumber',
-  'roadname',
-  'firstname',
-  'lineartmc',
-  'country',
-  'state',
-  'county',
-  'zip',
-  'direction',
-  'frc',
-  'feature',
-];
 
 const createNpmrdsTables = (xdb: any) => {
   const sql = readFileSync(join(__dirname, './create_npmrds_tables.sql'))
@@ -94,119 +40,268 @@ const createNpmrdsTables = (xdb: any) => {
   xdb.exec(sql);
 };
 
-const insertTmcMetadata = (xdb: any, metadata: TmcIdentificationProperties) =>
-  xdb
-    .prepare(
-      `
-        INSERT INTO ${SCHEMA}.tmc_identification (
-          ${tmcIdentificationColumns}
-        ) VALUES(${tmcIdentificationColumns.map(() => '?')}) ;`,
-    )
-    .run(
-      tmcIdentificationColumns.map((k) => {
-        const v = metadata[k];
+const compareSchemas = (
+  databaseTableColumns: readonly string[],
+  inputData: object,
+) => {
+  const dbCols = databaseTableColumns.filter((c) => c !== 'feature');
 
-        if (_.isNil(v) || v === '') {
-          return null;
-        }
+  const inputProps: readonly string[] = Object.keys(inputData);
 
-        if (k === 'direction' && !v?.match(validDirectionsRE)) {
-          return null;
-        }
+  const dbOnly = _.difference(dbCols, inputProps);
+  const inputOnly = _.difference(inputProps, dbCols);
 
-        if (Number.isFinite(+v)) {
-          return +v;
-        }
+  return dbOnly.length > 0 || inputOnly.length > 0
+    ? { dbOnly, inputOnly }
+    : null;
+};
 
-        return v;
-      }),
-    );
+const prepareTmcIdentificationInsertStmt = (
+  xdb: Database,
+  tmcIdentificationColumns: readonly string[],
+) =>
+  xdb.prepare(
+    `
+      INSERT INTO ${SCHEMA}.tmc_identification (
+        ${tmcIdentificationColumns}
+      ) VALUES(${tmcIdentificationColumns.map(() => '?')}) ;
+    `,
+  );
 
-const insertTmcShape = (xdb: any, feature: NpmrdsShapefileFeature) => {
-  const {
-    properties: { tmc },
-  } = feature;
+const getTmcIdentificationInsertValues = (
+  properties: TmcIdentificationProperties,
+  nonNullColumnsTracker: Record<string, boolean>,
+  c: string,
+) => {
+  let v = properties[c];
 
-  xdb
-    .prepare(
-      `
-        INSERT INTO ${SCHEMA}.npmrds_shapefile(
-          ${npmrdsShapefileColumns}
-        ) VALUES(${npmrdsShapefileColumns.map((c) =>
-          c === 'feature' ? 'json(?)' : '?',
-        )}) ; `,
-    )
-    .run(
-      npmrdsShapefileColumns.map((k) => {
-        const v = feature.properties[k];
-
-        if (k === 'feature') {
-          const f: any = { ...feature };
-          f.properties = { tmc };
-          f.id = tmc;
-          return JSON.stringify(f);
-        }
-
-        if (_.isNil(v) || v === '') {
-          return null;
-        }
-
-        if (k === 'direction' && !v?.match(validDirectionsRE)) {
-          return null;
-        }
-
-        if (Number.isFinite(+v)) {
-          return +v;
-        }
-
-        return v;
-      }),
-    );
-
-  // Coordinates of the feature's bounding polygon.
-  const polyCoords = getBufferPolygonCoords(feature);
-
-  if (polyCoords.length !== 1) {
-    handleTmcGeometryIrregularBoundingPolygon(feature);
+  if (_.isNil(v) || v === '') {
+    v = null;
   }
 
-  // Inserts only the first set of coordinates.
-  // If this INSERT fails, the database is corrupted.
-  //   Therefore, we want the Error to propagate up and cause a TRANSACTION ROLLBACK.
-  xdb
-    .prepare(
-      `
-        INSERT INTO ${SCHEMA}.npmrds_shapefile_geopoly_idx (
-          _shape,
-          tmc
-        ) VALUES (?, ?) ; `,
-    )
-    .run([JSON.stringify(_.first(polyCoords)), feature.id]);
+  // eslint-disable-next-line no-param-reassign
+  nonNullColumnsTracker[c] = nonNullColumnsTracker[c] || v !== null;
+
+  return v;
+};
+
+const compareTmcIdentificationSchemas = (
+  tmcIdentificationColumns: readonly string[],
+  tmcIdentProps: TmcIdentificationProperties,
+) => {
+  const diff = compareSchemas(tmcIdentificationColumns, tmcIdentProps);
+
+  if (diff) {
+    const { dbOnly, inputOnly } = diff;
+    handleTmcIdentificationInputDataSchemaInconsistency(dbOnly, inputOnly);
+  }
 };
 
 async function loadTmcIdentfication(
   xdb: any,
   tmcIdentificationAsyncIterator: TmcIdentificationAsyncIterator,
 ) {
+  const tmcIdentificationColumns: readonly string[] = xdb
+    .pragma("table_info('tmc_identification')")
+    .map(({ name }) => name);
+
+  const tmcIdentificationInsertStmt = prepareTmcIdentificationInsertStmt(
+    xdb,
+    tmcIdentificationColumns,
+  );
+
+  const nonNullColumnsTracker = tmcIdentificationColumns.reduce((acc, c) => {
+    acc[c] = false;
+    return acc;
+  }, {});
+
+  let comparedSchemas = false;
   // eslint-disable-next-line no-restricted-syntax
-  for await (const metadata of tmcIdentificationAsyncIterator) {
-    if (!tmcIdentificationValidator(metadata)) {
-      console.log(JSON.stringify(tmcIdentificationValidator.errors, null, 4));
-      throw new Error('Invalid TMC Identification entry.');
+  for await (const tmcIdentProps of tmcIdentificationAsyncIterator) {
+    if (!comparedSchemas) {
+      compareTmcIdentificationSchemas(tmcIdentificationColumns, tmcIdentProps);
+      comparedSchemas = true;
     }
 
-    insertTmcMetadata(xdb, metadata);
+    try {
+      validateTmcIdentificationProperties(tmcIdentProps);
+    } catch (err) {
+      console.error(JSON.stringify(tmcIdentProps, null, 4));
+      throw err;
+    }
+
+    const getValuesForCols = getTmcIdentificationInsertValues.bind(
+      null,
+      tmcIdentProps,
+      nonNullColumnsTracker,
+    );
+
+    const values = tmcIdentificationColumns.map(getValuesForCols);
+
+    tmcIdentificationInsertStmt.run(values);
+  }
+
+  const alwaysNullColumns = tmcIdentificationColumns.filter(
+    (c) => !nonNullColumnsTracker[c],
+  );
+
+  if (alwaysNullColumns.length) {
+    handleAlwaysNullTmcIdentificationColumns(alwaysNullColumns);
   }
 }
+
+const prepareNpmrdsShapefileInsertStmt = (
+  xdb: Database,
+  npmrdsShapefileColumns: string[],
+) =>
+  xdb.prepare(
+    `
+      INSERT INTO ${SCHEMA}.npmrds_shapefile(
+        ${npmrdsShapefileColumns}
+      ) VALUES(${npmrdsShapefileColumns.map((c) =>
+        c === 'feature' ? 'json(?)' : '?',
+      )}) ;
+    `,
+  );
+
+const prepareNpmrdsShapefileGeopolyInsertStmt = (xdb: Database) =>
+  xdb.prepare(
+    `
+      INSERT INTO ${SCHEMA}.npmrds_shapefile_geopoly_idx (
+        _shape,
+        tmc
+      ) VALUES (?, ?) ;
+    `,
+  );
+
+const getNpmrdsShapefileInsertValues = (
+  feature: NpmrdsShapefileFeature,
+  nonNullColumnsTracker: Record<string, boolean>,
+  c: string,
+) => {
+  let v: any = null;
+  if (c === 'feature') {
+    const f: any = { ...feature };
+    const {
+      properties: { tmc },
+    } = feature;
+
+    f.properties = { tmc };
+
+    f.id = tmc;
+
+    v = JSON.stringify(f);
+  } else {
+    v = feature.properties[c];
+    if (_.isNil(v) || v === '') {
+      v = null;
+    }
+  }
+
+  // eslint-disable-next-line no-param-reassign
+  nonNullColumnsTracker[c] = nonNullColumnsTracker[c] || v !== null;
+
+  return v;
+};
+
+const compareNpmrdsShapefileSchemas = (
+  npmrdsShapefileColumns: readonly string[],
+  properties: Record<string, string | number | null>,
+) => {
+  const disregardedShapefileProps = new Set([
+    'oid',
+    'mvversioni',
+    'startlat',
+    'startlong',
+    'endlat',
+    'endlong',
+    'miles',
+  ]);
+  const inputProps = Object.keys(properties).reduce((acc, p) => {
+    if (!disregardedShapefileProps.has(p)) {
+      acc[p] = properties[p];
+    }
+
+    return acc;
+  }, {});
+
+  const diff = compareSchemas(npmrdsShapefileColumns, inputProps);
+
+  if (diff) {
+    const { dbOnly, inputOnly } = diff;
+    handleNpmrdsShapefileInputDataSchemaInconsistency(dbOnly, inputOnly);
+  }
+};
 
 async function loadNpmrdsShapefile(
   xdb: any,
   npmrdsShapefileIterator: NpmrdsShapefileIterator,
 ) {
+  const npmrdsShapefileColumns: string[] = xdb
+    .pragma("table_info('npmrds_shapefile')")
+    .map(({ name }) => name);
+
+  const npmrdsShapefileInsertStmt = prepareNpmrdsShapefileInsertStmt(
+    xdb,
+    npmrdsShapefileColumns,
+  );
+
+  const npmrdsShapefileGeopolyInsertStmt = prepareNpmrdsShapefileGeopolyInsertStmt(
+    xdb,
+  );
+
+  const nonNullColumnsTracker = npmrdsShapefileColumns.reduce((acc, c) => {
+    acc[c] = false;
+    return acc;
+  }, {});
+
+  let comparedSchemas = false;
   // eslint-disable-next-line no-restricted-syntax
-  for await (const shape of npmrdsShapefileIterator) {
-    npmrdsShapefileFeatureValidator(shape);
-    insertTmcShape(xdb, shape);
+  for await (const feature of npmrdsShapefileIterator) {
+    if (!comparedSchemas) {
+      compareNpmrdsShapefileSchemas(npmrdsShapefileColumns, feature.properties);
+      comparedSchemas = true;
+    }
+
+    try {
+      validateNpmrdsShapefileFeature(feature);
+    } catch (err) {
+      console.error(JSON.stringify(feature, null, 4));
+      throw err;
+    }
+
+    const getValuesForCols = getNpmrdsShapefileInsertValues.bind(
+      null,
+      feature,
+      nonNullColumnsTracker,
+    );
+
+    const values = npmrdsShapefileColumns.map(getValuesForCols);
+
+    npmrdsShapefileInsertStmt.run(values);
+
+    // Coordinates of the feature's bounding polygon.
+    const polyCoords = getBufferPolygonCoords(feature);
+
+    if (polyCoords.length !== 1) {
+      handleTmcGeometryIrregularBoundingPolygon(feature);
+    }
+
+    // Inserts only the first set of coordinates.
+    // If this INSERT fails, the database is corrupted.
+    //   Therefore, we want the Error to propagate up and cause a TRANSACTION ROLLBACK.
+    npmrdsShapefileGeopolyInsertStmt.run([
+      JSON.stringify(_.first(polyCoords)),
+      feature.id,
+    ]);
+  }
+
+  const alwaysNullColumns = npmrdsShapefileColumns.filter(
+    (c) => !nonNullColumnsTracker[c],
+  );
+
+  if (alwaysNullColumns.length) {
+    handleAlwaysNullNpmrdsShapefileColumns(alwaysNullColumns);
   }
 }
 

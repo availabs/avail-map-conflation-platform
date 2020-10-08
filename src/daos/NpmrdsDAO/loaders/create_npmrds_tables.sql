@@ -39,7 +39,18 @@ CREATE TABLE __SCHEMA__.tmc_identification (
     truck               INTEGER,
     timezone_name       TEXT,
     active_start_date   TEXT,
-    active_end_date     TEXT
+    active_end_date     TEXT,
+
+    -- TODO: Change these to FOREIGN KEY REFERENCES.
+    CHECK (f_system    BETWEEN 1 AND 7),
+    CHECK (faciltype   BETWEEN 1 AND 6),
+    CHECK (structype   BETWEEN 1 AND 3),
+    CHECK (route_sign  BETWEEN 1 AND 10),
+    CHECK (route_qual  BETWEEN 1 AND 10),
+    CHECK (nhs         BETWEEN 0 AND 9), -- Documentation says [1,9]
+    CHECK (nhs_pct     BETWEEN 0 AND 100),
+    CHECK (strhnt_typ  BETWEEN 0 AND 2), -- Documentation says [1,2]
+    CHECK (strhnt_pct  BETWEEN 0 AND 100)
 ) WITHOUT ROWID;
 
 DROP TABLE IF EXISTS __SCHEMA__.npmrds_shapefile ;

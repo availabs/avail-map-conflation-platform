@@ -4,7 +4,7 @@ export interface TmcIdentificationProperties {
   readonly tmc: string;
   readonly type: string;
   readonly road: string | null;
-  readonly road_order: number;
+  readonly road_order: number | null;
   readonly intersection: string | null;
   readonly tmclinear: number | null;
   readonly country: string | null;
@@ -55,7 +55,7 @@ export interface NpmrdsShapefileFeature
     readonly state: string;
     readonly county: string;
     readonly zip: string;
-    readonly direction: string;
+    readonly direction: string | null;
     readonly startlat: number | null;
     readonly startlong: number | null;
     readonly endlat: number | null;

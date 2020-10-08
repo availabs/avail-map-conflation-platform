@@ -14,11 +14,32 @@ import tar from 'tar';
 
 import {
   loadNpmrds,
-  validDirectionsRE,
+  TmcIdentificationPropertiesSchema,
+  TmcIdentificationAsyncIterator,
+  NpmrdsShapefileIterator,
   TmcIdentificationProperties,
   NpmrdsShapefileFeature,
 } from '../../daos/NpmrdsDAO';
 
+// Because prettier and ts-ignore are not working well together.
+const tmcIdentPropertyDefs =
+  TmcIdentificationPropertiesSchema?.definitions?.TmcIdentificationProperties;
+
+const tmcIdentificationPropertyTypes = _.mapValues(
+  // @ts-ignore
+  tmcIdentPropertyDefs?.properties,
+  (v) => {
+    const { type: types } = v;
+
+    const type = Array.isArray(types)
+      ? _.first(types.filter((t) => t !== 'null'))
+      : types;
+
+    return type;
+  },
+);
+
+// Because prettier and ts-ignore are not working well together.
 const timerId = 'load npmrds';
 
 const getShapefileDirectoryFromTarArchive = (npmrds_shapefile_tgz: string) => {
@@ -52,29 +73,28 @@ const getShapefileDirectoryFromTarArchive = (npmrds_shapefile_tgz: string) => {
   return shpFileDir;
 };
 
+// Because, for some reason, the template breaks my editor when used below.
+const toStr = (v: any) => `${v}`;
+
 const castTmcIdentificationRowValues = (v: any, k: string) => {
+  const type = tmcIdentificationPropertyTypes[k];
+
   if (_.isNil(v) || v === '') {
     return null;
   }
-
-  if (k === 'road' || k === 'zip') {
-    return v;
+  if (type === 'number') {
+    const n = +v;
+    return Number.isFinite(n) ? n : null;
   }
-
-  if (k === 'direction' && !v?.match(validDirectionsRE)) {
-    return null;
+  if (type === 'string') {
+    return toStr(v);
   }
-
-  if (Number.isFinite(+v)) {
-    return +v;
-  }
-
   return v;
 };
 
 async function* makeTmcIdentificationIterator(
   npmrds_tmc_identification_gz: string,
-) {
+): TmcIdentificationAsyncIterator {
   const stream = csv.parseStream(
     pipeline(createReadStream(npmrds_tmc_identification_gz), createGunzip()),
     { headers: true, trim: true },
@@ -83,6 +103,7 @@ async function* makeTmcIdentificationIterator(
   for await (const row of stream) {
     const tmcMetadata: any | TmcIdentificationProperties = _(row)
       .mapKeys((_v, k: string) => k.toLowerCase())
+      .pick(Object.keys(tmcIdentificationPropertyTypes))
       .mapValues(castTmcIdentificationRowValues)
       .value();
 
@@ -90,7 +111,9 @@ async function* makeTmcIdentificationIterator(
   }
 }
 
-async function* makeNpmrdsShapesIterator(npmrds_shapefile_tgz: string) {
+async function* makeNpmrdsShapesIterator(
+  npmrds_shapefile_tgz: string,
+): NpmrdsShapefileIterator {
   const shpFileDir = getShapefileDirectoryFromTarArchive(npmrds_shapefile_tgz);
 
   gdal.verbose();
