@@ -13,13 +13,13 @@ import { NYS_RIS as SCHEMA } from '../../../constants/databaseSchemaNames';
 
 import {
   handleNysRisGeometryIrregularBoundingPolygon,
-  handleInputDataSchemaInconsistency,
-  handleAlwaysNullColumns,
+  handleNysRoadInventorySystemInputDataSchemaInconsistency,
+  handleAlwaysNullNysRoadInventorySystemColumns,
 } from './anomalyHandlers';
 
 import {
   NysRoadInventorySystemProperties,
-  NysRoadInventorySystemPropertiesValidator,
+  validateNysRoadInventorySystemProperties,
 } from '../typing';
 
 export type NysRoadInventorySystemGeodatabaseEntry = {
@@ -30,21 +30,6 @@ export type NysRoadInventorySystemGeodatabaseEntry = {
 export interface NysRoadInventorySystemGeodatabaseEntryIterator
   extends Generator<NysRoadInventorySystemGeodatabaseEntry, void, unknown> {}
 
-const preparedStmts = {};
-const prepareStatement = (xdb: Database, stmt: string) => {
-  let prepStmt = preparedStmts[stmt];
-
-  if (!_.isNil(prepStmt)) {
-    return prepStmt;
-  }
-
-  prepStmt = xdb.prepare(stmt);
-
-  preparedStmts[stmt] = prepStmt;
-
-  return prepStmt;
-};
-
 const createNysRisTables = (xdb: any) => {
   const sql = readFileSync(join(__dirname, './create_nys_ris_tables.sql'))
     .toString()
@@ -54,29 +39,75 @@ const createNysRisTables = (xdb: any) => {
 };
 
 const compareSchemas = (
-  nysRisTableColumns: string[],
+  nysRisTableColumns: readonly string[],
   properties: NysRoadInventorySystemProperties,
 ) => {
   const inputProps = Object.keys(properties);
 
-  const dbCols = _(nysRisTableColumns)
-    .omit(['feature', '"primary"'])
-    .push('primary')
-    .value();
+  const dbCols = nysRisTableColumns.filter(
+    (c) => c !== 'feature' && c !== '"primary"',
+  );
+  dbCols.push('primary');
 
   const dbOnly = _.difference(dbCols, inputProps);
   const inputOnly = _.difference(inputProps, dbCols);
 
   if (dbOnly.length > 0 || inputOnly.length > 0) {
-    handleInputDataSchemaInconsistency(dbOnly, inputOnly);
+    handleNysRoadInventorySystemInputDataSchemaInconsistency(dbOnly, inputOnly);
   }
 };
 
+const getInsertValuesArray = (
+  entry: NysRoadInventorySystemGeodatabaseEntry,
+  nonNullColumnsTracker: Record<string, boolean>,
+  c: string,
+) => {
+  const { properties, shape } = entry;
+
+  // '"primary"' requires cleaning the double quotes
+  const k = c === '"primary"' ? 'primary' : c;
+
+  let v = k === 'feature' ? shape && JSON.stringify(shape) : properties[k];
+
+  if (_.isNil(v) || v === '') {
+    v = null;
+  }
+
+  // eslint-disable-next-line no-param-reassign
+  nonNullColumnsTracker[c] = nonNullColumnsTracker[c] || v !== null;
+
+  return v;
+};
+
+const prepareInsertStatement = (
+  xdb: Database,
+  nysRisTableColumns: readonly string[],
+) =>
+  xdb.prepare(
+    `
+      INSERT INTO ${SCHEMA}.nys_ris (
+        ${nysRisTableColumns}
+      ) VALUES(${nysRisTableColumns.map((c) =>
+        c === 'feature' ? 'json(?)' : ' ? ',
+      )}) ;
+    `,
+  );
+
+const prepareGeoPolyIdxStmt = (xdb: Database) =>
+  xdb.prepare(
+    `
+      INSERT INTO ${SCHEMA}.nys_ris_geopoly_idx(
+        _shape,
+        fid
+      ) VALUES(json(?), ?) ;
+    `,
+  );
+
 const loadNysRisGeodatabase = (
-  xdb: any,
+  xdb: Database,
   geodatabaseEntriesIterator: NysRoadInventorySystemGeodatabaseEntryIterator,
 ) => {
-  const nysRisTableColumns: string[] = xdb
+  const nysRisTableColumns: readonly string[] = xdb
     .pragma("table_info('nys_ris')")
     .map(({ name }) => (name === 'primary' ? '"primary"' : name));
 
@@ -85,25 +116,8 @@ const loadNysRisGeodatabase = (
     return acc;
   }, {});
 
-  const getInsertValues = (
-    entry: NysRoadInventorySystemGeodatabaseEntry,
-    c: string,
-  ) => {
-    const { properties, shape } = entry;
-
-    // '"primary"' requires cleaning the double quotes
-    const k = c === '"primary"' ? 'primary' : c;
-
-    let v = k === 'feature' ? shape && JSON.stringify(shape) : properties[k];
-
-    if (_.isNil(v) || v === '') {
-      v = null;
-    }
-
-    nonNullColumnsTracker[c] = nonNullColumnsTracker[c] || v !== null;
-
-    return v;
-  };
+  const insertStmt = prepareInsertStatement(xdb, nysRisTableColumns);
+  const updateGeoPolyIdxStmt = prepareGeoPolyIdxStmt(xdb);
 
   let comparedSchemas = false;
   // eslint-disable-next-line no-restricted-syntax
@@ -115,32 +129,26 @@ const loadNysRisGeodatabase = (
       comparedSchemas = true;
     }
 
-    const metadata = _.mapValues(properties, (v) =>
-      _.isNil(v) || v === '' ? null : v,
+    // MUTATION: Set undefined or '' to NULL.
+    Object.keys(properties).forEach((k) => {
+      const v = properties[k];
+
+      if (_.isNil(v) || v === '') {
+        properties[k] = null;
+      }
+    });
+
+    validateNysRoadInventorySystemProperties(properties);
+
+    const getValuesForCols = getInsertValuesArray.bind(
+      null,
+      entry,
+      nonNullColumnsTracker,
     );
 
-    if (!NysRoadInventorySystemPropertiesValidator(metadata)) {
-      console.log(
-        JSON.stringify(
-          NysRoadInventorySystemPropertiesValidator.errors,
-          null,
-          4,
-        ),
-      );
-      console.log(JSON.stringify({ properties, metadata }, null, 4));
-      throw new Error('Invalid NYS RIS Geodatabase entry.');
-    }
+    const values = nysRisTableColumns.map(getValuesForCols);
 
-    const values = nysRisTableColumns.map(getInsertValues.bind(null, entry));
-
-    prepareStatement(
-      xdb,
-      `
-        INSERT INTO ${SCHEMA}.nys_ris (
-          ${nysRisTableColumns}
-        ) VALUES(${nysRisTableColumns.map(() => '?')}) ;
-      `,
-    ).run(values);
+    insertStmt.run(values);
 
     if (shape) {
       // Coordinates of the feature's bounding polygon.
@@ -153,15 +161,7 @@ const loadNysRisGeodatabase = (
       // Inserts only the first set of coordinates.
       // If this INSERT fails, the database is corrupted.
       //   Therefore, we want the Error to propagate up and cause a TRANSACTION ROLLBACK.
-      prepareStatement(
-        xdb,
-        `
-          INSERT INTO ${SCHEMA}.nys_ris_geopoly_idx (
-            _shape,
-            fid
-          ) VALUES (json(?), ?) ;
-        `,
-      ).run([JSON.stringify(_.first(polyCoords)), shape.id]);
+      updateGeoPolyIdxStmt.run([JSON.stringify(_.first(polyCoords)), shape.id]);
     }
   }
 
@@ -170,7 +170,7 @@ const loadNysRisGeodatabase = (
   );
 
   if (alwaysNullColumns.length) {
-    handleAlwaysNullColumns(alwaysNullColumns);
+    handleAlwaysNullNysRoadInventorySystemColumns(alwaysNullColumns);
   }
 };
 
@@ -192,7 +192,7 @@ export async function loadNysRis(
     xdb.exec('ROLLBACK;');
     throw err;
   } finally {
-    xdb.exec(`VACUUM ${SCHEMA};`);
+    xdb.exec(`VACUUM ${SCHEMA}; `);
     db.closeLoadingConnectionToDb(xdb);
   }
 }
