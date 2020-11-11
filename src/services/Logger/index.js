@@ -51,8 +51,15 @@ const logger = Winston.createLogger({
       filename,
     }),
     new Winston.transports.Console({
-      format: Winston.format.json(),
+      format: Winston.format.combine(
+        Winston.format.json(),
+        Winston.format.prettyPrint(),
+      ),
       level: 'warn',
+      prettyPrint: true,
+      colorize: true,
+      silent: false,
+      timestamp: false,
     }),
   ],
 });

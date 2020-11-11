@@ -57,6 +57,7 @@ const getDatabaseFilePathForSchemaName = (databaseSchemaName: string) =>
 const openLoadingConnectionToDb = (databaseSchemaName: string) => {
   const databaseFilePath = getDatabaseFilePathForSchemaName(databaseSchemaName);
 
+  // const xdb = new Database(IN_MEMORY, { verbose: console.log });
   const xdb = new Database(IN_MEMORY);
 
   xdb.exec(`ATTACH DATABASE '${databaseFilePath}' AS ${databaseSchemaName};`);

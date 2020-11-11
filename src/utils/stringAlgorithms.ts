@@ -1,20 +1,9 @@
-const _ = require('lodash');
+import _ from 'lodash';
 
-const validateInputs = (a, b) => {
-  if (!Array.isArray(a) || !Array.isArray(b)) {
-    throw new Error('Both inputs to the stringAlgorithms must be Arrays.');
-  }
-};
+export const isSubset = (a: any[], b: any[]) =>
+  _.differenceWith(a, b, _.isEqual).length === 0;
 
-const isSubset = (a, b) => {
-  validateInputs(a, b);
-
-  return _.differenceWith(a, b, _.isEqual).length === 0;
-};
-
-const isSubsequence = (a, b) => {
-  validateInputs(a, b);
-
+export const isSubsequence = (a: any[], b: any[]) => {
   const M = a.length;
   const N = b.length;
 
@@ -32,15 +21,14 @@ const isSubsequence = (a, b) => {
 };
 
 // https://www.geeksforgeeks.org/check-string-substring-another/
-const isSubstring = (a, b) => {
-  validateInputs(a, b);
-
+// Is "a" a substring of b?
+export const isSubstring = (a: any[], b: any[]) => {
   const M = a.length;
   const N = b.length;
 
   // i iterates over b
   for (let i = 0; i <= N - M; ++i) {
-    let j;
+    let j: number;
 
     // j iterates over a
     for (j = 0; j < M; ++j) {
@@ -57,10 +45,4 @@ const isSubstring = (a, b) => {
   }
 
   return false;
-};
-
-module.exports = {
-  isSubset,
-  isSubsequence,
-  isSubstring,
 };
