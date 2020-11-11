@@ -33,7 +33,6 @@
     "fast-csv": "^4.3.0",
     "file-type": "^15.0.1",
     "gdal": "^0.10.1",
-    "gdal-next": "^2.2.1",
     "graphlib": "^2.1.8",
     "lodash": "^4.17.15",
     "memoize-one": "^5.1.1",

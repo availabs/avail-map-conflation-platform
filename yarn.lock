@@ -3123,14 +3123,6 @@ gauge@~2.7.3:
     strip-ansi "^3.0.1"
     wide-align "^1.1.0"
 
-gdal-next@^2.2.1:
-  version "2.2.1"
-  resolved "https://registry.yarnpkg.com/gdal-next/-/gdal-next-2.2.1.tgz#29dbfe1b2b07c2d7cda59ca39c66befdd8d50c9a"
-  integrity sha512-1NeCICl6s9CFQ+9dWoy3IrxSkO8tkVGYDAPf45NdEpdwmdwixQDbJxCbtPiNXbJvC+0N480YLmtLLreD/CB2Zw==
-  dependencies:
-    nan "^2.14.0"
-    node-pre-gyp "^0.15.0"
-
 gdal@^0.10.1:
   version "0.10.1"
   resolved "https://registry.yarnpkg.com/gdal/-/gdal-0.10.1.tgz#9072ba0a5cff02f626e9299a345cc4086d0dd78c"
