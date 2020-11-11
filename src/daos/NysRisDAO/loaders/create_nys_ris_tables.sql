@@ -150,6 +150,21 @@ CREATE TABLE __SCHEMA__.nys_ris (
   CHECK (functional_class IN (1, 2, 4, 6, 7, 8, 9, 11, 12, 14, 16, 17, 18, 19))
 ) WITHOUT ROWID;
 
+DROP INDEX IF EXISTS __SCHEMA__.nys_ris_roadname_idx ;
+
+CREATE INDEX __SCHEMA__.nys_ris_roadname_idx
+  ON nys_ris (road_name) ;
+
+DROP INDEX IF EXISTS __SCHEMA__.nys_ris_begin_description_idx ;
+
+CREATE INDEX __SCHEMA__.nys_ris_begin_description_idx
+  ON nys_ris (begin_description) ;
+
+DROP INDEX IF EXISTS __SCHEMA__.nys_ris_end_description_idx ;
+
+CREATE INDEX __SCHEMA__.nys_ris_end_description_idx
+  ON nys_ris (end_description) ;
+
 -- Create a spatial index on the geometry
 DROP TABLE IF EXISTS __SCHEMA__.nys_ris_geopoly_idx;
 
