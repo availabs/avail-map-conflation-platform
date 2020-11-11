@@ -21,7 +21,7 @@ const source_map_load = require('./src/pipeline_transforms/source_map_load/yargs
 
 const conflation_map = require("./src/pipeline_transforms/conflation_map/yargs_wrapper");
 
-const load_npmrds = require('./src/pipeline_transforms/load_npmrds/yargs_wrapper');
+const NpmrdsCommands = require("./src/daos/NpmrdsDAO/cli/yarg_wrapper")
 const load_nys_ris = require('./src/pipeline_transforms/load_nys_ris/yargs_wrapper');
 
 // GTFS
@@ -41,7 +41,7 @@ function addOutputDirToEnvironment(argv) {
   return argv;
 }
 
-yargs
+const taskCommands = yargs
   .middleware(addOutputDirToEnvironment)
   .parserConfiguration({
     "camel-case-expansion": false,
@@ -58,7 +58,6 @@ yargs
     },
   })
   .command(source_map_load)
-  .command(load_npmrds)
   .command(load_nys_ris)
   .command(raw_gtfs_into_sqlite)
   .command(gtfs_as_geojson)
@@ -68,7 +67,13 @@ yargs
   .command(conflation_map)
   .command(gtfs_conflation_map_join)
   .command(gtfs_conflation_schedule_join)
-  .command(output)
+  .command(output);
+
+Object.keys(NpmrdsCommands).forEach(cmd => {
+  taskCommands.command(NpmrdsCommands[cmd])
+})
+
+taskCommands
   .demandCommand()
   .recommendCommands()
   .strict()
