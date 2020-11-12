@@ -1,5 +1,7 @@
 /* eslint-disable no-restricted-syntax, no-underscore-dangle */
 
+// Massive violation of single responsibility principle.
+
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -81,10 +83,12 @@ export default class TargetMapDAO {
     edgeIdsForTargetMapIdsStmts?: Record<number, Statement>;
     allPathsTraversingEdgesStmt?: Record<number, Statement>;
     deleteAllPathsWithLabelStmt?: Statement;
+    rawEdgeFeaturesStmt?: Statement;
     groupedRawEdgeFeaturesStmt?: Record<number, Record<number, Statement>>;
     targetMapEdgeFeaturesStmt?: Record<number, Statement>;
     insertShstMatchStmt?: Statement;
     insertPathShstMatchSegmentStmt?: Statement;
+    allShstMatchFeaturesStmt?: Statement;
     truncateMatchesTablesStmt?: Statement;
   };
 
@@ -441,6 +445,34 @@ export default class TargetMapDAO {
     return numPathsDeleted;
   }
 
+  private get rawEdgeFeaturesStmt(): Statement {
+    if (!this.preparedStatements.rawEdgeFeaturesStmt) {
+      const sql = `
+        SELECT
+            feature
+          FROM ${this.schemaQualifier}raw_target_map_features ;
+      `;
+
+      this.preparedStatements.rawEdgeFeaturesStmt = this.db.prepare(sql);
+    }
+
+    // @ts-ignore
+    return this.preparedStatements.rawEdgeFeaturesStmt;
+  }
+
+  // Can be wrapped to create induced subgraph iterators.
+  *makeRawEdgeFeaturesIterator(): Generator<
+    turf.Feature<turf.LineString | turf.MultiLineString>
+  > {
+    const iter = this.rawEdgeFeaturesStmt.raw().iterate();
+
+    for (const [f] of iter) {
+      const feature = JSON.parse(f);
+
+      yield feature;
+    }
+  }
+
   private getGroupedRawEdgeFeaturesStmt(
     numProps: number,
     numIds: number | null,
@@ -620,6 +652,36 @@ export default class TargetMapDAO {
     const shstMatchId = +lastInsertRowid;
 
     return shstMatchId;
+  }
+
+  private get allShstMatchFeaturesStmt(): Statement {
+    if (!this.preparedStatements.allShstMatchFeaturesStmt) {
+      this.preparedStatements.allShstMatchFeaturesStmt = this.db.prepare(
+        `
+          SELECT
+              json_set(
+                feature,
+                '$.id',
+                shst_match_id
+              ) as shst_match_feature
+            FROM ${this.schemaQualifier}target_map_edges_shst_matches ;`,
+      );
+    }
+
+    // @ts-ignore
+    return this.preparedStatements.allShstMatchFeaturesStmt;
+  }
+
+  *makeAllShstMatchesIterator(): Generator<
+    turf.Feature<turf.LineString | turf.MultiLineString>
+  > {
+    const iter = this.allShstMatchFeaturesStmt.raw().iterate();
+
+    for (const [featureStr] of iter) {
+      const feature = JSON.parse(featureStr);
+
+      yield feature;
+    }
   }
 
   private get truncateMatchesTablesStmt(): Statement {
