@@ -16,6 +16,11 @@ const builder = {
     type: 'string',
     demand: true,
   },
+  county: {
+    desc: 'For development purposes, only load a specific county.',
+    type: 'string',
+    demand: false,
+  },
 };
 
 export const loadRawNpmrdsTables = {

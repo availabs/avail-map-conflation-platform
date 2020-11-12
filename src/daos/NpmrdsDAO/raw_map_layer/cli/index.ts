@@ -97,25 +97,41 @@ const castTmcIdentificationRowValues = (v: any, k: string) => {
 
 async function* makeTmcIdentificationIterator(
   npmrds_tmc_identification_gz: string,
+  county: string | null,
 ): TmcIdentificationAsyncIterator {
   const stream = csv.parseStream(
     pipeline(createReadStream(npmrds_tmc_identification_gz), createGunzip()),
     { headers: true, trim: true },
   );
 
+  let n = 0;
+  let m = 0;
   for await (const row of stream) {
+    ++n;
     const tmcMetadata: any | TmcIdentificationProperties = _(row)
       .mapKeys((_v, k: string) => k.toLowerCase())
       .pick(Object.keys(tmcIdentificationPropertyTypes))
       .mapValues(castTmcIdentificationRowValues)
       .value();
 
+    if (county !== null && tmcMetadata.county.toUpperCase() !== county) {
+      continue;
+    }
+
+    ++m;
     yield tmcMetadata;
+  }
+
+  if (county !== null) {
+    console.log(
+      `${county} matched ${m} of ${n} TMCs in the TMC_Identification file.`,
+    );
   }
 }
 
 async function* makeNpmrdsShapesIterator(
   npmrds_shapefile_tgz: string,
+  county: string | null,
 ): NpmrdsShapefileIterator {
   const shpFileDir = getShapefileDirectoryFromTarArchive(npmrds_shapefile_tgz);
 
@@ -126,11 +142,20 @@ async function* makeNpmrdsShapesIterator(
 
   let feature: null | gdal.Feature = null;
 
+  let n = 0;
+  let m = 0;
   // eslint-disable-next-line no-cond-assign
   while ((feature = features.next())) {
+    ++n;
     const properties: any = _.mapKeys(feature.fields.toObject(), (_v, k) =>
       k.toLowerCase(),
     );
+
+    if (county !== null && properties.county.toUpperCase() !== county) {
+      continue;
+    }
+
+    ++m;
 
     // @ts-ignore
     const geometry:
@@ -153,17 +178,28 @@ async function* makeNpmrdsShapesIterator(
     yield tmcGeoJson;
     await new Promise((resolve) => process.nextTick(resolve));
   }
+
+  if (county !== null) {
+    console.log(`${county} matched ${m} of ${n} TMCs in the NPMRDS Shapefile.`);
+  }
 }
 
 export default async function loadRawNpmrdsTables({
   npmrds_tmc_identification_gz,
   npmrds_shapefile_tgz,
+  county = null,
+}: {
+  county: string | null;
+  npmrds_tmc_identification_gz: string;
+  npmrds_shapefile_tgz: string;
 }) {
+  const selectedCounty = county && county.toUpperCase();
+
   console.time(timerId);
 
   await load(
-    makeTmcIdentificationIterator(npmrds_tmc_identification_gz),
-    makeNpmrdsShapesIterator(npmrds_shapefile_tgz),
+    makeTmcIdentificationIterator(npmrds_tmc_identification_gz, selectedCounty),
+    makeNpmrdsShapesIterator(npmrds_shapefile_tgz, selectedCounty),
   );
 
   console.timeEnd(timerId);
