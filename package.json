@@ -6,9 +6,7 @@
   },
   "description": "AVAIL Map Conflation Platform",
   "main": "index.js",
-  "scripts": {
-    "test": "tape"
-  },
+  "scripts": {},
   "keywords": [
     "Node.js",
     "GTFS",

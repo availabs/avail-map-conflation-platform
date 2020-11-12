@@ -13,8 +13,12 @@ import { Coordinate } from '../../domain';
 
 const ascendingNumberComparator = (a: number, b: number) => a - b;
 
-const templateSql = readFileSync(
+const initializeTargetMapDatabaseTemplateSql = readFileSync(
   join(__dirname, './initialize_target_map_database.sql'),
+).toString();
+
+const initializeConflationOutputTemplateSql = readFileSync(
+  join(__dirname, './initialize_conflation_output_tables.sql'),
 ).toString();
 
 export type TargetMapEntityLabel = string;
@@ -83,6 +87,8 @@ export default class TargetMapDAO {
     deleteAllPathsWithLabelStmt?: Statement;
     groupedRawEdgeFeaturesStmt?: Record<number, Record<number, Statement>>;
     targetMapEdgeFeaturesStmt?: Record<number, Statement>;
+    insertShstMatchStmt?: Statement;
+    insertPathShstMatchSegmentStmt?: Statement;
   };
 
   constructor(db: any, schema?: string) {
@@ -101,7 +107,19 @@ export default class TargetMapDAO {
    * WARNING: Drops all existing tables in the TargetMapDatabase.
    */
   initializeTargetMapDatabase() {
-    const sql = templateSql.replace(
+    const sql = initializeTargetMapDatabaseTemplateSql.replace(
+      /__SCHEMA_QUALIFIER__/g,
+      this.schemaQualifier,
+    );
+
+    this.db.exec(sql);
+  }
+
+  /**
+   * WARNING: Drops all existing tables in the TargetMapDatabase.
+   */
+  initializeConflationOutputTables() {
+    const sql = initializeConflationOutputTemplateSql.replace(
       /__SCHEMA_QUALIFIER__/g,
       this.schemaQualifier,
     );
@@ -113,7 +131,7 @@ export default class TargetMapDAO {
     if (!this.preparedStatements.insertNodeStmt) {
       this.preparedStatements.insertNodeStmt = this.db.prepare(
         `
-          INSERT INTO target_map_ppg_nodes (
+          INSERT INTO ${this.schemaQualifier}target_map_ppg_nodes (
             lon,
             lat,
             properties
@@ -150,7 +168,7 @@ export default class TargetMapDAO {
     if (!this.preparedStatements.insertEdgeStmt) {
       this.preparedStatements.insertEdgeStmt = this.db.prepare(
         `
-          INSERT INTO target_map_ppg_edges (
+          INSERT INTO ${this.schemaQualifier}target_map_ppg_edges (
             from_node_id,
             to_node_id,
             geoprox_key,
@@ -163,8 +181,8 @@ export default class TargetMapDAO {
                 ? AS geoprox_key,
                 json(?) AS properties,
                 json(?) AS coordinates
-              FROM target_map_ppg_nodes AS a
-                CROSS JOIN target_map_ppg_nodes AS b
+              FROM ${this.schemaQualifier}target_map_ppg_nodes AS a
+                CROSS JOIN ${this.schemaQualifier}target_map_ppg_nodes AS b
               WHERE (
                 (
                   ( a.lon = ? )
@@ -216,7 +234,7 @@ export default class TargetMapDAO {
     if (!this.preparedStatements.insertPathStmt) {
       this.preparedStatements.insertPathStmt = this.db.prepare(
         `
-          INSERT INTO target_map_ppg_paths (
+          INSERT INTO ${this.schemaQualifier}target_map_ppg_paths (
               properties
             ) VALUES (json(?)) ;`,
       );
@@ -230,7 +248,7 @@ export default class TargetMapDAO {
     if (!this.preparedStatements.insertPathEdgeStmt) {
       this.preparedStatements.insertPathEdgeStmt = this.db.prepare(
         `
-          INSERT INTO target_map_ppg_path_edges (
+          INSERT INTO ${this.schemaQualifier}target_map_ppg_path_edges (
             path_id,
             path_idx,
             edge_id
@@ -269,7 +287,7 @@ export default class TargetMapDAO {
     if (!this.preparedStatements.insertPathLabelStmt) {
       this.preparedStatements.insertPathLabelStmt = this.db.prepare(
         `
-          INSERT OR IGNORE INTO target_map_ppg_path_labels (
+          INSERT OR IGNORE INTO ${this.schemaQualifier}target_map_ppg_path_labels (
             path_id,
             label
           ) VALUES (?, ?) ;`,
@@ -560,13 +578,64 @@ export default class TargetMapDAO {
       edgeIds && edgeIds.length,
     );
 
-    const iter: IterableIterator<string> = iterQuery.raw().iterate(edgeIds);
+    const iter: IterableIterator<string> =
+      edgeIds === null
+        ? iterQuery.raw().iterate()
+        : iterQuery.raw().iterate(edgeIds);
 
     for (const [featureStr] of iter) {
       const feature = JSON.parse(featureStr);
 
       yield feature;
     }
+  }
+
+  private get insertShstMatchStmt(): Statement {
+    if (!this.preparedStatements.insertShstMatchStmt) {
+      this.preparedStatements.insertShstMatchStmt = this.db.prepare(
+        `
+          INSERT OR IGNORE INTO ${this.schemaQualifier}target_map_edges_shst_matches (
+            edge_id,
+            shst_reference,
+            section_start,
+            section_end,
+            feature_len_km,
+            feature
+          ) VALUES (?, ?, ?, ?, ?, json(?)) ; `,
+      );
+    }
+
+    // @ts-ignore
+    return this.preparedStatements.insertShstMatchStmt;
+  }
+
+  insertShstMatch(shstMatchFeature: any) {
+    const {
+      properties: {
+        shstReferenceId,
+        section: [section_start, section_end],
+        pp_id: edgeId,
+      },
+    } = shstMatchFeature;
+
+    const featureLenKm = _.round(turf.length(shstMatchFeature), 6);
+
+    const { changes, lastInsertRowid } = this.insertShstMatchStmt.run([
+      `${edgeId}`,
+      `${shstReferenceId}`,
+      `${section_start}`,
+      `${section_end}`,
+      `${featureLenKm}`,
+      `${JSON.stringify(shstMatchFeature)}`,
+    ]);
+
+    if (changes === 0) {
+      return null;
+    }
+
+    const shstMatchId = +lastInsertRowid;
+
+    return shstMatchId;
   }
 
   vacuumDatabase() {
