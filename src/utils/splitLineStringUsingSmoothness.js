@@ -91,7 +91,9 @@ function splitLineStringUsingSmoothness(
   // )
   // );
 
-  const lineStrings = splitCoords.map((c) => turf.lineString(c));
+  const lineStrings = splitCoords.map((c) =>
+    turf.lineString(c, feature.properties, { id: feature.id }),
+  );
 
   return lineStrings;
 }

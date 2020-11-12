@@ -20,12 +20,22 @@ const getRootMeanSquareDeviation = (gtfsNetEdge, shstMatch) => {
     turf.point(coord),
   );
 
+  const linestrings =
+    turf.getType(gtfsNetEdge) === 'LineString'
+      ? [gtfsNetEdge]
+      : turf.getCoords(gtfsNetEdge).map((coords) => turf.lineString(coords));
+
   return Math.sqrt(
     shstMatchVertices.reduce(
       (acc, pt) =>
         acc +
         // NOTE: Using meters since squaring.
-        turf.pointToLineDistance(pt, gtfsNetEdge, { units: 'meters' }) ** 2,
+        Math.min(
+          ...linestrings.map((linestring) =>
+            turf.pointToLineDistance(pt, linestring, { units: 'meters' }),
+          ),
+        ) **
+          2,
       0,
     ) / shstMatchVertices.length,
   );
@@ -87,10 +97,14 @@ const buildShstMatchSubGraphsPerGtfsShapeSegment = (
         // If an ID already exists for this coord in the coords->ID table,
         //   reuse the existing ID, else add a new ID to the table.
         const startNodeId =
-          nodeIds[startCoordStr] || (nodeIds[startCoordStr] = nodeIdSeq++);
+          nodeIds[startCoordStr] === undefined
+            ? (nodeIds[startCoordStr] = nodeIdSeq++)
+            : nodeIds[startCoordStr];
 
         const endNodeId =
-          nodeIds[endCoordStr] || (nodeIds[endCoordStr] = nodeIdSeq++);
+          nodeIds[endCoordStr] === undefined
+            ? (nodeIds[endCoordStr] = nodeIdSeq++)
+            : nodeIds[endCoordStr];
 
         const edgeWeight = getEdgeWeight(gtfsNetworkEdge, shstMatch);
 

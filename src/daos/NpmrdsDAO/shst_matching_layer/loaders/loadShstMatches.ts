@@ -19,7 +19,7 @@ export default async function loadShstMatches() {
 
     const targetMapDao = new TargetMapDAO(xdb, SCHEMA);
 
-    targetMapDao.initializeConflationOutputTables();
+    targetMapDao.truncateMatchesTables();
 
     const iter = targetMapDao.makeTargetMapEdgeFeaturesIterator();
     const matchesIter = matchSegmentedShapeFeatures(iter);

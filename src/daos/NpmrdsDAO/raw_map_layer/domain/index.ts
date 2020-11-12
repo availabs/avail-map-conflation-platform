@@ -93,8 +93,8 @@ export const NpmrdsTmcFeatureSchema = tsjGenerator.createSchema(
 
 export const NpmrdsTmcFeatureValidator = ajv.compile(NpmrdsTmcFeatureSchema);
 
-export const validateNpmrdsTmcFeature = (feature: NpmrdsTmcFeature) => {
-  NpmrdsTmcFeatureValidator(feature);
+export function validateNpmrdsTmcFeature(obj: any): obj is NpmrdsTmcFeature {
+  NpmrdsTmcFeatureValidator(obj);
 
   if (NpmrdsTmcFeatureValidator.errors) {
     const error = new Error('Invalid NPMRDS Tmc feature.');
@@ -102,10 +102,12 @@ export const validateNpmrdsTmcFeature = (feature: NpmrdsTmcFeature) => {
     handleFailedDataStructureValidation(
       error,
       moduleId,
-      feature,
+      obj,
       NpmrdsTmcFeatureValidator.errors,
     );
 
     throw error;
   }
-};
+
+  return true;
+}

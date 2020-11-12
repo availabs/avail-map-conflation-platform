@@ -17,10 +17,6 @@ const initializeTargetMapDatabaseTemplateSql = readFileSync(
   join(__dirname, './initialize_target_map_database.sql'),
 ).toString();
 
-const initializeConflationOutputTemplateSql = readFileSync(
-  join(__dirname, './initialize_conflation_output_tables.sql'),
-).toString();
-
 export type TargetMapEntityLabel = string;
 
 export type PreloadedTargetMapNode = {
@@ -89,6 +85,7 @@ export default class TargetMapDAO {
     targetMapEdgeFeaturesStmt?: Record<number, Statement>;
     insertShstMatchStmt?: Statement;
     insertPathShstMatchSegmentStmt?: Statement;
+    truncateMatchesTablesStmt?: Statement;
   };
 
   constructor(db: any, schema?: string) {
@@ -108,18 +105,6 @@ export default class TargetMapDAO {
    */
   initializeTargetMapDatabase() {
     const sql = initializeTargetMapDatabaseTemplateSql.replace(
-      /__SCHEMA_QUALIFIER__/g,
-      this.schemaQualifier,
-    );
-
-    this.db.exec(sql);
-  }
-
-  /**
-   * WARNING: Drops all existing tables in the TargetMapDatabase.
-   */
-  initializeConflationOutputTables() {
-    const sql = initializeConflationOutputTemplateSql.replace(
       /__SCHEMA_QUALIFIER__/g,
       this.schemaQualifier,
     );
@@ -321,7 +306,7 @@ export default class TargetMapDAO {
               edge_id,
               target_map_id
             FROM ${this.schemaQualifier}target_map_ppg_edge_id_to_target_map_id
-            WHERE ( edge_id IN ${new Array(numIds).fill('?')} ) ;
+            WHERE ( edge_id IN (${new Array(numIds).fill('?')}) ) ;
         `,
       );
     }
@@ -329,7 +314,7 @@ export default class TargetMapDAO {
     return this.preparedStatements.targetMapIdsForEdgeIdsStmts[numIds];
   }
 
-  transformTargetMapIdSequenceToEdgeIdSequence(
+  transformEdgeIdSequenceToTargetMapIdSequence(
     edgeIds: TargetMapEdgeId[],
   ): TargetMapId[] {
     const queryStmt = this.prepareTargetMapIdsForEdgeIdsStmt(edgeIds.length);
@@ -362,7 +347,7 @@ export default class TargetMapDAO {
               edge_id,
               target_map_id
             FROM ${this.schemaQualifier}target_map_ppg_edge_id_to_target_map_id
-            WHERE ( edge_id IN ${new Array(numIds).fill('?')} ) ;
+            WHERE ( target_map_id IN (${new Array(numIds).fill('?')}) ) ;
         `,
       );
     }
@@ -370,7 +355,7 @@ export default class TargetMapDAO {
     return this.preparedStatements.edgeIdsForTargetMapIdsStmts[numIds];
   }
 
-  transformEdgeIdSequenceToTargetMapIdSequence(
+  transformTargetMapIdSequenceToEdgeIdSequence(
     targetMapIds: TargetMapId[],
   ): TargetMapEdgeId[] {
     const queryStmt = this.prepareEdgeIdsForTargetMapIdsStmt(
@@ -473,31 +458,30 @@ export default class TargetMapDAO {
       const groupPropsSelectClauses = _.range(0, numProps)
         .map(
           (i) =>
-            `json(json_extract(raw.feature, '$.properties.' || ?)) AS prop_${i}`,
+            `json_extract(feature, '$.properties.' || ?, '$.dummy') AS prop_${i}`,
         )
-        .join(',\numProps\t\t\t\t\t');
+        .join(',\n\t\t');
 
       const whereClause =
-        numIds !== null
-          ? `raw.target_map_id IN (${new Array(numIds).fill('?')})`
-          : '';
+        numIds > -1 ? `target_map_id IN (${new Array(numIds).fill('?')})` : '';
 
       const groupBySeq = _.range(1, numProps + 1);
 
+      const sql = `
+        SELECT
+            ${groupPropsSelectClauses},
+            json_group_array(
+              json(feature)
+            ) AS stringified_features_arr
+          FROM ${this.schemaQualifier}raw_target_map_features
+          ${whereClause}
+          GROUP BY ${groupBySeq}
+          ORDER BY ${groupBySeq} ;
+      `;
+
       this.preparedStatements.groupedRawEdgeFeaturesStmt[numProps][
         numIds
-      ] = this.db.prepare(
-        `
-          SELECT
-              ${groupPropsSelectClauses},
-              json_group_array(
-                json(feature)
-              ) AS stringified_features_arr
-            FROM ${this.schemaQualifier}raw_target_map_features
-            ${whereClause}
-            GROUP BY ${groupBySeq},
-            ORDER BY ${groupBySeq} ; `,
-      );
+      ] = this.db.prepare(sql);
     }
 
     // @ts-ignore
@@ -533,7 +517,7 @@ export default class TargetMapDAO {
       const features = JSON.parse(row.stringified_features_arr);
 
       const groupProps = props.reduce((acc, prop, i) => {
-        acc[prop] = JSON.parse(row[`prop_${i} `]);
+        [acc[prop]] = JSON.parse(row[`prop_${i}`]);
         return acc;
       }, {});
 
@@ -636,6 +620,21 @@ export default class TargetMapDAO {
     const shstMatchId = +lastInsertRowid;
 
     return shstMatchId;
+  }
+
+  private get truncateMatchesTablesStmt(): Statement {
+    if (!this.preparedStatements.truncateMatchesTablesStmt) {
+      this.preparedStatements.truncateMatchesTablesStmt = this.db.prepare(
+        `DELETE FROM ${this.schemaQualifier}target_map_edges_shst_matches;`,
+      );
+    }
+
+    // @ts-ignore
+    return this.preparedStatements.truncateMatchesTablesStmt;
+  }
+
+  truncateMatchesTables() {
+    this.truncateMatchesTablesStmt.run();
   }
 
   vacuumDatabase() {

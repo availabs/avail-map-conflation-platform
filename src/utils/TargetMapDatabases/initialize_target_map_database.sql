@@ -26,6 +26,15 @@ DROP VIEW IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_path_feature_collections 
 DROP VIEW IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_edge_line_features ;
 DROP VIEW IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_node_point_features ;
 
+DROP VIEW IF EXISTS __SCHEMA_QUALIFIER__target_map_paths_shst_matches;
+DROP INDEX IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_edges_target_map_id_idx;
+DROP INDEX IF EXISTS __SCHEMA_QUALIFIER__target_map_edges_shst_matches_edge_id_idx ;
+DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_edges_shst_matches_geopoly_idx ;
+DROP INDEX IF EXISTS __SCHEMA_QUALIFIER__target_map_edges_shst_matches_shst_reference_idx ;
+DROP INDEX IF EXISTS __SCHEMA_QUALIFIER__target_map_paths_shst_match_chains_shst_match_id_idx ;
+DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_edges_shst_matches;
+DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_paths_shst_match_chains ;
+
 DROP VIEW IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_edge_id_to_target_map_id;
 
 DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_nodes_geopoly_idx;
@@ -169,8 +178,6 @@ CREATE TABLE __SCHEMA_QUALIFIER__target_map_ppg_edges (
     )
 ) ;
 
-DROP INDEX IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_edges_target_map_id_idx;
-
 CREATE UNIQUE INDEX __SCHEMA_QUALIFIER__target_map_ppg_edges_target_map_id_idx
   ON target_map_ppg_edges (json_extract(properties, '$.targetMapId'));
 
@@ -276,7 +283,7 @@ CREATE TABLE __SCHEMA_QUALIFIER__target_map_ppg_path_labels (
 CREATE TABLE __SCHEMA_QUALIFIER__target_map_ppg_path_edges (
   path_id   INTEGER NOT NULL,
   path_idx  INTEGER NOT NULL,
-  edge_id   TEXT NOT NULL,
+  edge_id   INTEGER NOT NULL,
 
   PRIMARY KEY(path_id, path_idx),
 
@@ -319,3 +326,66 @@ CREATE VIEW __SCHEMA_QUALIFIER__target_map_ppg_path_feature_collections
       USING(edge_id)
     GROUP BY path_id
 ;
+
+CREATE TABLE IF NOT EXISTS __SCHEMA_QUALIFIER__target_map_edges_shst_matches (
+  shst_match_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+  edge_id         INTEGER NOT NULL,
+  shst_reference  TEXT NOT NULL,
+  section_start   REAL NOT NULL,
+  section_end     REAL NOT NULL,
+  feature_len_km  REAL NOT NULL,
+  feature         TEXT NOT NULL,
+
+  UNIQUE (edge_id, shst_reference, section_start, section_end),
+
+  CHECK(section_start >= 0),
+  CHECK(section_end > 0),
+  CHECK(feature_len_km > 0),
+
+  CHECK(json_valid(feature)),
+
+  FOREIGN KEY(edge_id)
+    REFERENCES target_map_ppg_edges(edge_id)
+    ON DELETE CASCADE
+) ;
+
+CREATE VIRTUAL TABLE __SCHEMA_QUALIFIER__target_map_edges_shst_matches_geopoly_idx
+  USING geopoly(shst_match_id) ;
+
+CREATE INDEX __SCHEMA_QUALIFIER__target_map_edges_shst_matches_edge_id_idx
+  ON target_map_edges_shst_matches(edge_id) ;
+
+CREATE INDEX __SCHEMA_QUALIFIER__target_map_edges_shst_matches_shst_reference_idx
+  ON target_map_edges_shst_matches(shst_reference) ;
+
+
+CREATE TABLE IF NOT EXISTS __SCHEMA_QUALIFIER__target_map_paths_shst_match_chains (
+  path_id           INTEGER NOT NULL,
+  path_idx          INTEGER NOT NULL,
+  chain_index       INTEGER NOT NULL,
+  chain_edge_index  INTEGER NOT NULL,
+  shst_match_id     INTEGER NOT NULL,
+  shst_ref_start    REAL NOT NULL,
+  shst_ref_end      REAL NOT NULL,
+
+  PRIMARY KEY (path_id, path_idx, chain_index, chain_edge_index),
+
+  FOREIGN KEY(path_id, path_idx)
+    REFERENCES target_map_ppg_path_edges(path_id, path_idx)
+    ON DELETE CASCADE,
+
+  FOREIGN KEY(shst_match_id)
+    REFERENCES target_map_edges_shst_matches(shst_match_id)
+    ON DELETE CASCADE
+) WITHOUT ROWID ;
+
+CREATE INDEX __SCHEMA_QUALIFIER__target_map_paths_shst_match_chains_shst_match_id_idx
+  ON target_map_paths_shst_match_chains (shst_match_id) ;
+
+CREATE VIEW __SCHEMA_QUALIFIER__target_map_paths_shst_matches
+  AS
+    SELECT
+        *
+      FROM target_map_edges_shst_matches
+        INNER JOIN target_map_paths_shst_match_chains
+        USING (shst_match_id) ;

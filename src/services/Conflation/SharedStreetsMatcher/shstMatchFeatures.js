@@ -335,7 +335,14 @@ const shstMatchFeatures = async (features, flags = []) => {
             },
             { lineSliceMethod, osrmMethod },
           );
+
           if (mapped) {
+            mapped.forEach((m) => {
+              m.properties = {
+                ...(m.properties || {}),
+                ...(feature.properties || {}),
+              };
+            });
             osrmMapped.push(...mapped);
           }
         } catch (err) {

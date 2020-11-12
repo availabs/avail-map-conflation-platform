@@ -96,19 +96,3 @@ test('create TargetMapDAO SQL Syntax Tests', (t) => {
     t.end();
   }
 });
-
-test('create TargetMapDAO Initialize Conflation Output Tables SQL Syntax Tests', (t) => {
-  try {
-    const testDB = new Database(':memory:');
-
-    const targetMapDao = new TargetMapDAO(testDB);
-
-    targetMapDao.initializeConflationOutputTables();
-
-    testDB.close();
-  } catch (err) {
-    t.error(err);
-  } finally {
-    t.end();
-  }
-});
