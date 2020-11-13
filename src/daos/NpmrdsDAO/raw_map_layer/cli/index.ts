@@ -100,7 +100,15 @@ async function* makeTmcIdentificationIterator(
   county: string | null,
 ): TmcIdentificationAsyncIterator {
   const stream = csv.parseStream(
-    pipeline(createReadStream(npmrds_tmc_identification_gz), createGunzip()),
+    pipeline(
+      createReadStream(npmrds_tmc_identification_gz),
+      createGunzip(),
+      (err) => {
+        if (err) {
+          throw err;
+        }
+      },
+    ),
     { headers: true, trim: true },
   );
 
