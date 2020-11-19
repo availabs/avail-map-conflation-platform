@@ -6,6 +6,7 @@ import loadSharedStreetsGeometryTiles from './loadSharedStreetsGeometryTiles';
 import loadSharedStreetsIntersectionTiles from './loadSharedStreetsIntersectionTiles';
 import loadSharedStreetsMetadataTiles from './loadSharedStreetsMetadataTiles';
 import loadSharedStreetsReferencesTiles from './loadSharedStreetsReferencesTiles';
+import finishSharedStreetsLoad from './finishSharedStreetsLoad';
 
 export default (shstTilesDir: string) => {
   try {
@@ -13,6 +14,7 @@ export default (shstTilesDir: string) => {
     loadSharedStreetsIntersectionTiles(shstTilesDir);
     loadSharedStreetsMetadataTiles(shstTilesDir);
     loadSharedStreetsReferencesTiles(shstTilesDir);
+    finishSharedStreetsLoad();
   } catch (err) {
     console.error(err);
     process.exit(1);
