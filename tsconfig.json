@@ -20,7 +20,8 @@
     "strictNullChecks": true
   },
   "include": [
-    "."
+    "src/",
+    "server/"
   ],
   "ts-node": {
     "transpileOnly": true
