@@ -1,0 +1,46 @@
+#!/usr/bin/env node
+
+const {exec} = require('child_process')
+const {join} = require('path')
+
+const yargs = require("yargs");
+
+const cliArgsSpec = {
+  port: {
+    demand: false,
+    type: "number",
+    desc:
+      "Server port",
+    default: 8080
+  },
+  output_dir: {
+    demand: false,
+    type: "string",
+    desc:
+      "Path to the output directory. (Can be set using ENV variable AVL_GTFS_CONFLATION_OUTPUT_DIR.)",
+    default:
+      join(process.cwd(), "output"),
+  },
+};
+
+const {argv: {port, output_dir}} = yargs
+  .strict()
+  .parserConfiguration({
+    'camel-case-expansion': false,
+    'flatten-duplicate-arrays': false
+  })
+  .wrap(yargs.terminalWidth() / 1.618)
+  .option(cliArgsSpec);
+
+const tsNode = join(__dirname, '../node_modules/.bin/ts-node')
+const server = join(__dirname, './index.ts')
+
+const {error, stdout, stderr} = exec(`node ${tsNode} ${server}`, {env: {PORT: port, OUTPUT_DIR: output_dir}})
+
+stdout.pipe(process.stdout)
+stderr.pipe(process.stderr)
+
+if (error) {
+  throw error
+}
+

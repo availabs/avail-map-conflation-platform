@@ -64,6 +64,8 @@
     "@types/lodash": "^4.14.157",
     "@types/mkdirp": "^1.0.1",
     "@types/pump": "^1.1.0",
+    "@types/restify": "^8.4.2",
+    "@types/restify-cors-middleware": "^1.0.1",
     "@types/rimraf": "^3.0.0",
     "@types/tape": "^4.13.0",
     "@types/tar": "^4.0.3",
@@ -82,6 +84,8 @@
     "husky": "^4.3.0",
     "lint-staged": "^10.4.0",
     "prettier": "^2.1.2",
+    "restify": "^8.5.1",
+    "restify-cors-middleware": "^1.1.1",
     "tap-spec": "^5.0.0",
     "tape": "^5.0.1",
     "typescript": "^4.0.3"
