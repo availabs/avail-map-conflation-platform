@@ -1,6 +1,3 @@
-import * as turf from '@turf/turf';
-import _ from 'lodash';
-
 import { SharedStreetsGeometry } from 'sharedstreets-types';
 
 import getModuleId from '../../../../utils/getModuleId';
@@ -38,27 +35,27 @@ export const handleShstGeometryInsertFailure = (
 ) => {
   const { id } = shstGeometry;
 
-  const oldShstGeometryGeoJson = JSON.parse(
+  const oldShstGeometry =
     db
       .prepare(
         ` SELECT
+            id,
+            from_intersection_id,
+            to_intersection_id,
+            forward_reference_id,
+            back_reference_id,
+            road_class,
             geojson_linestring
           FROM ${SCHEMA}.shst_geometries
           WHERE ( id = ? ) ;
       `,
       )
-      .get([id])?.geojson_linestring || null,
-  );
+      .get([id]) || null;
 
   const error =
-    oldShstGeometryGeoJson === null
+    oldShstGeometry === null
       ? new Error('Unique SharedStreetsGeometry INSERT failed.')
       : new Error('Nonunique SharedStreetsGeometry ID');
-
-  const oldShstGeometry: null | SharedStreetsGeometry = oldShstGeometryGeoJson && {
-    ...oldShstGeometryGeoJson.properties,
-    lonlats: _.flatten(turf.getCoords(oldShstGeometryGeoJson)),
-  };
 
   logger.error({
     type: 'DATABASE_INSERT_FAILURE',

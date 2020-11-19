@@ -1,7 +1,7 @@
 DROP TABLE IF EXISTS __SCHEMA__.shst_geometries ;
 
 CREATE TABLE __SCHEMA__.shst_geometries (
-    id                      TEXT PRIMARY KEY,
+    id                      TEXT NOT NULL,
 
     from_intersection_id    TEXT,
     to_intersection_id      TEXT,
@@ -11,8 +11,10 @@ CREATE TABLE __SCHEMA__.shst_geometries (
 
     road_class              TEXT,
 
-    geojson_linestring      TEXT
-  ) WITHOUT ROWID ;
+    geojson_linestring      TEXT,
+
+    PRIMARY KEY (id, forward_reference_id, back_reference_id)
+  ) WITHOUT ROWID;
 
 CREATE INDEX __SCHEMA__.shst_geometries_from_intersection_idx
   ON shst_geometries (from_intersection_id) ;

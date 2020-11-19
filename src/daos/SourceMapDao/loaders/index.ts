@@ -33,6 +33,8 @@ import {
   insertSharedStreetsReference,
 } from './sharedStreetsReference';
 
+import sharedStreetsFinish from './sharedStreetsFinish';
+
 // https://basarat.gitbook.io/typescript/main-1/typed-event
 export async function loadOpenStreetMaps(osmElementEmitter: any) {
   const xdb = db.openLoadingConnectionToDb(SOURCE_MAP);
@@ -122,6 +124,18 @@ export function loadSharedStreetsIntersections(
       insertSharedStreetsIntersection(db, shstIntersection);
     }
     db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK;');
+    throw err;
+  }
+}
+
+export function finishSharedStreetsLoad() {
+  try {
+    db.exec('BEGIN;');
+    sharedStreetsFinish(db);
+    db.exec('COMMIT;');
+    // db.exec('VACUUM;');
   } catch (err) {
     db.exec('ROLLBACK;');
     throw err;

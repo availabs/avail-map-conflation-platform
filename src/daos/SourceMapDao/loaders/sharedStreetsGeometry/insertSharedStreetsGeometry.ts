@@ -1,3 +1,5 @@
+import { strict as assert } from 'assert';
+
 import * as turf from '@turf/turf';
 import _ from 'lodash';
 
@@ -90,6 +92,16 @@ export default (db: any, shstGeometry: SharedStreetsGeometry) => {
     if (polyCoords.length !== 1) {
       handleSharedStreetsGeometryIrregularBoundingPolygon(shstGeometry);
     }
+
+    const geopolyShape = _.first(polyCoords);
+
+    assert(
+      Array.isArray(geopolyShape) &&
+        geopolyShape.every(
+          (coords) => Array.isArray(coords) && coords.length === 2,
+        ) &&
+        _.isEqual(geopolyShape[0], geopolyShape[geopolyShape.length - 1]),
+    );
 
     // Inserts only the first set of coordinates.
     // If this INSERT fails, the database is corrupted.
