@@ -167,13 +167,13 @@ CREATE TABLE __SCHEMA_QUALIFIER__target_map_ppg_edges (
       ( -- LineString
         ( json_type(coordinates, '$[0][0]') = 'real' )
         AND
-        ( json_type(coordinates, '$[#][#]') = 'real' )
+        ( json_type(coordinates, '$[#-1][#-1]') = 'real' )
       )
       OR
       ( -- MultiLineString
         ( json_type(coordinates, '$[0][0][0]') = 'real' )
         AND
-        ( json_type(coordinates, '$[#][#][#]') = 'real' )
+        ( json_type(coordinates, '$[#-1][#-1][#-1]') = 'real' )
       )
     )
 ) ;
@@ -281,11 +281,11 @@ CREATE TABLE __SCHEMA_QUALIFIER__target_map_ppg_path_labels (
 ) WITHOUT ROWID;
 
 CREATE TABLE __SCHEMA_QUALIFIER__target_map_ppg_path_edges (
-  path_id   INTEGER NOT NULL,
-  path_idx  INTEGER NOT NULL,
-  edge_id   INTEGER NOT NULL,
+  path_id         INTEGER NOT NULL,
+  path_edge_idx   INTEGER NOT NULL,
+  edge_id         INTEGER NOT NULL,
 
-  PRIMARY KEY(path_id, path_idx),
+  PRIMARY KEY(path_id, path_edge_idx),
 
   FOREIGN KEY(path_id)
     REFERENCES target_map_ppg_paths(path_id)
@@ -313,7 +313,7 @@ CREATE VIEW __SCHEMA_QUALIFIER__target_map_ppg_path_feature_collections
                 'pathId',
                 ppg_paths.path_id,
                 'pathIdx',
-                ppg_paths.path_idx,
+                ppg_paths.path_edge_idx,
                 'edgeId',
                 ppg_edges.edge_id
               )
@@ -360,18 +360,23 @@ CREATE INDEX __SCHEMA_QUALIFIER__target_map_edges_shst_matches_shst_reference_id
 
 
 CREATE TABLE IF NOT EXISTS __SCHEMA_QUALIFIER__target_map_paths_shst_match_chains (
-  path_id           INTEGER NOT NULL,
-  path_idx          INTEGER NOT NULL,
-  chain_index       INTEGER NOT NULL,
-  chain_edge_index  INTEGER NOT NULL,
-  shst_match_id     INTEGER NOT NULL,
-  shst_ref_start    REAL NOT NULL,
-  shst_ref_end      REAL NOT NULL,
+  -- Foreign Key referencing the target_map_ppg_path_edge table.
+  path_id              INTEGER NOT NULL,
+  path_edge_idx        INTEGER NOT NULL,
 
-  PRIMARY KEY (path_id, path_idx, chain_index, chain_edge_index),
+  -- Each path edge can have mutiple matches chains (when there are spatial gaps in matches).
+  --  * edge_chain_idx represents the topological ordering of match chains along the edge.
+  --  * edge_chain_link_idx represents the ordering of matches withing the matches chain.
+  edge_chain_idx       INTEGER NOT NULL,
+  edge_chain_link_idx  INTEGER NOT NULL,
 
-  FOREIGN KEY(path_id, path_idx)
-    REFERENCES target_map_ppg_path_edges(path_id, path_idx)
+  -- Foreign Key referencing the target_map_edges_shst_matches table.
+  shst_match_id        INTEGER NOT NULL,
+
+  PRIMARY KEY (path_id, path_edge_idx, edge_chain_idx, edge_chain_link_idx),
+
+  FOREIGN KEY(path_id, path_edge_idx)
+    REFERENCES target_map_ppg_path_edges(path_id, path_edge_idx)
     ON DELETE CASCADE,
 
   FOREIGN KEY(shst_match_id)
@@ -389,3 +394,4 @@ CREATE VIEW __SCHEMA_QUALIFIER__target_map_paths_shst_matches
       FROM target_map_edges_shst_matches
         INNER JOIN target_map_paths_shst_match_chains
         USING (shst_match_id) ;
+
