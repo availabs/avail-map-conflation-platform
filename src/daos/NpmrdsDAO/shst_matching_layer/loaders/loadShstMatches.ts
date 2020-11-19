@@ -4,7 +4,7 @@ import db from '../../../../services/DbService';
 
 import TargetMapDAO from '../../../../utils/TargetMapDatabases/TargetMapDAO';
 
-import { matchSegmentedShapeFeatures } from '../../../../services/Conflation';
+import { makeMatchedTargetMapEdgesIterator } from '../../../../services/Conflation';
 
 import { NPMRDS as SCHEMA } from '../../../../constants/databaseSchemaNames';
 
@@ -22,7 +22,7 @@ export default async function loadShstMatches() {
     targetMapDao.truncateMatchesTables();
 
     const iter = targetMapDao.makeTargetMapEdgeFeaturesIterator();
-    const matchesIter = matchSegmentedShapeFeatures(iter);
+    const matchesIter = makeMatchedTargetMapEdgesIterator(iter);
 
     for await (const { matchFeature } of matchesIter) {
       targetMapDao.insertShstMatch(matchFeature);

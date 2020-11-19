@@ -220,13 +220,17 @@ const lineSliceByBearingMethod = async ({ feature, osrmDir }, osrmMethod) => {
         const lastChunk = _.last(chunkedFeatures);
         const lastChunkLen = turf.length(lastChunk);
         if (lastChunkLen < 1) {
-          const fullLastChunk = turf.lineSliceAlong(
-            lastChunk,
-            featureLen - 2.5,
-            featureLen,
-          );
+          try {
+            const fullLastChunk = turf.lineSliceAlong(
+              feature,
+              featureLen - 2.5,
+              featureLen,
+            );
 
-          chunkedFeatures.push(fullLastChunk);
+            chunkedFeatures.push(fullLastChunk);
+          } catch (err) {
+            console.error(err);
+          }
         }
 
         return chunkedFeatures;

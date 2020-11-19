@@ -1,11 +1,12 @@
-const turf = require('@turf/turf');
-const _ = require('lodash');
+import * as turf from '@turf/turf';
 
-const { rebalanceCurve, shapeSimilarity } = require('curve-matcher');
+import _ from 'lodash';
+
+import { rebalanceCurve, shapeSimilarity } from 'curve-matcher';
 
 const MIN_POINTS_PER_KM = 50;
 
-const getCoords = (feature) =>
+const getCoords = (feature: turf.Feature) =>
   _(turf.getCoords(feature))
     .flattenDeep()
     .chunk(2)
@@ -13,10 +14,13 @@ const getCoords = (feature) =>
     .map(([lon, lat]) => ({ x: lon, y: lat }))
     .value();
 
-const coordsToCurve = (coords, numPoints) =>
+const coordsToCurve = (coords: { x: number; y: number }[], numPoints: number) =>
   rebalanceCurve(coords, { numPoints });
 
-const getFrechetDistance = (S, T) => {
+export default function getFrechetDistance(
+  S: turf.Feature<turf.LineString | turf.MultiLineString>,
+  T: turf.Feature<turf.LineString | turf.MultiLineString>,
+) {
   const sCoords = getCoords(S);
   const tCoords = getCoords(T);
 
@@ -32,8 +36,4 @@ const getFrechetDistance = (S, T) => {
   const t = coordsToCurve(tCoords, numPoints);
 
   return shapeSimilarity(s, t, { restrictRotationAngle: 0.1 * Math.PI });
-};
-
-module.exports = {
-  getFrechetDistance,
-};
+}

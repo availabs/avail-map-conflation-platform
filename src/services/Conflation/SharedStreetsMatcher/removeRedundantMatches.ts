@@ -1,17 +1,23 @@
-const turf = require('@turf/turf');
-const _ = require('lodash');
+import * as turf from '@turf/turf';
+import _ from 'lodash';
 
-const matchesComparator = (a, b) =>
+import { SharedStreetsMatchFeature } from '../../../daos/SourceMapDao/domain/types';
+
+const matchesComparator = (a: turf.Feature, b: turf.Feature) =>
   // length of the geometry coordinates array descending
   turf.getCoords(b).length - turf.getCoords(a).length ||
   // prefer matches that are not pp_osrm_assisted
   //   (if not assisted, pp_osrm_assisted = 0, otherwise 1)
-  a.properties.pp_osrm_assisted - b.properties.pp_osrm_assisted;
+  a.properties?.pp_osrm_assisted - b.properties?.pp_osrm_assisted;
 
-/**
- * @param matches
- */
-function removeRedundantMatches(matches) {
+type MatchedByShstRef = Record<
+  SharedStreetsMatchFeature['properties']['shstReferenceId'],
+  SharedStreetsMatchFeature[]
+>;
+
+export default function removeRedundantMatches(
+  matches: SharedStreetsMatchFeature[],
+) {
   // Group the shst matches by GTFS network segment
   const matchesByTargetMapId = matches.reduce((acc, matchFeature) => {
     const {
@@ -31,7 +37,7 @@ function removeRedundantMatches(matches) {
   }, {});
 
   const targetMapIds = Object.keys(matchesByTargetMapId);
-  const keepers = [];
+  const keepers: SharedStreetsMatchFeature[] = [];
 
   for (let i = 0; i < targetMapIds.length; ++i) {
     const tmId = targetMapIds[i];
@@ -41,7 +47,7 @@ function removeRedundantMatches(matches) {
 
     // for this target map segment
     const matchesByShstRef = matchesByTargetMapId[tmId].reduce(
-      (acc, matchFeature) => {
+      (acc: MatchedByShstRef, matchFeature: SharedStreetsMatchFeature) => {
         const {
           properties: { shstReferenceId },
         } = matchFeature;
@@ -81,10 +87,12 @@ function removeRedundantMatches(matches) {
       {},
     );
 
-    keepers.push(..._.flattenDeep(_.values(matchesByShstRef)));
+    const filteredMatches: SharedStreetsMatchFeature[] = _.values(
+      matchesByShstRef,
+    );
+
+    keepers.push(..._.flattenDeep(filteredMatches));
   }
 
   return keepers;
 }
-
-module.exports = removeRedundantMatches;
