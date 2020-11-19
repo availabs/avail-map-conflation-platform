@@ -8,6 +8,7 @@ import memoizeOne from 'memoize-one';
 
 const IN_MEMORY = ':memory:';
 
+// const db = new Database(IN_MEMORY, { verbose: console.log });
 const db = new Database(IN_MEMORY);
 
 const registeredDatabases: string[] = Object.values(
