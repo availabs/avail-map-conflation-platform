@@ -1,7 +1,6 @@
 /* eslint-disable no-restricted-syntax */
 
 import { strict as assert } from 'assert';
-import _ from 'lodash';
 
 import db from '../../../../services/DbService';
 
@@ -45,10 +44,6 @@ export default async function loadMesoLevelPaths() {
     }: {
       features: NpmrdsTmcFeature[];
     } of edgesByLinearTmcIterator) {
-      const tmcs = features.map((f) => _.get(f, ['properties', 'tmc']));
-
-      console.log(JSON.stringify({ tmcs }, null, 4));
-
       if (features.length < 2) {
         continue;
       }
