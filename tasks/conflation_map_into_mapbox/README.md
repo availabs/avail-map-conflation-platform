@@ -2,19 +2,20 @@
 
 ## Instructions
 
-The RIS/NPMRDS/OSM conflation process creates a _conflation\_map_ SQLite database.
-Put that database (or a soft-link to it) in the _./base\_data_ directory.
+### Create the mbtiles
 
 ```bash
-./bin/dumpConflationMapDatabaseToNDGeoJSON
-./bin/createMBTilesNDGeoJSON
+./bin/dumpSharedStreetsReferencesToNDGeoJSON.js
+./bin/createSharedStreets2019MBTiles
 ```
-
-Output written to _./derived\_data_.
 
 ```bash
-$ tree derived_data
-derived_data
-├── gtfs_qa_conflation_map.mbtiles
-└── gtfs_qa_conflation_map.ndjson
+./bin/dumpNpmrdsToNDGeoJSON.js
+./bin/createNpmrds2019MBTiles
 ```
+
+## Serving
+
+The mbtiles are served using the
+[AVAIL MBTiles Server](https://github.com/availabs/avail_mbtiles_server).
+NOTE: MBTile files renamed in the server's ./config.json file.

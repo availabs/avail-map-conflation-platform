@@ -1,0 +1,39 @@
+#!/bin/bash
+
+set -e
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+INF='../derived_data/shst_references.ndjson'
+OUTF='../derived_data/shst_references.mbtiles'
+
+FILTER='
+  {
+    "*": [
+      "all",
+      [ "any",
+        [ "<", "n", 1 ],
+        [ ">", "$zoom", 12 ],
+        [ "all",
+          [ ">=", "$zoom", 10 ],
+          [ "<=", "n", 2 ]
+        ]
+      ]
+    ]
+  }
+'
+
+tippecanoe \
+  --layer=shared_streets_2019 \
+  --no-feature-limit \
+  --no-tile-size-limit \
+  --generate-ids \
+  --read-parallel \
+  --minimum-detail 8 \
+  --extend-zooms-if-still-dropping \
+  --maximum-zoom 15 \
+  -j "$FILTER" \
+  --force -o "$OUTF" \
+  "$INF"
+
+popd >/dev/null
