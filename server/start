@@ -5,6 +5,8 @@ const {join} = require('path')
 
 const yargs = require("yargs");
 
+const defaultOutputDir = join(__dirname, '../output')
+
 const cliArgsSpec = {
   port: {
     demand: false,
@@ -18,8 +20,7 @@ const cliArgsSpec = {
     type: "string",
     desc:
       "Path to the output directory. (Can be set using ENV variable AVL_GTFS_CONFLATION_OUTPUT_DIR.)",
-    default:
-      join(process.cwd(), "output"),
+    default: defaultOutputDir
   },
 };
 
