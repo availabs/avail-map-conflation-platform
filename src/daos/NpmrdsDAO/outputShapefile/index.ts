@@ -59,6 +59,10 @@ const addRawNpmrdsLayer = (dataset: gdal.Dataset) => {
       fieldName: 'tmclinear',
       type: gdal.OFTInteger,
     },
+    lineartmc: {
+      fieldName: 'lineartmc',
+      type: gdal.OFTString,
+    },
     country: {
       fieldName: 'country',
       type: gdal.OFTString,
