@@ -272,6 +272,12 @@ const segmentize = (
       ? [feature?.geometry?.coordinates]
       : feature?.geometry?.coordinates;
 
+  if (_.isEmpty(coords)) {
+    // TODO: Figure out where this is happening.
+    console.warn('empty coords in segmentize');
+    return [];
+  }
+
   const featureSegments = _.flatten(
     coords.map((positions) =>
       _(positions)

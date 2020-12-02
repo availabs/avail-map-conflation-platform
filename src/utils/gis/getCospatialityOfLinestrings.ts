@@ -1,39 +1,46 @@
 // Sufficient within same map.
 //   Buffer is too tight for GTFS-ShSt cospatiality.
 
-const turf = require('@turf/turf');
-const gdal = require('gdal');
+import * as turf from '@turf/turf';
+import gdal from 'gdal';
 
-const _ = require('lodash');
+import _ from 'lodash';
+
+import lineMerge from './lineMerge';
 
 const GDAL_BUFF_DIST = 5e-7;
 const SEGMENTS = 100;
 const SHORT_SEG_LENGTH_THOLD = 0.002; // 2 meters
 
-const getGdalLineString = (f) => {
-  if (f === null) {
-    return null;
+export function getGdalMultiLineString(
+  feature: turf.Feature<turf.LineString | turf.MultiLineString>,
+) {
+  const gdalMultiLineString = new gdal.MultiLineString();
+
+  let geoms = turf.getCoords(feature);
+
+  if (!Array.isArray(geoms[0][0])) {
+    geoms = [geoms];
   }
 
-  const type = turf.getType(f);
+  for (let i = 0; i < geoms.length; ++i) {
+    const geom = geoms[i];
 
-  if (type !== 'LineString') {
-    throw new Error('GeoJSON Feature must be a LineString');
+    const lineString = new gdal.LineString();
+
+    for (let j = 0; j < geom.length; ++j) {
+      const [lon, lat] = geom[j];
+
+      lineString.points.add(new gdal.Point(lon, lat));
+    }
+
+    gdalMultiLineString.children.add(lineString);
   }
 
-  const lineString = new gdal.LineString();
+  return gdalMultiLineString;
+}
 
-  turf
-    .getCoords(f)
-    .forEach(([lon, lat]) => lineString.points.add(new gdal.Point(lon, lat)));
-
-  return lineString;
-};
-
-const removeRedundantCoords = (coords) =>
-  coords.filter((coord, i) => !_.isEqual(coords[i - 1], coord));
-
-const analyze = (orig, sub) => {
+export const analyze = (orig, sub) => {
   // Snap each vertex of sub to the orig
   //   Record:
   //     1. Dist from orig start
@@ -43,7 +50,7 @@ const analyze = (orig, sub) => {
 
   const origLen = turf.length(orig);
 
-  const subCoords = removeRedundantCoords(turf.getCoords(sub));
+  const subCoords = _(turf.getCoords(sub));
   const subPoints = subCoords.map((coord) => turf.point(coord));
 
   const overlapInfo = subPoints.reduce((acc, pt, i) => {
@@ -80,7 +87,7 @@ const analyze = (orig, sub) => {
   return overlapInfo;
 };
 
-const getSubGeometryOffsets = (
+export const getSubGeometryOffsets = (
   { sIntxnAnalysis, sDiffAnalysis, tIntxnAnalysis, tDiffAnalysis },
   { snapToEndPoints = true } = {},
 ) => {
@@ -164,107 +171,11 @@ const getSubGeometryOffsets = (
 };
 
 // https://postgis.net/docs/ST_LineMerge.html
-const lineMerge = (feature, { tolerance = 0 } = {}) => {
-  const type = turf.getType(feature);
-
-  if (type === 'LineString') {
-    return [feature];
-  }
-
-  if (type !== 'MultiLineString') {
-    throw new Error('Input must be LineStrings or MultiLineStrings.');
-  }
-
-  const multiCoords = turf
-    .getCoords(feature)
-    .filter((c) => Array.isArray(_.uniqWith(c, _.isEqual)) && c.length > 1)
-    .map(removeRedundantCoords);
-
-  if (multiCoords.length === 0) {
-    return [];
-  }
-
-  const mergedCoords = _.tail(multiCoords).reduce(
-    (acc, curCoords) => {
-      if (!curCoords.length) {
-        return acc;
-      }
-
-      const curStartCoord = _.first(curCoords);
-      const curEndCoord = _.last(curCoords);
-
-      const curStartPt = turf.point(curStartCoord);
-      const curEndPt = turf.point(curEndCoord);
-
-      for (let i = 0; i < acc.length; ++i) {
-        const other = acc[i];
-
-        const otherStartCoord = _.first(other);
-        const otherEndCoord = _.last(other);
-
-        // Simple equality of the coordinates.
-        //   NOTE: Not resiliant to slightest geospatial errors.
-        if (_.isEqual(curStartCoord, otherEndCoord)) {
-          other.push(...curCoords.slice(1));
-          return acc;
-        }
-        if (_.isEqual(curEndCoord, otherStartCoord)) {
-          other.unshift(...curCoords.slice(0, -1));
-          return acc;
-        }
-
-        // Using geospatial tolerances to handle geospatial errors
-        if (tolerance) {
-          const otherStartPt = turf.point(curStartCoord);
-          const otherEndPt = turf.point(curEndCoord);
-
-          if (turf.distance(curStartPt, otherEndPt) <= tolerance) {
-            other.push(...curCoords.slice(1));
-            return acc;
-          }
-
-          if (turf.distance(curEndPt, otherStartPt) <= tolerance) {
-            other.unshift(...curCoords.slice(0, -1));
-            return acc;
-          }
-        }
-      }
-
-      acc.push(curCoords);
-      return acc;
-    },
-    [_.head(multiCoords)],
-  );
-
-  const mergedLineStrings = mergedCoords
-    .map((coords) => turf.lineString(coords))
-    .sort((a, b) => turf.length(a) - turf.length(b))
-    .filter((line, i, others) => {
-      if (tolerance === 0) {
-        return true;
-      }
-
-      for (let j = i + 1; j < others.length; ++j) {
-        const other = others[j];
-
-        const { features: linePts } = turf.explode(line);
-
-        if (
-          !linePts.every(
-            (pt) => turf.pointToLineDistance(pt, other) > tolerance,
-          )
-        ) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-
-  return mergedLineStrings;
-};
-
-const geometryToGeoJson = (geometry, removeShortSegments) => {
+const geometryToGeoJson = (
+  geometry: gdal.Geometry,
+  removeShortSegments: boolean = false,
+) => {
+  // @ts-ignore
   const feature = JSON.parse(geometry.toJSON());
 
   if (turf.getType(feature) === 'LineString') {
@@ -293,7 +204,7 @@ const geometryToGeoJson = (geometry, removeShortSegments) => {
       return null;
     }
     // handle linestring[] instead of bare coords
-    let lineStrings = lineMerge(feature, { tolerance: SHORT_SEG_LENGTH_THOLD });
+    let lineStrings = lineMerge(feature);
 
     if (removeShortSegments) {
       lineStrings = lineStrings.filter((f) => {
@@ -311,9 +222,11 @@ const geometryToGeoJson = (geometry, removeShortSegments) => {
       : turf.multiLineString(lineStrings.map((f) => turf.getCoords(f)));
   }
 
+  // Other possible geometry types of gdal geometry intersection.
   if (
     turf.getType(feature) === 'Point' ||
     turf.getType(feature) === 'MultiPoint' ||
+    // @ts-ignore
     turf.getType(feature) === 'GeometryCollection'
   ) {
     return null;
@@ -322,74 +235,90 @@ const geometryToGeoJson = (geometry, removeShortSegments) => {
   throw new Error(`Unrecognized feature type: ${turf.getType(feature)}`);
 };
 
-function getCospatialityOfLinestrings(S, T) {
-  try {
-    if (
-      !S ||
-      !T ||
-      turf.getType(S) !== 'LineString' ||
-      turf.getType(T) !== 'LineString'
-    ) {
-      throw new Error(
-        'getCospatialityOfLinestrings takes two GeoJSON LineStrings',
-      );
-    }
+export default function getCospatialityOfLinestrings(
+  S: turf.Feature<turf.LineString | turf.MultiLineString>,
+  T: turf.Feature<turf.LineString | turf.MultiLineString>,
+) {
+  const sMerged = lineMerge(S);
+  const tMerged = lineMerge(T);
 
-    const sLen = turf.length(S);
-    const tLen = turf.length(T);
+  if (sMerged.length > 1 || tMerged.length > 1) {
+    throw new Error(
+      'getCospatialityOfLinestrings does not handle discontinuous MultiLineStrings.',
+    );
+  }
 
-    if (
-      // _.uniqWith(turf.getCoords(S), _.isEqual).length < 2 ||
-      // _.uniqWith(turf.getCoords(T), _.isEqual).length < 2
-      sLen < SHORT_SEG_LENGTH_THOLD ||
-      tLen < SHORT_SEG_LENGTH_THOLD
-    ) {
-      return null;
-    }
+  const [sLineString] = sMerged;
+  const [tLineString] = tMerged;
 
-    const s = getGdalLineString(S);
-    const t = getGdalLineString(T);
+  if (!sLineString || !tLineString) {
+    return null;
+  }
 
-    const sBuff = s.buffer(GDAL_BUFF_DIST, SEGMENTS);
-    const tBuff = t.buffer(GDAL_BUFF_DIST, SEGMENTS);
+  const sLen = turf.length(sLineString);
+  const tLen = turf.length(tLineString);
 
-    const sIntxn = s.intersection(tBuff); // .intersection(s);
-    const tIntxn = t.intersection(sBuff); // .intersection(t);
+  if (
+    // _.uniqWith(turf.getCoords(S), _.isEqual).length < 2 ||
+    // _.uniqWith(turf.getCoords(T), _.isEqual).length < 2
+    sLen < SHORT_SEG_LENGTH_THOLD ||
+    tLen < SHORT_SEG_LENGTH_THOLD
+  ) {
+    return null;
+  }
 
-    // clean up the intersections by removing short segments from multiLineStrings
-    //   These can happen when a segment contains a loop that crosses the other
-    //     segment's buffer.
+  const s = getGdalMultiLineString(sLineString);
+  const t = getGdalMultiLineString(tLineString);
 
-    const sIntxnFeature = geometryToGeoJson(sIntxn, true);
-    const tIntxnFeature = geometryToGeoJson(tIntxn, true);
+  const sBuff = s.buffer(GDAL_BUFF_DIST, SEGMENTS);
+  const tBuff = t.buffer(GDAL_BUFF_DIST, SEGMENTS);
 
-    if (sIntxnFeature === null && tIntxnFeature === null) {
-      return null;
-    }
-    if (sIntxnFeature === null || tIntxnFeature === null) {
-      console.warn(
-        JSON.stringify({
-          message:
-            'ASSUMPTION BROKEN: one segment has no intersection, while the other does.',
-          payload: {
-            S,
-            T,
-            sIntxnFeature,
-            tIntxnFeature,
-          },
-        }),
-      );
-      return null;
-    }
+  const sIntxn = s.intersection(tBuff); // .intersection(s);
+  const tIntxn = t.intersection(sBuff); // .intersection(t);
 
-    const sIntxnLineStrings = lineMerge(sIntxnFeature);
-    const tIntxnLineStrings = lineMerge(tIntxnFeature);
+  // clean up the intersections by removing short segments from multiLineStrings
+  //   These can happen when a segment contains a loop that crosses the other
+  //     segment's buffer.
 
-    const cospatiality = sIntxnLineStrings.reduce((acc, sIntxnLineString) => {
-      const sIntxn2 = getGdalLineString(sIntxnLineString);
+  const sIntxnFeature = geometryToGeoJson(sIntxn, true);
+  const tIntxnFeature = geometryToGeoJson(tIntxn, true);
+
+  if (sIntxnFeature === null && tIntxnFeature === null) {
+    return null;
+  }
+  if (sIntxnFeature === null || tIntxnFeature === null) {
+    console.warn(
+      JSON.stringify({
+        message:
+          'ASSUMPTION BROKEN: one segment has no intersection, while the other does.',
+        payload: {
+          S,
+          T,
+          sIntxnFeature,
+          tIntxnFeature,
+        },
+      }),
+    );
+    return null;
+  }
+
+  const sIntxnLineStrings = lineMerge(sIntxnFeature);
+  const tIntxnLineStrings = lineMerge(tIntxnFeature);
+
+  const cospatiality = sIntxnLineStrings.reduce(
+    (
+      acc: ({
+        sLen: number;
+        sIntxnOffsets: any;
+        tLen: number;
+        tIntxnOffsets: any;
+      } | null)[],
+      sIntxnLineString: turf.Feature<turf.LineString>,
+    ) => {
+      const sIntxn2 = getGdalMultiLineString(sIntxnLineString);
 
       const cospats = tIntxnLineStrings.map((tIntxnLineString) => {
-        const tIntxn2 = getGdalLineString(tIntxnLineString);
+        const tIntxn2 = getGdalMultiLineString(tIntxnLineString);
 
         if (sIntxn2 === null || tIntxn2 === null) {
           if (sIntxn2 !== null || tIntxn2 !== null) {
@@ -412,15 +341,16 @@ function getCospatialityOfLinestrings(S, T) {
         // const intxn = sIntxn2.union(tIntxn2);
         // const intxnBuff = intxn.buffer(GDAL_BUFF_DIST, SEGMENTS);
 
-        const sDiff = s.difference(sIntxn2.buffer(GDAL_BUFF_DIST / 2));
-        const tDiff = t.difference(tIntxn2.buffer(GDAL_BUFF_DIST / 2));
+        // https://gdal.org/api/ogrgeometry_cpp.html#_CPPv4NK11OGRGeometry6BufferEdi
+        const sDiff = s.difference(sIntxn2.buffer(GDAL_BUFF_DIST / 2, 100));
+        const tDiff = t.difference(tIntxn2.buffer(GDAL_BUFF_DIST / 2, 100));
 
-        const [sIntersection, tIntersection] = [sIntxn2, tIntxn2].map(
-          geometryToGeoJson,
+        const [sIntersection, tIntersection] = [sIntxn2, tIntxn2].map((g) =>
+          geometryToGeoJson(g),
         );
 
-        const [sDifference, tDifference] = [sDiff, tDiff].map(
-          geometryToGeoJson,
+        const [sDifference, tDifference] = [sDiff, tDiff].map((g) =>
+          geometryToGeoJson(g),
         );
 
         const expected =
@@ -496,19 +426,14 @@ function getCospatialityOfLinestrings(S, T) {
       });
       acc.push(...cospats.filter((c) => c !== null));
       return acc;
-    }, []);
+    },
+    [],
+  );
 
-    return _.isEmpty(cospatiality)
-      ? null
-      : _.uniqWith(
-          cospatiality.filter((c) => c !== null),
-          _.isEqual,
-        );
-  } catch (err) {
-    // console.error(JSON.stringify({ S, T }, null, 4));
-    console.error(err);
-    process.exit();
-  }
+  return _.isEmpty(cospatiality)
+    ? null
+    : _.uniqWith(
+        cospatiality.filter((c) => c !== null),
+        _.isEqual,
+      );
 }
-
-module.exports = getCospatialityOfLinestrings;
