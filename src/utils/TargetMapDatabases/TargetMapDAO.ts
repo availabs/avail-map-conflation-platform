@@ -35,6 +35,7 @@ export interface TargetMapEdgeFeature
   geometry: turf.LineString | turf.MultiLineString;
 }
 
+// NOTE: This is a dupe of src/daos/SourceMapDao/domain/types.SharedStreetsMatchFeature
 export interface PreloadedSharedStreetsMatchFeature
   extends turf.Feature<turf.LineString> {
   properties: Record<string, any> & {
@@ -115,19 +116,42 @@ export type TargetMapPath = PreloadedTargetMapPath & {
   labels: TargetMapEntityLabel[];
 };
 
+export type TargetMapPathEdgeFeature = TargetMapEdgeFeature & {
+  properties: {
+    targetMapPathId: TargetMapPathId;
+    targetMapPathIdx: number;
+  };
+};
+
 export type TargetMapPathEdgeMatches = {
-  targetMapEdge: TargetMapEdgeFeature;
-  shstMatches: SharedStreetsMatchFeature[];
+  targetMapPathEdge: TargetMapPathEdgeFeature;
+  shstMatches: SharedStreetsMatchFeature[] | null;
 };
 
 export type TargetMapPathMatches = TargetMapPathEdgeMatches[];
 
-export type TargetMapPathEdgeChosenMatchesChain = (
-  | SharedStreetsMatchFeature['id']
-  | null
-)[];
-export type TargetMapPathEdgeChosenMatches = (TargetMapPathEdgeChosenMatchesChain | null)[];
-export type TargetMapPathChosenMatches = (TargetMapPathEdgeChosenMatches | null)[];
+export interface TargetMapPathChosenMatchesMetadata {
+  pathLength: number;
+  chosenMatchesTotalLength: number;
+  numEdges: number;
+  numEdgesWithChosenMatches: number;
+  edgeMatchesLengthRatios: number[];
+}
+
+export type TargetMapPathEdgeChosenMatches =
+  | (SharedStreetsMatchFeature['id'] | null)[][]
+  | null;
+
+export type TargetMapPathMatchesIterator = Generator<{
+  targetMapPathId: TargetMapPathId;
+  targetMapPathMatches: TargetMapPathEdgeMatches[] | null;
+}>;
+
+export type TargetMapPathChosenMatches = {
+  targetMapPathId: TargetMapPathId;
+  chosenShstMatches: TargetMapPathEdgeChosenMatches[] | null;
+  chosenShstMatchesMetadata: TargetMapPathChosenMatchesMetadata | null;
+};
 
 const getEdgeIdsWhereClause = (n: number | null) =>
   n !== null && n > -1
@@ -143,6 +167,7 @@ export default class TargetMapDAO {
     insertNodeStmt?: Statement;
     insertEdgeStmt?: Statement;
     insertPathStmt?: Statement;
+    allTargetMapPathIdsStmt?: Statement;
     insertPathEdgeStmt?: Statement;
     insertPathLabelStmt?: Statement;
     targetMapIdsForEdgeIdsStmts?: Record<number, Statement>;
@@ -150,6 +175,7 @@ export default class TargetMapDAO {
     allPathsTraversingEdgesStmt?: Record<number, Statement>;
     deleteAllPathsWithLabelStmt?: Statement;
     rawEdgeFeaturesStmt?: Statement;
+    allRawEdgeFeaturesStmt?: Statement;
     groupedRawEdgeFeaturesStmt?: Record<number, Record<number, Statement>>;
     targetMapEdgeFeaturesStmt?: Record<number, Statement>;
     insertShstMatchStmt?: Statement;
@@ -158,8 +184,13 @@ export default class TargetMapDAO {
     shstMatchMetadataByTargetMapIdStmt?: Statement;
     truncateMatchesTablesStmt?: Statement;
     truncatePathMatchChainsTablesStmt?: Statement;
-    pathMatchesStmts?: Record<number, Record<number, Statement>>;
+    shstMatchesForPathStmt?: Record<number, Record<number, Statement>>;
     insertPathChosenMatchesStmt?: Statement;
+    insertPathChosenMatchesMetadataStmt?: Statement;
+    truncatePathChosenMatchesStmt?: Statement;
+    truncateEdgeChosenMatchesStmt?: Statement;
+    insertOptimalTargetMapEdgeChosenMatchesStmt?: Statement;
+    targetMapEdgesChosenMatchesStmt?: Statement;
   };
 
   constructor(xdb?: any, schema?: string) {
@@ -171,7 +202,7 @@ export default class TargetMapDAO {
   }
 
   private get schemaQualifier() {
-    return this.schema !== null ? `${this.schema}.` : '';
+    return this.schema === null ? '' : `${this.schema}.`;
   }
 
   /**
@@ -393,6 +424,29 @@ export default class TargetMapDAO {
     return this.preparedStatements.targetMapIdsForEdgeIdsStmts[numEdgeIds];
   }
 
+  private get allTargetMapPathIdsStmt(): Statement {
+    if (!this.preparedStatements.allTargetMapPathIdsStmt) {
+      this.preparedStatements.allTargetMapPathIdsStmt = this.db.prepare(
+        `
+          SELECT
+              path_id
+            FROM ${this.schemaQualifier}target_map_ppg_paths
+            ORDER BY 1 ;`,
+      );
+    }
+
+    // @ts-ignore
+    return this.preparedStatements.allTargetMapPathIdsStmt;
+  }
+
+  *makeTargetMapPathIdsIterator(): Generator<TargetMapPathId> {
+    const iter = this.allTargetMapPathIdsStmt.raw().iterate();
+
+    for (const [pathId] of iter) {
+      yield pathId;
+    }
+  }
+
   transformEdgeIdSequenceToTargetMapIdSequence(
     edgeIds: TargetMapEdgeId[],
   ): TargetMapId[] {
@@ -525,7 +579,15 @@ export default class TargetMapDAO {
       const sql = `
         SELECT
             feature
-          FROM ${this.schemaQualifier}raw_target_map_features ;
+          FROM ${this.schemaQualifier}raw_target_map_features
+          WHERE target_map_id IN (
+            SELECT
+                value
+              FROM (
+                  SELECT json(?) AS target_map_id_arr
+                ) AS t, json_each(t.target_map_id_arr)
+          )
+          ORDER BY target_map_id ;
       `;
 
       this.preparedStatements.rawEdgeFeaturesStmt = this.db.prepare(sql);
@@ -535,9 +597,36 @@ export default class TargetMapDAO {
     return this.preparedStatements.rawEdgeFeaturesStmt;
   }
 
+  getRawEdgeFeatures(
+    targetMapIds: TargetMapId[],
+  ): RawTargetMapFeatureFeature[] {
+    const features = this.rawEdgeFeaturesStmt
+      .raw()
+      .all([JSON.stringify(targetMapIds)])
+      .map(([featureStr]) => JSON.parse(featureStr));
+
+    return features;
+  }
+
+  private get allRawEdgeFeaturesStmt(): Statement {
+    if (!this.preparedStatements.allRawEdgeFeaturesStmt) {
+      const sql = `
+        SELECT
+            feature
+          FROM ${this.schemaQualifier}raw_target_map_features
+          ORDER BY target_map_id;
+      `;
+
+      this.preparedStatements.allRawEdgeFeaturesStmt = this.db.prepare(sql);
+    }
+
+    // @ts-ignore
+    return this.preparedStatements.allRawEdgeFeaturesStmt;
+  }
+
   // Can be wrapped to create induced subgraph iterators.
   *makeRawEdgeFeaturesIterator(): Generator<RawTargetMapFeatureFeature> {
-    const iter = this.rawEdgeFeaturesStmt.raw().iterate();
+    const iter = this.allRawEdgeFeaturesStmt.raw().iterate();
 
     for (const [f] of iter) {
       const feature = JSON.parse(f);
@@ -818,49 +907,29 @@ export default class TargetMapDAO {
     this.truncateMatchesTablesStmt.run();
   }
 
-  private get truncatePathMatchChainsTablesStmt(): Statement {
-    if (!this.preparedStatements.truncatePathMatchChainsTablesStmt) {
-      this.preparedStatements.truncatePathMatchChainsTablesStmt = this.db.prepare(
-        `DELETE FROM ${this.schemaQualifier}target_map_paths_shst_match_chains;`,
-      );
-    }
-
-    // @ts-ignore
-    return this.preparedStatements.truncatePathMatchChainsTablesStmt;
-  }
-
-  truncatePathMatchChainsTables() {
-    this.truncatePathMatchChainsTablesStmt.run();
-  }
-
-  private preparePathMatchesStmt(numPathIds: number | null): Statement {
-    // eslint-disable-next-line no-param-reassign
-    numPathIds = numPathIds === null ? -1 : numPathIds;
-
-    this.preparedStatements.pathMatchesStmts =
-      this.preparedStatements.pathMatchesStmts || {};
-
-    if (!this.preparedStatements.pathMatchesStmts[numPathIds]) {
-      const whereClause =
-        numPathIds > -1
-          ? `WHERE ( edge_id IN (${new Array(numPathIds).fill('?')}) )`
-          : '';
-
-      this.preparedStatements.pathMatchesStmts[numPathIds] = this.db.prepare(
+  private get shstMatchesForPathStmt(): Statement {
+    if (!this.preparedStatements.shstMatchesForPathStmt) {
+      // TODO TODO TODO This belongs in a VIEW
+      this.preparedStatements.shstMatchesForPathStmt = this.db.prepare(
         `
           SELECT
               -- An array of {targetMapEdge, shstMatches}, for each path
-              path_id as targetMapPathId,
               json_group_array(
                 json_object(
-                  'targetMapEdge',
-                  edge_feature,
+                  'targetMapPathEdge',
+                  json_set(
+                    ppg_edges.feature,
+                    '$.properties.targetMapPathId',
+                    path_id,
+                    '$.properties.targetMapPathIdx',
+                    path_edge_idx
+                  ),
 
                   'shstMatches',
-                  json(shst_matches),
-
-                  'path_edge_idx', -- For toposorting the path since cannot order by aggregation in SQLite
-                  path_edge_idx
+                  NULLIF(
+                    json(shst_matches),
+                    json('[null]')
+                  )
                 )
               ) AS unorderedPathWithMatches
             FROM (
@@ -884,40 +953,49 @@ export default class TargetMapDAO {
               ) AS agg_path_matches
                 INNER JOIN npmrds.target_map_ppg_edge_line_features AS ppg_edges
                   USING (edge_id)
-            ${whereClause}
-            GROUP BY path_id
-            ORDER BY path_id
+            WHERE (path_id = ?)
           ;
         `,
       );
     }
 
     // @ts-ignore
-    return this.preparedStatements.pathMatchesStmts[numPathIds];
+    return this.preparedStatements.shstMatchesForPathStmt;
   }
 
   *makeTargetMapPathMatchesIterator(queryParams?: {
     pathIds: TargetMapPathId[];
-  }): Generator<{
-    targetMapPathId: TargetMapPathId;
-    targetMapPathMatches: TargetMapPathEdgeMatches[];
-  }> {
-    const { pathIds = null } = queryParams || {};
+  }): TargetMapPathMatchesIterator {
+    const pathIdsIter =
+      queryParams?.pathIds ?? this.makeTargetMapPathIdsIterator();
 
-    const iterQuery = this.preparePathMatchesStmt(pathIds && pathIds.length);
+    for (const targetMapPathId of pathIdsIter) {
+      // We get the matches on-demand so that the chooser can insert matches as needed.
+      //  EG: Match mutations or gap-filling "matches"
+      const unorderedTargetMapEdgeMatchesStr = this.shstMatchesForPathStmt
+        .raw()
+        .get([targetMapPathId]);
 
-    const iter = iterQuery.raw().iterate();
+      if (!unorderedTargetMapEdgeMatchesStr) {
+        yield { targetMapPathId, targetMapPathMatches: null };
+        continue;
+      }
 
-    for (const [targetMapPathId, unorderedPathWithMatches] of iter) {
       // Guaranteed to be grouped by path_id, however
       //  the order of the edges along the path is not guaranteed.
-      const unorderedTargetMapEdgeMatches: (TargetMapPathEdgeMatches & {
-        path_edge_idx: number;
-      })[] = JSON.parse(unorderedPathWithMatches);
+      const unorderedTargetMapEdgeMatches: TargetMapPathEdgeMatches[] = JSON.parse(
+        unorderedTargetMapEdgeMatchesStr,
+      );
+
+      const pathEdgeIdxPath = [
+        'targetMapPathEdge',
+        'properties',
+        'targetMapPathIdx',
+      ];
 
       // Sort by the path edges topologically.
       const orderedTargetMapEdgeMatches = unorderedTargetMapEdgeMatches.sort(
-        (a, b) => _.get(a, ['path_edge_idx']) - _.get(b, ['path_edge_idx']),
+        (a, b) => _.get(a, pathEdgeIdxPath) - _.get(b, pathEdgeIdxPath),
       );
 
       const targetMapPathMatches = orderedTargetMapEdgeMatches.map((e) =>
@@ -926,6 +1004,21 @@ export default class TargetMapDAO {
 
       yield { targetMapPathId, targetMapPathMatches };
     }
+  }
+
+  private get insertPathChosenMatchesMetadataStmt() {
+    if (!this.preparedStatements.insertPathChosenMatchesMetadataStmt) {
+      this.preparedStatements.insertPathChosenMatchesMetadataStmt = this.db.prepare(
+        `
+          INSERT INTO ${this.schemaQualifier}target_map_paths_shst_match_chains_metadata (
+            path_id,
+            metadata
+          ) VALUES(?, json(?)) ; `,
+      );
+    }
+
+    // @ts-ignore
+    return this.preparedStatements.insertPathChosenMatchesMetadataStmt;
   }
 
   private get insertPathChosenMatchesStmt() {
@@ -947,23 +1040,42 @@ export default class TargetMapDAO {
   }
 
   insertPathChosenMatches(
-    targetMapPathId: TargetMapPathId,
-    targetMapPathChosenMatches: TargetMapPathChosenMatches | null,
+    targetMapPathChosenMatches: TargetMapPathChosenMatches,
   ) {
-    if (targetMapPathChosenMatches === null) {
+    console.log(JSON.stringify({ targetMapPathChosenMatches }, null, 4));
+
+    const {
+      targetMapPathId,
+      chosenShstMatches,
+      chosenShstMatchesMetadata,
+    } = targetMapPathChosenMatches;
+
+    if (chosenShstMatches === null) {
       return;
     }
+
+    this.insertPathChosenMatchesMetadataStmt?.run([
+      targetMapPathId,
+      JSON.stringify(chosenShstMatchesMetadata),
+    ]);
 
     // TODO: All of this should be moved into the
     //       TargetMapDAO.insertTargetMapPathChosenMatches method
     for (
       let pathEdgeIdx = 0;
-      pathEdgeIdx < targetMapPathChosenMatches.length;
+      pathEdgeIdx < chosenShstMatches.length;
       ++pathEdgeIdx
     ) {
-      const pathEdgeChosenMatches = targetMapPathChosenMatches[pathEdgeIdx];
+      const pathEdgeChosenMatches = chosenShstMatches[pathEdgeIdx];
 
-      if (pathEdgeChosenMatches === null) {
+      // FIXME: Why is pathEdgeChosenMatches sometimes undefined?
+      //        For targetMapPathId 319, using the debugger to inspect the array,
+      //          the last pathEdgeChosenMatch is NULL. It is undefined in
+      //          for loop condition below.
+      if (
+        pathEdgeChosenMatches === null ||
+        pathEdgeChosenMatches === undefined
+      ) {
         continue;
       }
 
@@ -996,6 +1108,160 @@ export default class TargetMapDAO {
           }
         }
       }
+    }
+  }
+
+  private get truncatePathChosenMatchesStmt() {
+    if (!this.preparedStatements.truncatePathChosenMatchesStmt) {
+      this.preparedStatements.truncatePathChosenMatchesStmt = this.db.prepare(
+        `
+          DELETE FROM ${this.schemaQualifier}target_map_paths_shst_match_chains_metadata ;
+        `,
+      );
+    }
+
+    // @ts-ignore
+    return this.preparedStatements.truncatePathChosenMatchesStmt;
+  }
+
+  truncatePathChosenMatches() {
+    this.truncatePathChosenMatchesStmt?.run();
+  }
+
+  private get truncateEdgeChosenMatchesStmt() {
+    if (!this.preparedStatements.truncateEdgeChosenMatchesStmt) {
+      this.preparedStatements.truncateEdgeChosenMatchesStmt = this.db.prepare(
+        `
+          DELETE FROM ${this.schemaQualifier}target_map_edge_chosen_matches ;
+        `,
+      );
+    }
+
+    // @ts-ignore
+    return this.preparedStatements.truncateEdgeChosenMatchesStmt;
+  }
+
+  private get insertOptimalTargetMapEdgeChosenMatchesStmt() {
+    if (!this.preparedStatements.insertOptimalTargetMapEdgeChosenMatchesStmt) {
+      this.preparedStatements.insertOptimalTargetMapEdgeChosenMatchesStmt = this.db.prepare(
+        `
+          INSERT INTO ${this.schemaQualifier}target_map_paths_edge_optimal_matches
+            SELECT
+                path_id,
+                path_edge_idx,
+                edge_chain_idx,
+                edge_chain_link_idx
+              FROM (
+                SELECT
+                    path_id,
+                    path_edge_idx,
+                    row_number() OVER (
+                      PARTITION BY edge_id
+                      ORDER BY chosen_matches_err
+                    ) AS chosen_edge_match_rank
+                  FROM (
+                    -- Edges are many-to-may with Paths.
+                    -- Matches are chosen for Paths
+                    -- Here, we find the Path chosen matches
+                    --   for a Path Edge that best fits that Edge
+                    --   across all the Paths to which that Edge is a member.
+                    SELECT
+                        path_id,
+                        path_edge_idx,
+                        MAX(
+                          ( 1 - edge_matches_length_ratio ),
+                          ( edge_matches_length_ratio - 1 )
+                        ) AS chosen_matches_err
+                      FROM target_map_paths_shst_match_chains
+                        INNER JOIN (
+                          SELECT
+                              path_id,
+                              key AS path_edge_idx,
+                              value AS edge_matches_length_ratio
+                            FROM target_map_paths_shst_match_chains_metadata,
+                              json_each(metadata, '$.edgeMatchesLengthRatios')
+                        ) USING (path_id, path_edge_idx)
+                  ) AS sub_ranked_match_choices_for_edges
+                    INNER JOIN target_map_ppg_path_edges
+                      USING (path_id, path_edge_idx)
+                )
+                INNER JOIN target_map_paths_shst_match_chains
+                  USING (path_id, path_edge_idx)
+              WHERE ( chosen_edge_match_rank = 1 ) ; `,
+      );
+    }
+
+    // @ts-ignore
+    return this.preparedStatements.insertOptimalTargetMapEdgeChosenMatchesStmt;
+  }
+
+  populateTargetMapEdgeChosenMatches() {
+    this.truncateEdgeChosenMatchesStmt?.run();
+
+    this.insertOptimalTargetMapEdgeChosenMatchesStmt?.run();
+  }
+
+  get targetMapEdgesChosenMatchesStmt() {
+    if (!this.preparedStatements.targetMapEdgesChosenMatchesStmt) {
+      this.preparedStatements.targetMapEdgesChosenMatchesStmt = this.db.prepare(
+        `
+          SELECT
+              edge_id,
+              target_map_id,
+              json_group_array(
+                json_object(
+                  'edgeChainIdx',
+                  edge_chain_idx,
+                  'edgeChainLinkIdx',
+                  edge_chain_link_idx,
+                  'shstMatchId',
+                  shst_match_id,
+                  'shstMatchFeature',
+                  json(feature)
+                )
+              ) AS chosenMatches
+            FROM ${this.schemaQualifier}target_map_edge_chosen_matches
+              INNER JOIN ${this.schemaQualifier}target_map_ppg_edge_id_to_target_map_id
+                USING (edge_id)
+            GROUP BY edge_id, target_map_id
+        `,
+      );
+    }
+
+    // @ts-ignore
+    return this.preparedStatements.targetMapEdgesChosenMatchesStmt;
+  }
+
+  *makeTargetMapEdgesChosenMatchesIterator() {
+    const iter = this.targetMapEdgesChosenMatchesStmt?.raw().iterate();
+
+    // @ts-ignore
+    for (const [edgeId, targetMapId, chosenMatchesStr] of iter) {
+      const chosenMatches = _(JSON.parse(chosenMatchesStr))
+        .sortBy(['edgeChainIdx', 'edgeChainLinkIdx'])
+        .map(
+          ({
+            edgeChainIdx,
+            edgeChainLinkIdx,
+            shstMatchId,
+            shstMatchFeature,
+          }) => {
+            Object.assign(shstMatchFeature.properties, {
+              shstMatchId,
+              targetMapEdgeChainIdx: edgeChainIdx,
+              targetMapEdgeChainLinkIdx: edgeChainLinkIdx,
+            });
+
+            return shstMatchFeature;
+          },
+        )
+        .value();
+
+      const chosenMatchesFeatureCollection = turf.featureCollection(
+        chosenMatches,
+      );
+
+      yield { edgeId, targetMapId, chosenMatchesFeatureCollection };
     }
   }
 
