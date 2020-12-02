@@ -26,17 +26,20 @@ DROP VIEW IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_path_feature_collections 
 DROP VIEW IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_edge_line_features ;
 DROP VIEW IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_node_point_features ;
 
-DROP VIEW IF EXISTS __SCHEMA_QUALIFIER__target_map_paths_shst_matches;
 DROP INDEX IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_edges_target_map_id_idx;
 DROP INDEX IF EXISTS __SCHEMA_QUALIFIER__target_map_edges_shst_matches_edge_id_idx ;
+DROP INDEX IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_path_edges_edge_id_idx ;
 DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_edges_shst_matches_geopoly_idx ;
 DROP INDEX IF EXISTS __SCHEMA_QUALIFIER__target_map_edges_shst_matches_shst_reference_idx ;
 DROP INDEX IF EXISTS __SCHEMA_QUALIFIER__target_map_paths_shst_match_chains_shst_match_id_idx ;
 DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_edges_shst_matches;
 DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_paths_shst_match_chains ;
+DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_paths_shst_match_chains_metadata ;
 
 DROP VIEW IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_edge_id_to_target_map_id;
 
+DROP VIEW IF EXISTS __SCHEMA_QUALIFIER__target_map_edge_chosen_matches ;
+DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_paths_edge_optimal_matches ;
 DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_nodes_geopoly_idx;
 DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_edges_geopoly_idx;
 
@@ -294,6 +297,9 @@ CREATE TABLE __SCHEMA_QUALIFIER__target_map_ppg_path_edges (
     REFERENCES target_map_ppg_edges(edge_id)
 ) WITHOUT ROWID ;
 
+CREATE INDEX __SCHEMA_QUALIFIER__target_map_ppg_path_edges_edge_id_idx
+  ON target_map_ppg_path_edges (edge_id) ;
+
 -- See spike/sqlite_ordered_arrays/test.sql for an example of creating an array recursively
 
 CREATE VIEW __SCHEMA_QUALIFIER__target_map_ppg_path_feature_collections
@@ -359,6 +365,14 @@ CREATE INDEX __SCHEMA_QUALIFIER__target_map_edges_shst_matches_shst_reference_id
   ON target_map_edges_shst_matches(shst_reference) ;
 
 
+-- NOTE: This table should be used to CASCADE DELETEs to target_map_paths_shst_match_chains.
+CREATE TABLE IF NOT EXISTS __SCHEMA_QUALIFIER__target_map_paths_shst_match_chains_metadata (
+  path_id   INTEGER NOT NULL PRIMARY KEY,
+  metadata  TEXT NOT NULL,
+
+  CHECK(json_valid(metadata))
+) WITHOUT ROWID ;
+
 CREATE TABLE IF NOT EXISTS __SCHEMA_QUALIFIER__target_map_paths_shst_match_chains (
   -- Foreign Key referencing the target_map_ppg_path_edge table.
   path_id              INTEGER NOT NULL,
@@ -375,6 +389,10 @@ CREATE TABLE IF NOT EXISTS __SCHEMA_QUALIFIER__target_map_paths_shst_match_chain
 
   PRIMARY KEY (path_id, path_edge_idx, edge_chain_idx, edge_chain_link_idx),
 
+  FOREIGN KEY(path_id)
+    REFERENCES target_map_paths_shst_match_chains_metadata(path_id)
+    ON DELETE CASCADE,
+
   FOREIGN KEY(path_id, path_edge_idx)
     REFERENCES target_map_ppg_path_edges(path_id, path_edge_idx)
     ON DELETE CASCADE,
@@ -387,11 +405,44 @@ CREATE TABLE IF NOT EXISTS __SCHEMA_QUALIFIER__target_map_paths_shst_match_chain
 CREATE INDEX __SCHEMA_QUALIFIER__target_map_paths_shst_match_chains_shst_match_id_idx
   ON target_map_paths_shst_match_chains (shst_match_id) ;
 
-CREATE VIEW __SCHEMA_QUALIFIER__target_map_paths_shst_matches
+CREATE TABLE __SCHEMA_QUALIFIER__target_map_paths_edge_optimal_matches (
+  path_id               INTEGER NOT NULL,
+  path_edge_idx         INTEGER NOT NULL,
+  edge_chain_idx        INTEGER NOT NULL,
+  edge_chain_link_idx   INTEGER NOT NULL,
+
+  PRIMARY KEY (path_id, path_edge_idx, edge_chain_idx, edge_chain_link_idx),
+
+  FOREIGN KEY(
+      path_id,
+      path_edge_idx,
+      edge_chain_idx,
+      edge_chain_link_idx
+    )
+    REFERENCES target_map_paths_shst_match_chains(
+      path_id,
+      path_edge_idx,
+      edge_chain_idx,
+      edge_chain_link_idx
+    ) ON DELETE CASCADE
+) WITHOUT ROWID ;
+
+CREATE VIEW __SCHEMA_QUALIFIER__target_map_edge_chosen_matches
   AS
     SELECT
-        *
-      FROM target_map_edges_shst_matches
+        path_id,
+        path_edge_idx,
+        edge_id,
+        edge_chain_idx,
+        edge_chain_link_idx,
+        shst_match_id,
+        shst_reference,
+        section_start,
+        section_end,
+        feature_len_km,
+        feature
+      FROM target_map_paths_edge_optimal_matches
         INNER JOIN target_map_paths_shst_match_chains
-        USING (shst_match_id) ;
-
+          USING (path_id, path_edge_idx, edge_chain_idx, edge_chain_link_idx)
+        INNER JOIN target_map_edges_shst_matches
+          USING (shst_match_id) ;

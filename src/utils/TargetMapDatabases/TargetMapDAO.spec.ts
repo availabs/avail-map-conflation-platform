@@ -1,5 +1,9 @@
 import test from 'tape';
 
+/* eslint-disable no-restricted-syntax */
+
+import { join } from 'path';
+
 import Database from 'better-sqlite3';
 
 import TargetMapDAO from './TargetMapDAO';
@@ -90,6 +94,53 @@ test('create TargetMapDAO SQL Syntax Tests', (t) => {
     sqlSyntaxTests(targetMapDao);
 
     testDB.close();
+  } catch (err) {
+    t.error(err);
+  } finally {
+    t.end();
+  }
+});
+
+test('create TargetMapDAO TargetMapPathMatchesIterator', (t) => {
+  try {
+    const testDB = new Database(':memory:');
+
+    const targetMapDao = new TargetMapDAO(testDB);
+    targetMapDao.initializeTargetMapDatabase();
+
+    targetMapDao.makeTargetMapPathMatchesIterator();
+
+    t.pass(
+      'TargetMapDAO successfully executed makeTargetMapPathMatchesIterator SQL',
+    );
+  } catch (err) {
+    t.error(err);
+  } finally {
+    t.end();
+  }
+});
+
+test('create TargetMapDAO TargetMapPathMatchesIterator', (t) => {
+  try {
+    const testDB = new Database(
+      join(__dirname, '../../../output/sqlite/npmrds'),
+    );
+
+    const targetMapDao = new TargetMapDAO(testDB);
+
+    const iter = targetMapDao.makeTargetMapEdgesChosenMatchesIterator();
+
+    let i = 0;
+    for (const row of iter) {
+      console.log(JSON.stringify(row.chosenMatchesFeatureCollection));
+      if (++i === 3) {
+        break;
+      }
+    }
+
+    t.pass(
+      'TargetMapDAO successfully executed makeTargetMapPathMatchesIterator SQL',
+    );
   } catch (err) {
     t.error(err);
   } finally {
