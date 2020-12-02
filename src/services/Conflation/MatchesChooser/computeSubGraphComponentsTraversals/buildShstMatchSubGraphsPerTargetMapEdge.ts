@@ -3,27 +3,40 @@
 // Builds a graph with all the start_nodes and end_nodes in the shstMatches.
 //   The weights of the edges is determined by the getEdgeWeight function defined above.
 
-const turf = require('@turf/turf');
-const { Graph } = require('graphlib');
-const memoizeOne = require('memoize-one');
-const _ = require('lodash');
+// TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
+//
+// ??? Ideal place to search the SourceMap for Matches that improve connectivity ???
 
-const removeRedundantCoords = require('./removeRedundantCoords');
+// FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME
+// LOTS of assumptions here on how to select the optimal paths
+//   Consider assumptions in getEdgeWeight, their consequences, and alternatives.
 
-const getCleanedCoords = memoizeOne((feature) =>
+import * as turf from '@turf/turf';
+import { Graph } from 'graphlib';
+import memoizeOne from 'memoize-one';
+import _ from 'lodash';
+
+import removeRedundantCoords from './removeRedundantCoords';
+
+export const getCleanedCoords = memoizeOne((feature) =>
   removeRedundantCoords(turf.getCoords(feature)),
 );
 
-const getRootMeanSquareDeviation = (gtfsNetEdge, shstMatch) => {
+// FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME
+// ??? Replace with Hausdorff or Frechet ???
+export function getRootMeanSquareDeviation(targetMapPathEdge, shstMatch) {
   // Ordered list of all vertices in the shstMatch
   const shstMatchVertices = getCleanedCoords(shstMatch).map((coord) =>
     turf.point(coord),
   );
 
+  // Handles MultiLineStrings
   const linestrings =
-    turf.getType(gtfsNetEdge) === 'LineString'
-      ? [gtfsNetEdge]
-      : turf.getCoords(gtfsNetEdge).map((coords) => turf.lineString(coords));
+    turf.getType(targetMapPathEdge) === 'LineString'
+      ? [targetMapPathEdge]
+      : turf
+          .getCoords(targetMapPathEdge)
+          .map((coords) => turf.lineString(coords));
 
   return Math.sqrt(
     shstMatchVertices.reduce(
@@ -39,35 +52,32 @@ const getRootMeanSquareDeviation = (gtfsNetEdge, shstMatch) => {
       0,
     ) / shstMatchVertices.length,
   );
-};
+}
 
-const getEdgeWeight = (gtfsNetworkEdge, shstMatch) => {
+export function getEdgeWeight(targetMapPathEdge, shstMatch) {
   // Get the Root Mean Squared Deviation between
-  //   the shstMatch's vertices and the original GTFS shape segment.
-  const rmsd = getRootMeanSquareDeviation(gtfsNetworkEdge, shstMatch);
+  //   the shstMatch's vertices and the original TargetMap Edge.
+  const rmsd = getRootMeanSquareDeviation(targetMapPathEdge, shstMatch);
 
   // TODO: Consider implications.
   // The edgeWeight: length * rmsd
   const edgeWeight = turf.length(shstMatch) * rmsd;
 
   return edgeWeight;
-};
+}
 
-const buildShstMatchSubGraphsPerGtfsShapeSegment = (
-  gtfsNetEdgesShstMatches,
-) => {
-  if (
-    !Array.isArray(gtfsNetEdgesShstMatches) ||
-    gtfsNetEdgesShstMatches.length === 0
-  ) {
+export default function buildShstMatchSubGraphsPerTargetMapEdge(
+  targetMapPathMatches,
+) {
+  if (!targetMapPathMatches?.length) {
     return null;
   }
 
   const nodeIds = {};
   let nodeIdSeq = 0;
 
-  const subGraphsPerGtfsShapeSegment = gtfsNetEdgesShstMatches.map(
-    ({ gtfsNetworkEdge, shstMatches }) => {
+  const subGraphsPerTargetMapEdge = targetMapPathMatches.map(
+    ({ targetMapPathEdge, shstMatches }) => {
       if (_.isEmpty(shstMatches)) {
         return null;
       }
@@ -106,7 +116,7 @@ const buildShstMatchSubGraphsPerGtfsShapeSegment = (
             ? (nodeIds[endCoordStr] = nodeIdSeq++)
             : nodeIds[endCoordStr];
 
-        const edgeWeight = getEdgeWeight(gtfsNetworkEdge, shstMatch);
+        const edgeWeight = getEdgeWeight(targetMapPathEdge, shstMatch);
 
         // The ID for the edge is the index of the shstMatch in the shstMatches array.
         subGraph.setEdge(startNodeId, endNodeId, {
@@ -120,10 +130,8 @@ const buildShstMatchSubGraphsPerGtfsShapeSegment = (
     },
   );
 
-  return Array.isArray(subGraphsPerGtfsShapeSegment) &&
-    subGraphsPerGtfsShapeSegment.filter((g) => g).length
-    ? subGraphsPerGtfsShapeSegment
+  return Array.isArray(subGraphsPerTargetMapEdge) &&
+    subGraphsPerTargetMapEdge.filter((g) => g).length
+    ? subGraphsPerTargetMapEdge
     : null;
-};
-
-module.exports = buildShstMatchSubGraphsPerGtfsShapeSegment;
+}

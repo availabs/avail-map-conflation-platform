@@ -1,12 +1,17 @@
 /* eslint-disable no-constant-condition */
 
-const turf = require('@turf/turf');
-const _ = require('lodash');
+import * as turf from '@turf/turf';
+import _ from 'lodash';
 
-const removeRedundantCoords = (coords) =>
-  coords.filter((coord, i) => !_.isEqual(coords[i - 1], coord));
+export function removeRedundantCoords(coords) {
+  return coords.filter((coord, i) => !_.isEqual(coords[i - 1], coord));
+}
 
-const mergePathLineStringsUsingMetadata = (S, T, shstMatchesById) => {
+export default function mergePathLineStringsUsingMetadata(
+  S,
+  T,
+  shstMatchesById,
+) {
   const sShstMatchIds = S.properties.pathDecompositionInfo
     .map(({ id }) => id)
     .filter((id) => id !== null);
@@ -155,7 +160,7 @@ const mergePathLineStringsUsingMetadata = (S, T, shstMatchesById) => {
   const mergedPath = turf.lineString(mergedCoords, mergedProperties);
 
   const {
-    properties: { gtfsNetworkEdgeLength },
+    properties: { targetMapEdgeLength },
   } = mergedPath;
 
   const {
@@ -184,8 +189,8 @@ const mergePathLineStringsUsingMetadata = (S, T, shstMatchesById) => {
   // We update the metadata comparing the matches path length to the GTFS Shape Seg length.
   const mergedShstMatchesLength = turf.length(mergedPath);
 
-  const lengthDifference = gtfsNetworkEdgeLength - mergedShstMatchesLength;
-  const lengthRatio = gtfsNetworkEdgeLength / mergedShstMatchesLength;
+  const lengthDifference = targetMapEdgeLength - mergedShstMatchesLength;
+  const lengthRatio = targetMapEdgeLength / mergedShstMatchesLength;
 
   Object.assign(mergedPath.properties, {
     mergedShstMatchesLength,
@@ -194,6 +199,4 @@ const mergePathLineStringsUsingMetadata = (S, T, shstMatchesById) => {
   });
 
   return mergedPath;
-};
-
-module.exports = mergePathLineStringsUsingMetadata;
+}

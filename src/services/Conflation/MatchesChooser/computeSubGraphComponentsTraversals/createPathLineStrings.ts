@@ -1,19 +1,24 @@
 /* eslint-disable no-cond-assign */
 
-const turf = require('@turf/turf');
-const _ = require('lodash');
+import * as turf from '@turf/turf';
+import _ from 'lodash';
 
-const { alg: graphAlgs } = require('graphlib');
+import { alg as graphAlgs } from 'graphlib';
 
-const unionPathLineStrings = require('./unionPathLineStrings');
+import unionPathLineStrings from './unionPathLineStrings';
 
-const removeRedundantCoords = require('./removeRedundantCoords');
+import removeRedundantCoords from './removeRedundantCoords';
 
-const createPathLineStrings = (gtfsNetworkEdge, subGraph, shstMatchesById) => {
+export default function createPathLineStrings(
+  targetMapPathEdge,
+  subGraph,
+  shstMatchesById,
+) {
   const sources = subGraph.sources();
   const sinks = subGraph.sinks();
 
   // Note: These could be empty if the subGraph is cyclic
+  // FIXME: ??? Are these redundant ???
   const subGraphSources = subGraph.sources();
   const subGraphSinks = subGraph.sinks();
 
@@ -26,8 +31,9 @@ const createPathLineStrings = (gtfsNetworkEdge, subGraph, shstMatchesById) => {
       const subSources = _.intersection(component, sources);
       const subSinks = _.intersection(component, sinks);
 
+      // FIXME: ??? Not sure what the intention was here. ???
+      //        ??? Essentially, it's filtering out Cycles ???
       const isSourceComponent = subSources.length > 0;
-
       const isSinkComponent = subSinks.length > 0;
 
       return {
@@ -41,9 +47,16 @@ const createPathLineStrings = (gtfsNetworkEdge, subGraph, shstMatchesById) => {
     },
   );
 
-  // Toposorted ShstMatches for each GTFS shape segment
-  // [components][sources in that component][sinks in that component]
-  //   In each component, every possible path source to sink path
+  // Toposorted ShstMatches for each TargetMap Edge
+  //   Three dimensional array:
+  //     dim-1: components
+  //       dim-2: component sources
+  //
+  //   In each component, every possible (source, sink) pair path
+  //
+  // NOTE: edgeWeight is calculated in
+  //       buildShstMatchSubGraphsPerGtfsShapeSegment
+  //       using questionable assumptions.
   const source2SinkPaths = subGraphComponentsSourcesAndSinks.map(
     ({ componentSources, componentSinks }) =>
       componentSources.map((src) => {
@@ -55,10 +68,13 @@ const createPathLineStrings = (gtfsNetworkEdge, subGraph, shstMatchesById) => {
 
         return componentSinks
           .map((sink) => {
+            // If the sink was not reachable from the source,
+            //   the source2SinkPath does not exist.
             if (!Number.isFinite(paths[sink].distance)) {
               return null;
             }
 
+            // Build the Matches path from the dijkstra output.
             let s = sink;
             let { predecessor } = paths[sink];
             const path = [sink];
@@ -81,16 +97,16 @@ const createPathLineStrings = (gtfsNetworkEdge, subGraph, shstMatchesById) => {
     Array.isArray(source2SinkPaths) &&
     _.flattenDeep(
       source2SinkPaths.map(
-        // Each element of the source2SinkPaths array is represents a component
-        //   Each component has a two dimensional array
-        //     componentSourcesArr
-        // The componentSourcesArr for this particular shape segment
+        // Each element of the source2SinkPaths 3-dimensional array represents
+        //   the "shortest" path through a component for each (source, sink) pair.
+        //   For each component (dim-1), we have an array of paths (dim-2)
+        //   for each source within the component to each sink (dim-3) in the component.
         (componentSourcesArr) => {
-          const gtfsNetworkEdgeLength = turf.length(gtfsNetworkEdge);
+          const targetMapEdgeLength = turf.length(targetMapPathEdge);
 
           const {
-            properties: { shape_id, shape_index },
-          } = gtfsNetworkEdge;
+            properties: { targetMapPathId, targetMapPathIdx },
+          } = targetMapPathEdge;
 
           const shstMatchPaths =
             // For each component in the shape segment's shstMatches subGraph
@@ -115,14 +131,14 @@ const createPathLineStrings = (gtfsNetworkEdge, subGraph, shstMatchesById) => {
                           id,
                           properties: {
                             shstReferenceId,
-                            section: shstReferenceSection,
+                            // section: shstReferenceSection,
                           },
                         } = shstMatch;
 
                         return {
                           id,
                           shstReferenceId,
-                          shstReferenceSection,
+                          // shstReferenceSection,
                           len: turf.length(shstMatch),
                           coords: turf.getCoords(shstMatch),
                         };
@@ -142,18 +158,18 @@ const createPathLineStrings = (gtfsNetworkEdge, subGraph, shstMatchesById) => {
                     );
 
                     const pathLineString = turf.lineString(pathCoords, {
-                      shape_id,
-                      shape_index,
+                      targetMapPathId,
+                      targetMapPathIdx,
                       pathDecompositionInfo,
-                      gtfsNetworkEdgeLength,
+                      targetMapEdgeLength,
                     });
 
                     const mergedShstMatchesLength = turf.length(pathLineString);
 
                     const lengthDifference =
-                      gtfsNetworkEdgeLength - mergedShstMatchesLength;
+                      targetMapEdgeLength - mergedShstMatchesLength;
                     const lengthRatio =
-                      gtfsNetworkEdgeLength / mergedShstMatchesLength;
+                      targetMapEdgeLength / mergedShstMatchesLength;
 
                     Object.assign(pathLineString.properties, {
                       mergedShstMatchesLength,
@@ -177,6 +193,4 @@ const createPathLineStrings = (gtfsNetworkEdge, subGraph, shstMatchesById) => {
   unionPathLineStrings(pathLineStrings, shstMatchesById);
 
   return pathLineStrings;
-};
-
-module.exports = createPathLineStrings;
+}

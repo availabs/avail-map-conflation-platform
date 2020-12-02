@@ -1,15 +1,18 @@
 /* eslint-disable no-continue, no-cond-assign, no-param-reassign, no-constant-condition */
 
-const assert = require('assert');
+import assert from 'assert';
 
-const turf = require('@turf/turf');
-const _ = require('lodash');
+import * as turf from '@turf/turf';
+import _ from 'lodash';
 
-const getCospatialityOfLinestrings = require('../../../../utils/gis/getCospatialityOfLinestrings');
+import getCospatialityOfLinestrings from '../../../../utils/gis/getCospatialityOfLinestrings';
 
 const maxOverlapThld = 0.002; // 2 meters
 
-const findNonAxiomaticPaths = ({ chosenPaths, aggregatedSummary }) => {
+export default function findNonAxiomaticPaths({
+  chosenPaths,
+  aggregatedSummary,
+}) {
   let progress = false;
 
   const filteredPaths = chosenPaths.reduce(
@@ -27,13 +30,13 @@ const findNonAxiomaticPaths = ({ chosenPaths, aggregatedSummary }) => {
       }
 
       const {
-        // gtfsNetworkEdge,
+        // targetMapPathEdge,
         // shape_id,
         // shstMatches,
         pathLineStrings,
       } = summary;
 
-      // const gtfsNetworkEdgeLength = turf.length(gtfsNetworkEdge);
+      // const targetMapEdgeLength = turf.length(targetMapPathEdge);
 
       // const features = Array.prototype.concat(pathLineStrings, shstMatches);
       const features = pathLineStrings;
@@ -58,7 +61,7 @@ const findNonAxiomaticPaths = ({ chosenPaths, aggregatedSummary }) => {
       // const successorChosenPaths = chosenPaths[shapeSegIdx + 1];
 
       // const similarities = features.map(path =>
-      // getSimilarity(path, gtfsNetworkEdge)
+      // getSimilarity(path, targetMapPathEdge)
       // );
 
       const cospatialities = _.range(0, features.length).map(() =>
@@ -74,8 +77,6 @@ const findNonAxiomaticPaths = ({ chosenPaths, aggregatedSummary }) => {
           const T = features[j];
 
           const cospat = getCospatialityOfLinestrings(S, T);
-
-          // TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
 
           cospatialities[i][j] = cospat !== null ? { self: 'S', cospat } : null;
           cospatialities[j][i] = cospat !== null ? { self: 'T', cospat } : null;
@@ -245,7 +246,7 @@ const findNonAxiomaticPaths = ({ chosenPaths, aggregatedSummary }) => {
       if (!_.isEmpty(maxValueCombo)) {
         // console.log(shapeSegIdx, "maxValueCombo:", maxValueCombo);
         // console.log("maxValueCombo len:", maxValue);
-        // console.log("gtfsNetworkEdgeLength:", turf.length(gtfsNetworkEdge));
+        // console.log("targetMapEdgeLength:", turf.length(targetMapPathEdge));
         progress = true;
 
         // TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
@@ -279,16 +280,16 @@ const findNonAxiomaticPaths = ({ chosenPaths, aggregatedSummary }) => {
             // const mergedShstMatchesLength = turf.length(feature);
 
             // const lengthDifference =
-            // gtfsNetworkEdgeLength - mergedShstMatchesLength;
+            // targetMapEdgeLength - mergedShstMatchesLength;
 
             // const lengthRatio =
-            // gtfsNetworkEdgeLength / mergedShstMatchesLength;
+            // targetMapEdgeLength / mergedShstMatchesLength;
 
             // const properties = {
             // shape_id,
             // shape_index: shapeSegIdx,
             // pathDecompositionInfo: syntheticPathDecomInfo,
-            // gtfsNetworkEdgeLength,
+            // targetMapEdgeLength,
             // mergedShstMatchesLength,
             // lengthDifference,
             // lengthRatio
@@ -303,11 +304,6 @@ const findNonAxiomaticPaths = ({ chosenPaths, aggregatedSummary }) => {
           return acc2;
         }, []);
 
-        // console.log();
-        // console.log(JSON.stringify(gtfsNetworkEdge));
-        // console.log();
-        // console.log(JSON.stringify(turf.featureCollection(optimalPaths)));
-
         acc[shapeSegIdx] = optimalPaths;
       }
 
@@ -317,6 +313,4 @@ const findNonAxiomaticPaths = ({ chosenPaths, aggregatedSummary }) => {
   );
 
   return progress ? filteredPaths : null;
-};
-
-module.exports = findNonAxiomaticPaths;
+}

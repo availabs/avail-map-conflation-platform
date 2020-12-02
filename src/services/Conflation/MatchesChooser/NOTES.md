@@ -18,3 +18,12 @@
 * Probably best just to snap the GTFS shape seg point at
     the junction to the shst refs to determine where to split
     the overlap.
+
+The two directions of any road (directional or centerline target map)
+  can be used to reinforce each other, fill gaps.
+
+For centerline maps,
+  using the shst_geometry_ids to get the reversed direction chosen paths.
+
+  ? If the map id bi-directional,
+      always add the reversed direction during matching ?

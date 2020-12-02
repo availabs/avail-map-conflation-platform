@@ -1,11 +1,11 @@
 /* eslint-disable no-continue, no-constant-condition, no-cond-assign */
 
-const turf = require('@turf/turf');
-const _ = require('lodash');
+import * as turf from '@turf/turf';
+import _ from 'lodash';
 
-const mergeLineStringsGeospatially = require('../../../../utils/gis/mergeLineStringsGeospatially');
+import mergeLineStringsGeospatially from '../../../../utils/gis/mergeLineStringsGeospatially';
 
-function mergePathSegmentsGeospatially(S, T) {
+export default function mergePathSegmentsGeospatially(S, T) {
   const sShstMatchIds = S.properties.pathDecompositionInfo
     .map(({ id }) => id)
     .filter((id) => id !== null);
@@ -44,7 +44,7 @@ function mergePathSegmentsGeospatially(S, T) {
   mergedPath.properties = properties;
 
   const {
-    properties: { gtfsNetworkEdgeLength },
+    properties: { targetMapEdgeLength },
   } = mergedPath;
 
   const {
@@ -73,8 +73,8 @@ function mergePathSegmentsGeospatially(S, T) {
   // We update the metadata comparing the matches path length to the GTFS Shape Seg length.
   const mergedShstMatchesLength = turf.length(mergedPath);
 
-  const lengthDifference = gtfsNetworkEdgeLength - mergedShstMatchesLength;
-  const lengthRatio = gtfsNetworkEdgeLength / mergedShstMatchesLength;
+  const lengthDifference = targetMapEdgeLength - mergedShstMatchesLength;
+  const lengthRatio = targetMapEdgeLength / mergedShstMatchesLength;
 
   Object.assign(mergedPath.properties, {
     mergedShstMatchesLength,
@@ -84,5 +84,3 @@ function mergePathSegmentsGeospatially(S, T) {
 
   return mergedPath;
 }
-
-module.exports = mergePathSegmentsGeospatially;

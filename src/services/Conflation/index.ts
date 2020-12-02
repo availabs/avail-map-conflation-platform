@@ -1,3 +1,3 @@
 export { makeMatchedTargetMapEdgesIterator } from './SharedStreetsMatcher';
-// export { default as chooseTargetMapPathMatches } from './chooseTargetMapPathMatches';
+export { default as chooseTargetMapPathShstMatches } from './MatchesChooser';
 export { default as scoreChosenPaths } from './scoreChosenPaths';

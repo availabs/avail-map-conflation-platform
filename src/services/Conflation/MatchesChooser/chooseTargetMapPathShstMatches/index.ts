@@ -1,35 +1,23 @@
 /* eslint-disable no-continue, no-cond-assign, no-param-reassign, no-constant-condition */
 
-// MODULE PURPOSE: Cherry-pick the best shstMatches across the GTFS Shape.
-//
-// GTFS Shape Segments ShstMatches Selection Algorithm
-//
-//   Here, we use the GTFS Shape level properties decide the chosenPaths.
-//
-//   The candidatePaths for each Shape Segment have already been merged.
-//
-//   The decision making logic leverages GTFS Shape Segs with
-//     a single ShstMatches Path that spans most of the Shape Seg
-//     as the Ground Truths for further deductions.
+import { strict as assert } from 'assert';
 
-const assert = require('assert');
+import * as turf from '@turf/turf';
+import _ from 'lodash';
 
-const turf = require('@turf/turf');
-const _ = require('lodash');
+import findAxiomaticPaths from './findAxiomaticPaths';
+import findNonAxiomaticPaths from './findNonAxiomaticPaths';
 
-const findAxiomaticPaths = require('./findAxiomaticPaths');
-const findNonAxiomaticPaths = require('./findNonAxiomaticPaths');
-
-const {
+import {
   minPathLengthThld,
   maxSegPathLengthDiffRatioThld,
   maxGapDistThld,
-} = require('./constants');
+} from './constants';
 
-const computeShapeLevelPathCombinationProperties = ({
-  gtfsNetEdgesShstMatches,
+export default function chooseTargetMapPathShstMatches({
+  targetMapPathMatches,
   subGraphComponentsTraversals,
-}) => {
+}): { targetMapPathId: number; chosenPaths: any; metadata: any } | null {
   if (
     !(
       Array.isArray(subGraphComponentsTraversals) &&
@@ -39,37 +27,36 @@ const computeShapeLevelPathCombinationProperties = ({
     return null;
   }
 
-  assert(
-    gtfsNetEdgesShstMatches.length === subGraphComponentsTraversals.length,
+  assert(targetMapPathMatches.length === subGraphComponentsTraversals.length);
+
+  const distinctTargetMapPathIds: number[] = _.uniq(
+    targetMapPathMatches.map(
+      ({ targetMapPathEdge }) => targetMapPathEdge.properties.targetMapPathId,
+    ),
   );
 
-  const {
-    gtfsNetworkEdge: {
-      properties: { shape_id: shapeId },
-    },
-  } = _.first(gtfsNetEdgesShstMatches);
+  assert(distinctTargetMapPathIds.length === 1);
 
-  const aggregatedSummary = [];
+  const [targetMapPathId] = distinctTargetMapPathIds;
+
+  assert(Number.isSafeInteger(targetMapPathId));
+
+  const aggregatedSummary: any[] = [];
 
   for (
-    let shapeSegIdx = 0;
-    shapeSegIdx < gtfsNetEdgesShstMatches.length;
-    ++shapeSegIdx
+    let targetMapPathIdx = 0;
+    targetMapPathIdx < targetMapPathMatches.length;
+    ++targetMapPathIdx
   ) {
-    const { gtfsNetworkEdge, shstMatches } = gtfsNetEdgesShstMatches[
-      shapeSegIdx
+    const { targetMapPathEdge, shstMatches } = targetMapPathMatches[
+      targetMapPathIdx
     ];
 
-    const {
-      properties: { shape_id, shape_index },
-    } = gtfsNetworkEdge;
+    assert(targetMapPathIdx === targetMapPathEdge.properties.targetMapPathIdx);
 
-    assert(shapeId === shape_id);
-    assert(shapeSegIdx === shape_index);
+    const targetMapEdgeLength = turf.length(targetMapPathEdge);
 
-    const gtfsNetworkEdgeLength = turf.length(gtfsNetworkEdge);
-
-    const traversalsInfo = subGraphComponentsTraversals[shapeSegIdx];
+    const traversalsInfo = subGraphComponentsTraversals[targetMapPathIdx];
 
     if (traversalsInfo === null) {
       aggregatedSummary.push(null);
@@ -82,8 +69,10 @@ const computeShapeLevelPathCombinationProperties = ({
       ? pathLineStrings.length
       : null;
 
-    const pathLengths = numPaths ? [] : null;
+    const pathLengths: any[] | null = numPaths ? [] : null;
+
     if (pathLengths) {
+      // @ts-ignore
       for (let i = 0; i < numPaths; ++i) {
         const path = pathLineStrings[i];
         const pathLength = turf.length(path);
@@ -95,18 +84,18 @@ const computeShapeLevelPathCombinationProperties = ({
       pathLengths &&
       pathLengths.map(
         (pathLength) =>
-          Math.abs(gtfsNetworkEdgeLength - pathLength) / gtfsNetworkEdgeLength,
+          Math.abs(targetMapEdgeLength - pathLength) / targetMapEdgeLength,
       );
 
     aggregatedSummary.push({
-      gtfsNetworkEdge,
-      gtfsNetworkEdgeLength,
+      targetMapPathEdge,
+      targetMapEdgeLength,
       shstMatches,
       pathLineStrings,
       pathLengths,
       segPathLengthRatios,
-      shape_id,
-      shape_index,
+      targetMapPathId,
+      targetMapPathIdx,
       numPaths,
     });
   }
@@ -119,12 +108,12 @@ const computeShapeLevelPathCombinationProperties = ({
   //     * When we reach the minimum acceptable thresholds for our constraints,
   //       we rank and choose.
   //
-  // Find any cases where the Shape Seg has a single ShstMatches path
-  //   and that path spans the entire Shape Seg.
+  // Find any cases where the TargetMap Edge has a single ShstMatches path
+  //   and that path spans the entire TargetMap Edge.
   // These are the highest confidence starting points for deduction.
 
   // Array of arrays
-  //   Each GTFS Shape Segment gets an entry
+  //   Each TargetMap Edge gets an entry
   //     The entry is the topologically ordered chosen paths of ShstMatches for that segment
   // Axiomatic paths minumum length in kilometers.
   const initialPathLengthThld = 0.1; // 100 meters
@@ -143,9 +132,9 @@ const computeShapeLevelPathCombinationProperties = ({
   const thldScaler = Math.SQRT2;
 
   // Initialize the chosenPaths array.
-  //   Length = number of GTFS Shape Segments.
+  //   Length = number of TargetMap Edges.
   //   All values initialized to NULL, signifying no choice made.
-  const chosenPaths = _.range(0, gtfsNetEdgesShstMatches.length).map(
+  const chosenPaths: any[] = _.range(0, targetMapPathMatches.length).map(
     () => null,
   );
 
@@ -200,6 +189,7 @@ const computeShapeLevelPathCombinationProperties = ({
         maxSegPathLengthDiffRatioThld,
       );
 
+      // Loosen the gap distance threshold.
       gapDistThld = Math.min(gapDistThld * thldScaler, maxGapDistThld);
     }
   }
@@ -219,57 +209,29 @@ const computeShapeLevelPathCombinationProperties = ({
   }
 
   const metadata = {
-    shapeLength: _.sumBy(gtfsNetEdgesShstMatches, ({ gtfsNetworkEdge }) =>
-      turf.length(gtfsNetworkEdge),
+    pathLength: _.sumBy(targetMapPathMatches, ({ targetMapPathEdge }) =>
+      turf.length(targetMapPathEdge),
     ),
-    numSegments: gtfsNetEdgesShstMatches.length,
-    numSegmentsWithChosenPaths: chosenPaths.reduce((sum, p) => sum + !!p, 0),
-    chosenPathsTotalLength: chosenPaths.reduce(
+    chosenMatchesTotalLength: chosenPaths.reduce(
       (acc, p) => acc + (p ? _.sumBy(p, turf.length) : 0),
       0,
     ),
-    segmentPathsLengthRatios: gtfsNetEdgesShstMatches.map(
-      ({ gtfsNetworkEdge }, i) => {
-        const gtfsLen = turf.length(gtfsNetworkEdge);
+    numEdges: targetMapPathMatches.length,
+    numEdgesWithChosenMatches: chosenPaths.reduce((sum, p) => sum + !!p, 0),
+    edgeMatchesLengthRatios: targetMapPathMatches.map(
+      ({ targetMapPathEdge }, i) => {
+        const edgeLen = turf.length(targetMapPathEdge);
         const shstLen = chosenPaths[i]
-          ? chosenPaths[i].reduce(
+          ? chosenPaths[i]?.reduce(
               (sum, path) => (path ? sum + turf.length(path) : sum),
               0,
             )
           : 0;
 
-        return shstLen / gtfsLen;
+        return shstLen / edgeLen;
       },
     ),
   };
 
-  // const diffRatio =
-  // Math.abs(metadata.shapeLength - metadata.chosenPathsTotalLength) /
-  // metadata.shapeLength;
-
-  // if (diffRatio > 0.05) {
-  // const shape = turf.featureCollection(
-  // gtfsNetEdgesShstMatches.map(({ gtfsNetworkEdge }) =>
-  // turf.lineString(turf.getCoords(gtfsNetworkEdge))
-  // )
-  // );
-
-  // const paths = turf.featureCollection(
-  // _.flattenDeep(chosenPaths)
-  // .filter(p => p)
-  // .map(path => turf.lineString(turf.getCoords(path)))
-  // );
-
-  // console.log("{}".repeat(20));
-  // console.log(diffRatio);
-  // console.log();
-  // console.log(JSON.stringify(shape));
-  // console.log();
-  // console.log(JSON.stringify(paths));
-  // console.log();
-  // }
-
-  return { chosenPaths, metadata };
-};
-
-module.exports = computeShapeLevelPathCombinationProperties;
+  return { targetMapPathId, chosenPaths, metadata };
+}

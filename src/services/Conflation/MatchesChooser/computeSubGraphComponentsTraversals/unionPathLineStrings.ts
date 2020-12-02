@@ -1,12 +1,12 @@
 /* eslint-disable no-continue, no-param-reassign */
 
-const _ = require('lodash');
+import _ from 'lodash';
 
-const mergePathSegmentsGeospatially = require('./mergePathSegmentsGeospatially');
-const mergePathLineStringsUsingMetadata = require('./mergePathLineStringsUsingMetadata');
+import mergePathSegmentsGeospatially from './mergePathSegmentsGeospatially';
+import mergePathLineStringsUsingMetadata from './mergePathLineStringsUsingMetadata';
 
 // When we fill a gap, the id is set to null.
-const noGapFill = ({ id }) => id !== null;
+export const noGapFill = ({ id }) => id !== null;
 
 // === Remove paths overlapped by another path ===
 const filterOutOverlappedPaths = (newPaths) => {
@@ -51,7 +51,7 @@ const filterOutOverlappedPaths = (newPaths) => {
   return filteredPaths;
 };
 
-const unionPathLineStrings = (pathLineStrings, shstMatchesById) => {
+export default function unionPathLineStrings(pathLineStrings, shstMatchesById) {
   let doMerge = true;
   while (doMerge) {
     doMerge = false;
@@ -132,6 +132,4 @@ const unionPathLineStrings = (pathLineStrings, shstMatchesById) => {
       pathLineStrings.push(...filteredPaths);
     }
   }
-};
-
-module.exports = unionPathLineStrings;
+}
