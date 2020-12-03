@@ -5,6 +5,8 @@
 import _ from 'lodash';
 import { Graph, Edge, Path, alg as graphAlgs } from 'graphlib';
 
+import { isSubstring } from '../stringAlgorithms';
+
 type Node = string;
 type Source = Node;
 type DijkstraAllOutput = Record<Source, Record<Node, Path>>;
@@ -85,8 +87,8 @@ export default function findPathsInGraph(graph: Graph): Edge[][] {
     // Filter out all nodes that are predecessors along longer paths.
     //   Not interested in subpaths.
     const destinations = canididateDestinations.filter(
-      (n) => !visitedEdgeSources.has(n) && !predecessors.has(n),
-      // (n) => !predecessors.has(n),
+      // (n) => !visitedEdgeSources.has(n) && !predecessors.has(n),
+      (n) => !predecessors.has(n),
     );
 
     const paths = destinations
@@ -107,36 +109,47 @@ export default function findPathsInGraph(graph: Graph): Edge[][] {
     return acc;
   }, []);
 
-  return allPaths;
-
-  // TODO: Concatenate paths were origin for one Path is destination of another.
-  // const {
-  // byOrigin,
-  // byDestination,
-  // }: {
-  // byOrigin: Record<string, Edge[][]>;
-  // byDestination: Record<string, Edge[][]>;
-  // } = allPaths.reduce(
-  // (acc, path) => {
-  // const {v: origin} = path[0];
-  // const {w: destination} = path[path.length - 1];
-
-  // acc.byOrigin[origin] = acc.byOrigin[origin] || [];
-  // acc.byOrigin[origin].push(path);
-
-  // acc.byDestination[destination] = acc.byDestination[destination] || [];
-  // acc.byDestination[destination].push(path);
-
-  // return acc;
-  // },
-  // {byOrigin: {}, byDestination: {}},
-  // );
-
   // TODO: Test that there are no subpaths
-  // const filtered = sorted.filter(
-  // (path, i) => !sorted.slice(0, i).some((other) => isSubstring(path, other)),
-  // );
+  const sorted = allPaths.sort((a, b) => b.length - a.length);
 
-  // return filtered;
-  // return sorted;
+  const filtered = sorted.filter(
+    (path, i) => !sorted.slice(0, i).some((other) => isSubstring(path, other)),
+  );
+
+  return filtered;
 }
+
+// return filtered;
+// return sorted;
+// return allPaths;
+
+// TODO: Concatenate paths were origin for one Path is destination of another.
+// const {
+// byOrigin,
+// byDestination,
+// }: {
+// byOrigin: Record<string, Edge[][]>;
+// byDestination: Record<string, Edge[][]>;
+// } = allPaths.reduce(
+// (acc, path) => {
+// const {v: origin} = path[0];
+// const {w: destination} = path[path.length - 1];
+
+// acc.byOrigin[origin] = acc.byOrigin[origin] || [];
+// acc.byOrigin[origin].push(path);
+
+// acc.byDestination[destination] = acc.byDestination[destination] || [];
+// acc.byDestination[destination].push(path);
+
+// return acc;
+// },
+// {byOrigin: {}, byDestination: {}},
+// );
+
+// TODO: Test that there are no subpaths
+// const filtered = sorted.filter(
+// (path, i) => !sorted.slice(0, i).some((other) => isSubstring(path, other)),
+// );
+
+// return filtered;
+// return sorted;

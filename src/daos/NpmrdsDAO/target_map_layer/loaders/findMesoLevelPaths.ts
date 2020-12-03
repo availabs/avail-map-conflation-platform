@@ -1,23 +1,10 @@
 /* eslint-disable no-restricted-syntax, no-continue, no-loop-func */
 
-// Acyclic Toposorted Paths seems to work
-
 import { Graph } from 'graphlib';
-
-// import { METADATA } from '../../../constants/targetMapConstants';
-
-// import getChainBearing from '../../../utils/getChainBearing';
-// import getNormalizedDirection from '../../../utils/getNormalizedDirection';
 
 import findPathsInGraph from '../../../../utils/topological/findPathsInGraph';
 
 import { NpmrdsTmcFeature } from '../../raw_map_layer/domain';
-
-// import nysFipsCodes from '../constants/nysFipsCodes';
-
-// type NpmrdsGraphComponent = NpmrdsTmcFeature[];
-
-// import { ConnectedGraph, isTree } from './domain';
 
 const getNpmrdsSubgraph = (features: NpmrdsTmcFeature[]) => {
   const nodeIds = {};
@@ -33,6 +20,7 @@ const getNpmrdsSubgraph = (features: NpmrdsTmcFeature[]) => {
   // For each shstMatch for this shape segment
   for (let i = 0; i < features.length; ++i) {
     const feature = features[i];
+    const tmc = feature.id;
 
     const {
       properties: {
@@ -64,66 +52,85 @@ const getNpmrdsSubgraph = (features: NpmrdsTmcFeature[]) => {
     edgesToNodes[feature.properties.tmc] = [startNodeId, endNodeId];
 
     // The ID for the edge is the index of the shstMatch in the shstMatches array.
-    graph.setEdge(startNodeId, endNodeId, {
-      id: feature.properties.tmc,
-      // feature,
-    });
+    graph.setEdge(
+      startNodeId,
+      endNodeId,
+      {
+        id: tmc,
+        // feature,
+      },
+      tmc,
+    );
   }
 
   return graph;
 };
 
-// const allFeaturesHaveNormalizedDirection = (
-// npmrdsFeatures: NpmrdsTmcFeature[],
-// ) =>
-// npmrdsFeatures.every(
-// (feature) => getNormalizedDirection(feature.properties.direction) !== null,
-// );
-
-// const getFeaturesFromGraph = (graph: Graph) =>
-// graph.edges().map(({ v, w }) => {
-// const f = graph.edge(v, w).feature;
-// f.properties = {};
-// return f;
-// });
-
-// const logPaths = (
-// lineartmc: string,
-// npmrdsFeatures: NpmrdsTmcFeature[],
-// tmcPaths: TmcId[][],
-// ) => {
-// console.log('='.repeat(15), lineartmc, '='.repeat(15));
-
-// const simplifiedFeaturesByTmc = npmrdsFeatures.reduce(
-// (acc: Record<TmcId, turf.Feature>, f: NpmrdsTmcFeature) => {
-// acc[f.properties.tmc] = { ...f, properties: {} };
-// return acc;
-// },
-// {},
-// );
-
-// const featureCollections: turf.FeatureCollection[] = tmcPaths.map(
-// (path: TmcId[]) =>
-// turf.featureCollection(
-// path.map((tmc: TmcId) => simplifiedFeaturesByTmc[tmc]),
-// ),
-// );
-
-// featureCollections.forEach((fc) => {
-// console.log();
-// console.log(JSON.stringify(fc));
-// console.log();
-// });
-// };
+const getEdgeKey = ({ v, w }) => `${v}|${w}`;
 
 export default function findMesoLevelPaths(
   npmrdsTmcFeatures: NpmrdsTmcFeature[],
 ): NpmrdsTmcFeature['properties']['tmc'][][] {
+  if (npmrdsTmcFeatures.length === 1) {
+    return [[npmrdsTmcFeatures[0].id]];
+  }
+
   const graph = getNpmrdsSubgraph(npmrdsTmcFeatures);
+
+  const edges = graph.edges();
+
+  const edgeNodesToTmcs = edges.reduce((acc, { v, w, name }) => {
+    const nodes = getEdgeKey({ v, w });
+
+    acc[nodes] = acc[nodes] || [];
+    acc[nodes].push(name);
+
+    return acc;
+  }, {});
 
   const paths = findPathsInGraph(graph);
 
-  const tmcPaths = paths.map((path) => path.map((e) => graph.edge(e).id));
+  const needToSpice: [number, number, string[]][] = [];
+
+  const tmcPaths = paths.map((path, i) =>
+    path.map((e, j) => {
+      const k = getEdgeKey(e);
+      const tmcs = edgeNodesToTmcs[k];
+
+      if (tmcs.length > 1) {
+        needToSpice.push([i, j, tmcs.slice(1)]);
+      }
+
+      return tmcs[0];
+    }),
+  );
+
+  const splices = needToSpice.reduce((acc: string[][], [i, j, tmcs]) => {
+    const tmcPath = tmcPaths[i];
+
+    for (let k = 0; k < tmcs.length; ++k) {
+      const splice: string[] = [];
+      const tmc = tmcs[k];
+
+      const startTmc = tmcPath[j - 1];
+      const endTmc = tmcPath[j + 1];
+
+      if (startTmc !== undefined) {
+        splice.push(startTmc);
+      }
+
+      splice.push(tmc);
+
+      if (endTmc !== undefined) {
+        splice.push(endTmc);
+      }
+
+      acc.push(splice);
+    }
+    return acc;
+  }, []);
+
+  tmcPaths.push(...splices);
 
   return tmcPaths;
 }
