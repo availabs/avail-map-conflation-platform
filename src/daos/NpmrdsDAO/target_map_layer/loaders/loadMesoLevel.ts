@@ -44,9 +44,10 @@ export default async function loadMesoLevelPaths() {
     }: {
       features: NpmrdsTmcFeature[];
     } of edgesByLinearTmcIterator) {
-      if (features.length < 2) {
-        continue;
-      }
+      // All target map features need to have Paths to get chosen matches.
+      // if (features.length < 2) {
+      // continue;
+      // }
 
       const countyName = county.replace(/ /g, '_').toLowerCase();
       const fipsCode = nysFipsCodes[countyName];
