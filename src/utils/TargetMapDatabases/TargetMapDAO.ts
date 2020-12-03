@@ -1132,7 +1132,7 @@ export default class TargetMapDAO {
     if (!this.preparedStatements.truncateEdgeChosenMatchesStmt) {
       this.preparedStatements.truncateEdgeChosenMatchesStmt = this.db.prepare(
         `
-          DELETE FROM ${this.schemaQualifier}target_map_edge_chosen_matches ;
+          DELETE FROM ${this.schemaQualifier}target_map_paths_edge_optimal_matches ;
         `,
       );
     }
