@@ -55,7 +55,13 @@ const attachDatabase = (databaseSchemaName: string) => {
 const getDatabaseFilePathForSchemaName = (databaseSchemaName: string) =>
   join(getSqliteDir(), databaseSchemaName);
 
-const openLoadingConnectionToDb = (databaseSchemaName: string) => {
+const openLoadingConnectionToDb = (
+  databaseSchemaName: string | null = null,
+) => {
+  if (databaseSchemaName === null) {
+    return new Database(db.name);
+  }
+
   const databaseFilePath = getDatabaseFilePathForSchemaName(databaseSchemaName);
 
   // const xdb = new Database(IN_MEMORY, { verbose: console.log });
@@ -98,7 +104,9 @@ const setOutputDirectory = (outputDir: string) => {
   }
 };
 
-const databaseService = {
+// Can bind more db methods if they are needed.
+//   https://github.com/JoshuaWise/better-sqlite3/blob/master/docs/api.md
+export default {
   setOutputDirectory,
   attachDatabase,
   prepare,
@@ -110,7 +118,3 @@ const databaseService = {
   // @ts-ignore
   unsafeMode: db.unsafeMode.bind(db),
 };
-
-// Can bind more db methods if they are needed.
-//   https://github.com/JoshuaWise/better-sqlite3/blob/master/docs/api.md
-export default databaseService;

@@ -15,6 +15,8 @@ import db from '../../services/DbService';
 
 import getGeoProximityKey from '../getGeoProximityKey';
 
+import lineMerge from '../gis/lineMerge';
+
 const ascendingNumberComparator = (a: number, b: number) => a - b;
 
 const initializeTargetMapDatabaseTemplateSql = readFileSync(
@@ -193,7 +195,7 @@ export default class TargetMapDAO {
     targetMapEdgesChosenMatchesStmt?: Statement;
   };
 
-  constructor(xdb?: any, schema?: string) {
+  constructor(xdb?: any, schema?: string | null) {
     this.db = xdb ?? db;
     this.schema = schema || null;
 
@@ -318,6 +320,97 @@ export default class TargetMapDAO {
     const edgeId = +lastInsertRowid;
 
     return edgeId;
+  }
+
+  private *makePreloadedTargetMapEdgesIterator(): Generator<
+    PreloadedTargetMapEdge
+  > {
+    const rawEdgesIter = this.makeRawEdgeFeaturesIterator();
+
+    // Cannot do in database using SQL because we need to compute GeoProx keys
+    //   The alternative it to iterate over the table while simultaneously mutating it.
+    for (const feature of rawEdgesIter) {
+      const { id: targetMapId } = feature;
+
+      const mergedLineStrings = lineMerge(feature).sort(
+        (a, b) => turf.length(b) - turf.length(a),
+      );
+
+      const [longestLineString] = mergedLineStrings;
+
+      const longestLineStringCoords = turf.getCoords(longestLineString);
+      const [start_longitude, start_latitude] = longestLineStringCoords[0];
+      const [end_longitude, end_latitude] = longestLineStringCoords[
+        longestLineStringCoords.length - 1
+      ];
+
+      const properties = { targetMapId };
+
+      const startCoord: turf.Position = [start_longitude, start_latitude];
+      const endCoord: turf.Position = [end_longitude, end_latitude];
+
+      const coordinates =
+        mergedLineStrings.length === 1
+          ? longestLineStringCoords
+          : mergedLineStrings.map((f) => turf.getCoords(f));
+
+      yield {
+        startCoord,
+        endCoord,
+        properties,
+        coordinates,
+      };
+    }
+  }
+
+  // eslint-disable-next-line import/prefer-default-export
+  loadMicroLevel(initialize: boolean) {
+    const xdb = this.db.openLoadingConnectionToDb(this.schema);
+
+    // @ts-ignore
+    xdb.unsafeMode(true);
+
+    const xTargetMapDao = new TargetMapDAO(xdb, this.schema);
+
+    try {
+      xdb.exec('BEGIN EXCLUSIVE;');
+
+      if (initialize) {
+        xTargetMapDao.initializeTargetMapDatabase();
+      }
+
+      const edgesIterator = xTargetMapDao.makePreloadedTargetMapEdgesIterator();
+
+      for (const edge of edgesIterator) {
+        const {
+          startCoord: [startLon, startLat],
+          endCoord: [endLon, endLat],
+        } = edge;
+
+        xTargetMapDao.insertNode({
+          lon: startLon,
+          lat: startLat,
+          properties: null,
+        });
+
+        xTargetMapDao.insertNode({
+          lon: endLon,
+          lat: endLat,
+          properties: null,
+        });
+
+        const edgeId = xTargetMapDao.insertEdge(edge);
+        console.log(edgeId);
+      }
+
+      xdb.exec('COMMIT');
+    } catch (err) {
+      console.error(err);
+      xdb.exec('ROLLBACK;');
+      throw err;
+    } finally {
+      this.db.closeLoadingConnectionToDb(xdb);
+    }
   }
 
   private get insertPathStmt(): Statement {
