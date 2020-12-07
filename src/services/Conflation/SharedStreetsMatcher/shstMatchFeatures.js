@@ -55,7 +55,7 @@ const runShstMatch = (inFilePath, outFilePath, flags) => {
         [
           'match',
           `${inFilePath}`,
-          '--follow-line-direction',
+          // '--follow-line-direction',
           '--tile-hierarchy=8',
           `--out=${outFilePath}`,
         ],
@@ -369,6 +369,7 @@ const shstMatchFeatures = async (features, flags = []) => {
   }
 
   const idxById = {};
+
   for (let i = 0; i < matches.length; ++i) {
     const finalMatch = matches[i];
     const {

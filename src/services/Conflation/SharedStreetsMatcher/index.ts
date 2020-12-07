@@ -62,12 +62,12 @@ const initializeUnmatchedFeaturesArray = (features: TargetMapEdgeFeature[]) =>
       }, [])
     : null;
 
-const match = async (features: TargetMapEdgeFeature[]) => {
+const match = async (features: TargetMapEdgeFeature[], flags: string[]) => {
   const unmatchedFeatures = initializeUnmatchedFeaturesArray(features);
 
   return _.isEmpty(unmatchedFeatures)
     ? null
-    : shstMatchFeatures(unmatchedFeatures);
+    : shstMatchFeatures(unmatchedFeatures, flags);
 };
 
 const handleMatches = (matches: SharedStreetsMatchFeature[]) => {
@@ -78,11 +78,12 @@ const handleMatches = (matches: SharedStreetsMatchFeature[]) => {
 
 async function matchSegmentedShapeFeatures(
   batch: TargetMapEdgeFeature[],
+  flags: string[],
 ): Promise<{
   osrmDir: string;
   matches: SharedStreetsMatchFeature[];
 } | null> {
-  const { matches, osrmDir } = (await match(batch)) || {};
+  const { matches, osrmDir } = (await match(batch, flags)) || {};
 
   if (matches) {
     const orderedMatches = handleMatches(matches);
@@ -94,17 +95,54 @@ async function matchSegmentedShapeFeatures(
 
 export async function* makeMatchedTargetMapEdgesIterator(
   featuresIterator: Generator<TargetMapEdgeFeature>,
+  options?: { centerline: boolean },
 ) {
+  const centerline = !!options?.centerline;
+
+  const flags: string[] = [];
+
+  if (!centerline) {
+    flags.push('--follow-line-direction');
+  }
+
+  console.log('Shst Match option flags:', JSON.stringify(flags, null, 4));
+
   const batch: TargetMapEdgeFeature[] = [];
+
+  let totalTargetMapFeatures = 0;
+  let totalMatchedFeatures = 0;
+  let inBatch = 0;
+
+  const logMatchStats = (matches: any) => {
+    const numMatched = _.isEmpty(matches)
+      ? 0
+      : _(matches).map('properties.pp_id').uniq().value().length;
+    totalMatchedFeatures += numMatched;
+
+    console.log();
+    console.log('-'.repeat(20));
+    console.log(`Batch Match: ${_.round((numMatched / inBatch) * 100, 2)}%`);
+    console.log(
+      `Total Match: ${_.round(
+        (totalMatchedFeatures / totalTargetMapFeatures) * 100,
+        2,
+      )}%`,
+    );
+    console.log('-'.repeat(20));
+    console.log();
+  };
 
   for (const feature of featuresIterator) {
     batch.push(feature);
+    ++totalTargetMapFeatures;
+    ++inBatch;
 
     if (batch.length === BATCH_SIZE) {
       try {
         const { matches, osrmDir } =
-          (await matchSegmentedShapeFeatures(batch)) || {};
+          (await matchSegmentedShapeFeatures(batch, flags)) || {};
 
+        logMatchStats(matches);
         if (matches) {
           for (const matchFeature of matches) {
             yield { osrmDir, matchFeature };
@@ -115,12 +153,15 @@ export async function* makeMatchedTargetMapEdgesIterator(
       }
 
       batch.length = 0;
+      inBatch = 0;
     }
   }
 
   // Last batch
-  const { matches, osrmDir } = (await match(batch)) || {};
+  const { matches, osrmDir } =
+    (await matchSegmentedShapeFeatures(batch, flags)) || {};
 
+  logMatchStats(matches);
   if (matches) {
     try {
       for (const matchFeature of matches) {
