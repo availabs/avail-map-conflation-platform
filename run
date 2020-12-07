@@ -22,7 +22,7 @@ const source_map_load = require('./src/pipeline_transforms/source_map_load/yargs
 const conflation_map = require("./src/pipeline_transforms/conflation_map/yargs_wrapper");
 
 const NpmrdsCommands = require("./src/daos/NpmrdsDAO/cli/yarg_wrapper")
-const load_nys_ris = require('./src/pipeline_transforms/load_nys_ris/yargs_wrapper');
+const NysRisCommands = require('./src/daos/NysRisDAO/cli/yargs_wrapper');
 
 // GTFS
 const raw_gtfs_into_sqlite = require("./src/pipeline_transforms/raw_gtfs_into_sqlite/yargs_wrapper");
@@ -58,7 +58,6 @@ const taskCommands = yargs
     },
   })
   .command(source_map_load)
-  .command(load_nys_ris)
   .command(raw_gtfs_into_sqlite)
   .command(gtfs_as_geojson)
   .command(gtfs_network)
@@ -71,6 +70,10 @@ const taskCommands = yargs
 
 Object.keys(NpmrdsCommands).forEach(cmd => {
   taskCommands.command(NpmrdsCommands[cmd])
+})
+
+Object.keys(NysRisCommands).forEach(cmd => {
+  taskCommands.command(NysRisCommands[cmd])
 })
 
 taskCommands
