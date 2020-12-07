@@ -4,8 +4,8 @@ import { join } from 'path';
 import Ajv from 'ajv';
 import * as tsj from 'ts-json-schema-generator';
 
-import { handleFailedDataStructureValidation } from '../../../utils/templateAnomalyHandlers';
-import getModuleId from '../../../utils/getModuleId';
+import { handleFailedDataStructureValidation } from '../../../../utils/templateAnomalyHandlers';
+import getModuleId from '../../../../utils/getModuleId';
 
 import {
   NysRoadInventorySystemProperties,
@@ -19,7 +19,7 @@ const ajv = new Ajv();
 
 const config = {
   path: join(__dirname, './types.ts'),
-  tsconfig: join(__dirname, '../../../../tsconfig.json'),
+  tsconfig: join(__dirname, '../../../../../tsconfig.json'),
   additionalProperties: true,
 };
 
@@ -62,9 +62,9 @@ export const NysRoadInventorySystemFeatureValidator = ajv.compile(
   NysRoadInventorySystemFeatureSchema,
 );
 
-export const validateNysRoadInventorySystemFeature = (
-  feature: NysRoadInventorySystemFeature,
-) => {
+export function isNysRoadInventorySystemFeature(
+  feature: any,
+): feature is NysRoadInventorySystemFeature {
   NysRoadInventorySystemFeatureValidator(feature);
 
   if (NysRoadInventorySystemFeatureValidator.errors) {
@@ -79,4 +79,6 @@ export const validateNysRoadInventorySystemFeature = (
 
     throw error;
   }
-};
+
+  return true;
+}

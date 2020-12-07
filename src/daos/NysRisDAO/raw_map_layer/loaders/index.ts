@@ -5,11 +5,11 @@ import * as turf from '@turf/turf';
 import _ from 'lodash';
 
 import { Database } from 'better-sqlite3';
-import db from '../../../services/DbService';
+import db from '../../../../services/DbService';
 
-import getBufferPolygonCoords from '../../../utils/getBufferPolygonCoords';
+import getBufferPolygonCoords from '../../../../utils/getBufferPolygonCoords';
 
-import { NYS_RIS as SCHEMA } from '../../../constants/databaseSchemaNames';
+import { NYS_RIS as SCHEMA } from '../../../../constants/databaseSchemaNames';
 
 import {
   handleNysRisGeometryIrregularBoundingPolygon,
@@ -20,7 +20,7 @@ import {
 import {
   NysRoadInventorySystemProperties,
   validateNysRoadInventorySystemProperties,
-} from '../typing';
+} from '../domain';
 
 export type NysRoadInventorySystemGeodatabaseEntry = {
   properties: NysRoadInventorySystemProperties;
@@ -57,7 +57,7 @@ const compareSchemas = (
   }
 };
 
-const getInsertValuesArray = (
+const getColumnValueFromEntry = (
   entry: NysRoadInventorySystemGeodatabaseEntry,
   nonNullColumnsTracker: Record<string, boolean>,
   c: string,
@@ -79,7 +79,7 @@ const getInsertValuesArray = (
   return v;
 };
 
-const prepareInsertStatement = (
+const prepareInsertGdbEntryStmt = (
   xdb: Database,
   nysRisTableColumns: readonly string[],
 ) =>
@@ -90,6 +90,16 @@ const prepareInsertStatement = (
       ) VALUES(${nysRisTableColumns.map((c) =>
         c === 'feature' ? 'json(?)' : ' ? ',
       )}) ;
+    `,
+  );
+
+const prepareInsertGdbEntryMissingGeometryStmt = (xdb: Database) =>
+  xdb.prepare(
+    `
+      INSERT INTO ${SCHEMA}._qa_nys_ris_entries_without_geometries (
+        fid,
+        properties
+      ) VALUES(?, json(?));
     `,
   );
 
@@ -116,8 +126,13 @@ const loadNysRisGeodatabase = (
     return acc;
   }, {});
 
-  const insertStmt = prepareInsertStatement(xdb, nysRisTableColumns);
+  const insertGdbEntryStmt = prepareInsertGdbEntryStmt(xdb, nysRisTableColumns);
+
   const updateGeoPolyIdxStmt = prepareGeoPolyIdxStmt(xdb);
+
+  const insertGdbEntryMissingGeometryStmt = prepareInsertGdbEntryMissingGeometryStmt(
+    xdb,
+  );
 
   let comparedSchemas = false;
   // eslint-disable-next-line no-restricted-syntax
@@ -140,7 +155,7 @@ const loadNysRisGeodatabase = (
 
     validateNysRoadInventorySystemProperties(properties);
 
-    const getValuesForCols = getInsertValuesArray.bind(
+    const getValuesForCols = getColumnValueFromEntry.bind(
       null,
       entry,
       nonNullColumnsTracker,
@@ -148,7 +163,18 @@ const loadNysRisGeodatabase = (
 
     const values = nysRisTableColumns.map(getValuesForCols);
 
-    insertStmt.run(values);
+    // console.log(
+    // JSON.stringify(
+    // nysRisTableColumns.reduce((acc, k, i) => {
+    // acc[k] = values[i];
+    // return acc;
+    // }, {}),
+    // null,
+    // 4,
+    // ),
+    // );
+
+    insertGdbEntryStmt.run(values);
 
     if (shape) {
       // Coordinates of the feature's bounding polygon.
@@ -162,6 +188,11 @@ const loadNysRisGeodatabase = (
       // If this INSERT fails, the database is corrupted.
       //   Therefore, we want the Error to propagate up and cause a TRANSACTION ROLLBACK.
       updateGeoPolyIdxStmt.run([JSON.stringify(_.first(polyCoords)), shape.id]);
+    } else {
+      insertGdbEntryMissingGeometryStmt.run([
+        properties.fid,
+        JSON.stringify(properties),
+      ]);
     }
   }
 

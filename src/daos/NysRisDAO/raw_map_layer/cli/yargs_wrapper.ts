@@ -1,4 +1,5 @@
-/* eslint-disable global-require */
+/* eslint-disable import/prefer-default-export */
+
 import handler from '.';
 
 const command = 'load_nys_ris';
@@ -11,9 +12,14 @@ const builder = {
     type: 'string',
     demand: true,
   },
+  county: {
+    desc: 'For development purposes, only load a specific county.',
+    type: 'string',
+    demand: false,
+  },
 };
 
-module.exports = {
+export const loadRawNysRisTables = {
   command,
   desc,
   builder,

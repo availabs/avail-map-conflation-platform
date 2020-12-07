@@ -1,10 +1,10 @@
-import getModuleId from '../../../utils/getModuleId';
+import getModuleId from '../../../../utils/getModuleId';
 
 import {
   handleIrregularBoundingPolygon,
   handleInputDataSchemaInconsistency,
   handleAlwaysNullColumns,
-} from '../../../utils/templateAnomalyHandlers';
+} from '../../../../utils/templateAnomalyHandlers';
 
 // For logging.
 const moduleId = getModuleId(__filename);

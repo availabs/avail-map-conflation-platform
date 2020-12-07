@@ -12,7 +12,7 @@ import {
   loadNysRis,
   NysRoadInventorySystemGeodatabaseEntry,
   NysRoadInventorySystemGeodatabaseEntryIterator,
-} from '../../daos/NysRisDAO';
+} from '../loaders';
 
 const timerId = 'load nys ris';
 
@@ -82,6 +82,7 @@ const handleGdbEntry = (
 
 function* makeNysRisGeodatabaseIterator(
   nys_ris_geodatabase_tgz: string,
+  county: string | null = null,
 ): NysRoadInventorySystemGeodatabaseEntryIterator {
   let gdbtableFile: null | string = null;
 
@@ -115,22 +116,41 @@ function* makeNysRisGeodatabaseIterator(
 
   let feature: null | gdal.Feature = null;
 
-  // eslint-disable-next-line
+  let n = 0;
+  let m = 0;
+
+  // eslint-disable-next-line no-cond-assign
   while ((feature = features.next())) {
     const d = handleGdbEntry(feature);
+    ++n;
 
     if (d !== null) {
+      if (
+        county !== null &&
+        d.properties?.county_name?.toUpperCase() !== county.toUpperCase()
+      ) {
+        continue;
+      }
+
+      ++m;
       yield d;
     }
   }
+
+  if (county !== null) {
+    console.log(
+      `${county} matched ${m} of ${n} entries in the NYS RIS Geodatabase.`,
+    );
+  }
 }
 
-export default async ({ nys_ris_geodatabase_tgz }) => {
+export default async ({ nys_ris_geodatabase_tgz, county }) => {
   console.time(timerId);
 
   try {
     const nysRisEntryIterator = makeNysRisGeodatabaseIterator(
       nys_ris_geodatabase_tgz,
+      county?.toUpperCase(),
     );
 
     loadNysRis(nysRisEntryIterator);
