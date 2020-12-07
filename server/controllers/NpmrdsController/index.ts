@@ -16,7 +16,7 @@ export function getRawTargetMapFeatureCollection() {
   return turf.featureCollection(allRawTargetMapFeatures);
 }
 
-export function getNpmrdsFeatures(tmcs: string[]) {
+export function getFeatures(tmcs: string[]) {
   const rawTargetMapFeatures = targetMapDao.getRawEdgeFeatures(tmcs);
 
   return turf.featureCollection(rawTargetMapFeatures);

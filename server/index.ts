@@ -7,6 +7,7 @@ import restify from 'restify';
 import corsMiddleware from 'restify-cors-middleware';
 
 import * as NpmrdsController from './controllers/NpmrdsController';
+import * as NysRisController from './controllers/NysRisController';
 import * as SharedStreetsController from './controllers/SharedStreetsController';
 
 import db from '../src/services/DbService';
@@ -50,15 +51,15 @@ server.get('/npmrds/raw-shapefile', (_req, res, next) => {
   next();
 });
 
-server.get('/npmrds/tmc-features', (req, res, next) => {
+server.get('/npmrds/features', (req, res, next) => {
   const {
-    query: { tmc },
+    query: { id },
   } = req;
 
-  const tmcs = Array.isArray(tmc) ? tmc : [tmc];
+  const ids = Array.isArray(id) ? id : [id];
 
-  console.log(JSON.stringify(tmcs, null, 4));
-  const featureCollection = NpmrdsController.getNpmrdsFeatures(tmcs);
+  console.log(JSON.stringify(ids, null, 4));
+  const featureCollection = NpmrdsController.getFeatures(ids);
 
   res.send(featureCollection);
 
@@ -67,7 +68,6 @@ server.get('/npmrds/tmc-features', (req, res, next) => {
 
 server.get('/npmrds/shst-matches-metadata', (_req, res, next) => {
   const featureCollection = NpmrdsController.getShstMatchesMetadata();
-
   res.send(featureCollection);
 
   next();
@@ -80,6 +80,45 @@ server.get('/npmrds/shst-chosen-matches', (_req, res, next) => {
 
   next();
 });
+
+server.get('/nys-ris/raw-shapefile', (_req, res, next) => {
+  const featureCollection = NysRisController.getRawTargetMapFeatureCollection();
+
+  res.send(featureCollection);
+
+  next();
+});
+
+server.get('/nys-ris/features', (req, res, next) => {
+  const {
+    query: { id },
+  } = req;
+
+  const ids = Array.isArray(id) ? id : [id];
+
+  console.log(JSON.stringify(ids, null, 4));
+  const featureCollection = NysRisController.getFeatures(ids);
+
+  res.send(featureCollection);
+
+  next();
+});
+
+server.get('/nys-ris/shst-matches-metadata', (_req, res, next) => {
+  const featureCollection = NysRisController.getShstMatchesMetadata();
+
+  res.send(featureCollection);
+
+  next();
+});
+
+// server.get('/nys-ris/shst-chosen-matches', (_req, res, next) => {
+// const result = NysRisController.getShstChosenMatchesMetadata();
+
+// res.send(result);
+
+// next();
+// });
 
 server.get('/shared-streets/shst-references', (req, res, next) => {
   const {
