@@ -1,0 +1,34 @@
+#!/bin/bash
+
+set -e
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null
+
+INF='../derived_data/nys_ris_2019.ndjson'
+OUTF='../derived_data/nys_ris_2019.mbtiles'
+
+FILTER='
+  {
+    "*": [
+      "all",
+      [ "any",
+        [ "<=", "f_system", 2 ],
+        [ ">", "$zoom", 9 ]
+      ]
+    ]
+  }
+'
+tippecanoe \
+  --layer=nys_ris_2019 \
+  --no-feature-limit \
+  --no-tile-size-limit \
+  --generate-ids \
+  --read-parallel \
+  --minimum-detail 8 \
+  --extend-zooms-if-still-dropping \
+  --maximum-zoom 15 \
+  -j "$FILTER" \
+  --force -o "$OUTF" \
+  "$INF"
+
+popd >/dev/null
