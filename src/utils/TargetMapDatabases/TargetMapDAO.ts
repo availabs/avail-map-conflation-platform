@@ -1044,7 +1044,7 @@ export default class TargetMapDAO {
                       USING (edge_id)
                   GROUP BY path_id, path_edge_idx, edge_id
               ) AS agg_path_matches
-                INNER JOIN npmrds.target_map_ppg_edge_line_features AS ppg_edges
+                INNER JOIN ${this.schemaQualifier}target_map_ppg_edge_line_features AS ppg_edges
                   USING (edge_id)
             WHERE (path_id = ?)
           ;
