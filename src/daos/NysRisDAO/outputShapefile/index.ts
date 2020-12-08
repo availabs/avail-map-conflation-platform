@@ -617,8 +617,6 @@ const addRawNysRisLayer = (dataset: gdal.Dataset) => {
       // @ts-ignore
       const v = feature.properties[prop];
 
-      console.log(fieldName);
-
       gdalFeature.fields.set(fieldName, _.isNil(v) ? null : JSON.stringify(v));
     });
 
@@ -685,6 +683,56 @@ const addShstMatchesLayer = (dataset: gdal.Dataset) => {
   }
 };
 
+const addChosenShstMatchesLayer = (dataset: gdal.Dataset) => {
+  // @ts-ignore
+  const layer = dataset.layers.create(
+    `shst_chosen_matches`,
+    wgs84,
+    gdal.LineString,
+  );
+
+  const fieldDefinitionPairs = [
+    ['match_id', gdal.OFTInteger],
+    ['shst_ref', gdal.OFTString],
+    ['fid', gdal.OFTInteger],
+  ];
+
+  for (const [name, type] of fieldDefinitionPairs) {
+    addFieldToLayer(layer, name, type);
+  }
+
+  const iter = targetMapDao.makeTargetMapEdgesChosenMatchesIterator();
+
+  for (const { chosenMatchesFeatureCollection } of iter) {
+    const shstMatches = chosenMatchesFeatureCollection?.features;
+
+    if (!_.isEmpty(shstMatches)) {
+      shstMatches.forEach((shstMatch) => {
+        const gdalFeature = new gdal.Feature(layer);
+
+        gdalFeature.fields.set('match_id', shstMatch.id);
+        gdalFeature.fields.set(
+          'shst_ref',
+          shstMatch.properties?.shstReferenceId,
+        );
+        gdalFeature.fields.set('fid', shstMatch.properties?.pp_targetMapId);
+
+        const lineString = new gdal.LineString();
+
+        turf
+          .getCoords(shstMatch)
+          .forEach(([lon, lat]) =>
+            lineString.points.add(new gdal.Point(lon, lat)),
+          );
+
+        gdalFeature.setGeometry(lineString);
+
+        layer.features.add(gdalFeature);
+      });
+    }
+  }
+};
+
 export default function outputShapefile({
   output_directory,
   clean = false,
@@ -705,6 +753,7 @@ export default function outputShapefile({
 
   addRawNysRisLayer(dataset);
   addShstMatchesLayer(dataset);
+  addChosenShstMatchesLayer(dataset);
 
   dataset.close();
 }
