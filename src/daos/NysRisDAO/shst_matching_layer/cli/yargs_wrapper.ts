@@ -1,7 +1,7 @@
 /* eslint-disable import/prefer-default-export */
 
 import loadShstMatches from '../loaders/loadShstMatches';
-// import loadChosenShstMatches from '../loaders/loadChosenShstMatches';
+import loadChosenShstMatches from '../loaders/loadChosenShstMatches';
 
 export const shstMatchNysRis = {
   command: 'nys_ris_shst_match',
@@ -10,9 +10,9 @@ export const shstMatchNysRis = {
   handler: loadShstMatches,
 };
 
-// export const shstChooseMatchesNpmrds = {
-// command: 'npmrds_choose_shst_matches',
-// desc: 'Choose optimal SharedStreets matches for NPMRDS road Network edges.',
-// builder: {},
-// handler: loadChosenShstMatches,
-// };
+export const shstChooseMatchesNysRis = {
+  command: 'nys_ris_choose_shst_matches',
+  desc: 'Choose optimal SharedStreets matches for NYS RIS road segments.',
+  builder: {},
+  handler: loadChosenShstMatches,
+};
