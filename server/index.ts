@@ -6,8 +6,8 @@ import { join, isAbsolute } from 'path';
 import restify from 'restify';
 import corsMiddleware from 'restify-cors-middleware';
 
-import * as NpmrdsController from './controllers/NpmrdsController';
-import * as NysRisController from './controllers/NysRisController';
+import NpmrdsController from './controllers/NpmrdsController';
+import NysRisController from './controllers/NysRisController';
 import * as SharedStreetsController from './controllers/SharedStreetsController';
 
 import db from '../src/services/DbService';
@@ -43,95 +43,92 @@ server.use(restify.plugins.queryParser());
 server.use(restify.plugins.bodyParser());
 server.use(restify.plugins.gzipResponse());
 
-server.get('/npmrds/raw-shapefile', (_req, res, next) => {
-  const featureCollection = NpmrdsController.getRawTargetMapFeatureCollection();
-
-  res.send(featureCollection);
-
-  next();
-});
-
-server.get('/npmrds/features', (req, res, next) => {
-  const {
-    query: { id },
-  } = req;
-
-  const ids = Array.isArray(id) ? id : [id];
-
-  console.log(JSON.stringify(ids, null, 4));
-  const featureCollection = NpmrdsController.getFeatures(ids);
-
-  res.send(featureCollection);
-
-  next();
-});
-
-server.get('/npmrds/shst-matches-metadata', (_req, res, next) => {
-  const featureCollection = NpmrdsController.getShstMatchesMetadata();
-  res.send(featureCollection);
-
-  next();
-});
-
-server.get('/npmrds/shst-chosen-matches', (_req, res, next) => {
-  const result = NpmrdsController.getShstChosenMatchesMetadata();
-
-  res.send(result);
-
-  next();
-});
-
-server.get('/nys-ris/raw-shapefile', (_req, res, next) => {
-  const featureCollection = NysRisController.getRawTargetMapFeatureCollection();
-
-  res.send(featureCollection);
-
-  next();
-});
-
-server.get('/nys-ris/features', (req, res, next) => {
-  const {
-    query: { id },
-  } = req;
-
-  const ids = Array.isArray(id) ? id : [id];
-
-  console.log(JSON.stringify(ids, null, 4));
-  const featureCollection = NysRisController.getFeatures(ids);
-
-  res.send(featureCollection);
-
-  next();
-});
-
-server.get('/nys-ris/shst-matches-metadata', (_req, res, next) => {
-  const featureCollection = NysRisController.getShstMatchesMetadata();
-
-  res.send(featureCollection);
-
-  next();
-});
-
-// server.get('/nys-ris/shst-chosen-matches', (_req, res, next) => {
-// const result = NysRisController.getShstChosenMatchesMetadata();
-
-// res.send(result);
-
-// next();
-// });
+const targetMapControllers = {
+  npmrds: NpmrdsController,
+  'nys-ris': NysRisController,
+};
 
 server.get('/shared-streets/shst-references', (req, res, next) => {
-  const {
-    query: { id },
-  } = req;
+  try {
+    const {
+      query: { id },
+    } = req;
 
-  const ids = Array.isArray(id) ? id : [id];
+    const ids = Array.isArray(id) ? id : [id];
 
-  const featureCollection = SharedStreetsController.getShstReferences(ids);
+    const featureCollection = SharedStreetsController.getShstReferences(ids);
 
-  res.send(featureCollection);
+    res.send(featureCollection);
 
-  next();
+    return next();
+  } catch (err) {
+    return next(err);
+  }
+});
+
+server.get('/:targetMap/raw-shapefile', (req, res, next) => {
+  try {
+    const { targetMap } = req.params;
+
+    const controller = targetMapControllers[targetMap];
+    const featureCollection = controller.getRawTargetMapFeatureCollection();
+
+    res.send(featureCollection);
+
+    return next();
+  } catch (err) {
+    return next(err);
+  }
+});
+
+server.get('/:targetMap/features', (req, res, next) => {
+  try {
+    const {
+      params: { targetMap },
+      query: { id },
+    } = req;
+
+    const ids = Array.isArray(id) ? id : [id];
+
+    const controller = targetMapControllers[targetMap];
+    const featureCollection = controller.getFeatures(ids);
+
+    res.send(featureCollection);
+
+    return next();
+  } catch (err) {
+    return next(err);
+  }
+});
+
+server.get('/:targetMap/shst-matches-metadata', (req, res, next) => {
+  try {
+    const { targetMap } = req.params;
+
+    const controller = targetMapControllers[targetMap];
+
+    const metadata = controller.getShstMatchesMetadata();
+    res.send(metadata);
+
+    return next();
+  } catch (err) {
+    return next(err);
+  }
+});
+
+server.get('/:targetMap/shst-chosen-matches', (req, res, next) => {
+  try {
+    const { targetMap } = req.params;
+
+    const controller = targetMapControllers[targetMap];
+    const result = controller.getShstChosenMatchesMetadata();
+
+    res.send(result);
+
+    return next();
+  } catch (err) {
+    return next(err);
+  }
 });
 
 server.listen(PORT, function main() {
