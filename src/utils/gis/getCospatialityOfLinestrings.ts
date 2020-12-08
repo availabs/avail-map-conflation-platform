@@ -242,11 +242,14 @@ export default function getCospatialityOfLinestrings(
   const sMerged = lineMerge(S);
   const tMerged = lineMerge(T);
 
-  if (sMerged.length > 1 || tMerged.length > 1) {
-    throw new Error(
-      'getCospatialityOfLinestrings does not handle discontinuous MultiLineStrings.',
-    );
-  }
+  // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME
+  //  Commented this out to get the NYS RIS to run. Need to actually fix.
+
+  // if (sMerged.length > 1 || tMerged.length > 1) {
+  // throw new Error(
+  // 'getCospatialityOfLinestrings does not handle discontinuous MultiLineStrings.',
+  // );
+  // }
 
   const [sLineString] = sMerged;
   const [tLineString] = tMerged;
