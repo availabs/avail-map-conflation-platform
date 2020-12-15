@@ -5,7 +5,7 @@ const {join} = require('path')
 
 const yargs = require("yargs");
 
-const defaultOutputDir = join(__dirname, '../output')
+const defaultOutputDir = join(__dirname, '../../output')
 
 const cliArgsSpec = {
   port: {
@@ -35,9 +35,6 @@ const {argv: {port, output_dir}} = yargs
 
 const tsNode = join(__dirname, '../node_modules/.bin/ts-node')
 const server = join(__dirname, './index.ts')
-
-
-console.log('output_dir', output_dir)
 
 const {error, stdout, stderr} = exec(`node ${tsNode} ${server}`, {env: {PORT: port, OUTPUT_DIR: output_dir}})
 
