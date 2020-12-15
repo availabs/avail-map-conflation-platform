@@ -56,6 +56,7 @@ const runShstMatch = (inFilePath, outFilePath, flags) => {
           'match',
           `${inFilePath}`,
           // '--follow-line-direction',
+          '--tile-source=planet-200910',
           '--tile-hierarchy=8',
           `--out=${outFilePath}`,
         ],
