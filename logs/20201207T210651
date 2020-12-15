@@ -1,0 +1,1 @@
+{"message":{"type":"COLUMN_NULL_FOR_ALL_DATABASE_RECORDS","payload":{"msg":"NYS Road Inventory System SQLite Database Column NULL for all Geodatabase Records.","alwaysNullColumns":["trail_crossing","parkway","grouped_road_flag","rest_area","reservation_desc","hov"],"moduleId":"daos/NysRisDAO/raw_map_layer/loaders/anomalyHandlers.ts"}},"level":"warn"}
