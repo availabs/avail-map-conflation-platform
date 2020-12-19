@@ -964,6 +964,7 @@ export default class TargetMapDAO {
             FROM ${this.schemaQualifier}target_map_edges_shst_matches
               INNER JOIN ${this.schemaQualifier}target_map_ppg_edge_id_to_target_map_id
                 USING (edge_id)
+            GROUP BY target_map_id
           ;`,
       );
     }
