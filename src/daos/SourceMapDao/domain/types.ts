@@ -8,11 +8,13 @@ export interface SharedStreetsLocationReference {
   intersectionId: string;
 }
 
+export type SharedStreetsReferenceId = string;
+
 export interface SharedStreetsReferenceFeature
   extends turf.Feature<turf.LineString> {
   id: string;
   properties: {
-    id: string;
+    shstReferenceId: SharedStreetsReferenceId;
     geometryId: string;
     formOfWay: string;
     fromIntersectionId: string;

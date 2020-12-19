@@ -7,9 +7,11 @@ import db from '../../../services/DbService';
 import { SOURCE_MAP } from '../../../constants/databaseSchemaNames';
 import { SharedStreetsReferenceFeature } from '../domain/types';
 
+// The geopoly types copied from the following:
+// https://github.com/Turfjs/turf/blob/3cea4b5f125a11fb4757da59d1222fd837d9783c/packages/turf-invariant/index.ts#L51-L63
 export function getShstReferenceFeaturesOverlappingPoly(
-  geopoly: turf.Feature<turf.Polygon>,
-): turf.Feature<turf.LineString>[] {
+  geopoly: any[] | turf.Feature | turf.GeometryObject,
+): SharedStreetsReferenceFeature[] {
   const geopolyCoords = turf.getCoords(geopoly);
 
   const result = db
@@ -38,7 +40,7 @@ export function getShstReferenceFeaturesOverlappingPoly(
 
 export function getShstReferences(
   shstReferenceIds: SharedStreetsReferenceFeature['id'][],
-) {
+): SharedStreetsReferenceFeature[] {
   const result = db
     .prepare(
       `

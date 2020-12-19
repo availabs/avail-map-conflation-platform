@@ -3,14 +3,18 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
+import _ from 'lodash';
+
 import { SOURCE_MAP as SCHEMA } from '../../../../constants/databaseSchemaNames';
+
+import getBufferPolygonCoords from '../../../../utils/getBufferPolygonCoords';
 
 import {
   SharedStreetsLocationReference,
   SharedStreetsReferenceFeature,
 } from '../../domain/types';
 
-function* makeShstReferenceLoaderIterator(
+export function* makeShstReferenceLoaderIterator(
   db: any,
 ): Generator<SharedStreetsReferenceFeature> {
   const iter = db
@@ -22,7 +26,8 @@ function* makeShstReferenceLoaderIterator(
             form_of_way,
             is_forward,
             location_references,
-            geom_feature
+            geom_feature,
+            osm_metadata_way_sections
           FROM (
             SELECT
                 ref.id as shst_reference_id,
@@ -61,6 +66,37 @@ function* makeShstReferenceLoaderIterator(
                 FROM ${SCHEMA}.shst_references_location_references
                 GROUP BY 1
             ) USING (shst_reference_id)
+            INNER JOIN (
+              SELECT
+                  geometry_id AS shst_geometry_id,
+                  json_group_array(
+                    json_object(
+                      'osm_metadata_way_section_idx',
+                      osm_metadata_way_section_idx,
+                      'way_id',
+                      way_id,
+                      'osm_way_tags',
+                      json(osm_ways.tags),
+                      'road_class',
+                      road_class,
+                      'one_way',
+                      one_way,
+                      'roundabout',
+                      roundabout,
+                      'link',
+                      link,
+                      'name',
+                      name
+                    )
+                  ) AS osm_metadata_way_sections
+
+                FROM ${SCHEMA}.shst_metadata AS meta
+                  INNER JOIN ${SCHEMA}.shst_metadata_osm_metadata_way_sections AS way_sections
+                    ON (meta._id = way_sections.shst_metadata_id)
+                  INNER JOIN ${SCHEMA}.osm_ways
+                    ON (way_sections.way_id = osm_ways.osm_way_id)
+                GROUP BY geometry_id
+            ) USING (shst_geometry_id)
         ;
       `,
     )
@@ -74,6 +110,7 @@ function* makeShstReferenceLoaderIterator(
     isForward,
     locationReferencesStr,
     geomFeatureStr,
+    osmMetadataWaySectionsStr,
   ] of iter) {
     const feature = JSON.parse(geomFeatureStr);
 
@@ -88,6 +125,17 @@ function* makeShstReferenceLoaderIterator(
     const toIntersectionId =
       locationReferences[locationReferences.length - 1].intersectionId;
 
+    const unsortedOsmMetadataWaySections = JSON.parse(
+      osmMetadataWaySectionsStr,
+    );
+
+    const osmMetadataWaySections = unsortedOsmMetadataWaySections
+      .sort(
+        (a: any, b: any) =>
+          a.osm_metadata_way_section_idx - b.osm_metadata_way_section_idx,
+      )
+      .map((meta: any) => _.omit(meta, 'osm_metadata_way_section_idx'));
+
     feature.id = shstReferenceId;
 
     feature.properties = {
@@ -97,10 +145,13 @@ function* makeShstReferenceLoaderIterator(
       fromIntersectionId,
       toIntersectionId,
       locationReferences,
+      isForward: !!isForward,
+      osmMetadataWaySections,
     };
 
     if (!isForward) {
       feature.geometry.coordinates.reverse();
+      feature.properties.osmMetadataWaySections.reverse();
     }
 
     yield feature;
@@ -112,6 +163,15 @@ export default function finishSharedStreetsLoad(db: any) {
 
   // @ts-ignore
   xdb.unsafeMode(true);
+
+  const indxInsertStmt = xdb.prepare(
+    `
+        INSERT INTO ${SCHEMA}.shst_reference_features_geopoly_idx (
+          _shape,
+          shst_reference_id
+        ) VALUES (?, ?) ;
+      `,
+  );
 
   try {
     xdb.exec('BEGIN EXCLUSIVE;');
@@ -135,6 +195,13 @@ export default function finishSharedStreetsLoad(db: any) {
 
     for (const shstReference of iter) {
       shstRefInsertStmt.run([shstReference.id, JSON.stringify(shstReference)]);
+
+      // Coordinates of the feature's bounding polygon.
+      const polyCoords = getBufferPolygonCoords(shstReference);
+
+      const geopolyShape = polyCoords[0];
+
+      indxInsertStmt.run([JSON.stringify(geopolyShape), shstReference.id]);
     }
 
     xdb.exec('COMMIT');
