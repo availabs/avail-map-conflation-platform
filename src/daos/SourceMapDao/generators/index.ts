@@ -1,13 +1,13 @@
 /* eslint-disable no-restricted-syntax, import/prefer-default-export */
 
-import * as turf from '@turf/turf';
-
 import db from '../../../services/DbService';
 
 import { SOURCE_MAP } from '../../../constants/databaseSchemaNames';
 
+import { SharedStreetsReferenceFeature } from '../domain/types';
+
 export function* makeSharedStreetsReferenceFeaturesIterator(): Generator<
-  turf.Feature<turf.LineString>
+  SharedStreetsReferenceFeature
 > {
   const shstReferencesIter = db
     .prepare(
