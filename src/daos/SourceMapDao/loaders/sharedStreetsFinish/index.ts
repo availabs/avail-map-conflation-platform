@@ -24,6 +24,7 @@ export function* makeShstReferenceLoaderIterator(
             shst_reference_id,
             shst_geometry_id,
             form_of_way,
+            road_class,
             is_forward,
             location_references,
             geom_feature,
@@ -33,13 +34,16 @@ export function* makeShstReferenceLoaderIterator(
                 ref.id as shst_reference_id,
                 geometry_id AS shst_geometry_id,
                 fow.value AS form_of_way,
+                rc.value AS road_class,
                 (geom.forward_reference_id = ref.id) AS is_forward,
                 geom.geojson_linestring as geom_feature
               FROM ${SCHEMA}.shst_references AS ref
                 INNER JOIN ${SCHEMA}.shst_geometries AS geom
                   ON (geom.id = ref.geometry_id)
-                INNER JOIN ${SCHEMA}.shst_reference_forms_of_way AS fow
+                LEFT OUTER JOIN ${SCHEMA}.shst_reference_forms_of_way AS fow
                   ON (ref.form_of_way = fow.element)
+                LEFT JOIN ${SCHEMA}.shst_geometry_road_class AS rc
+                  ON (geom.road_class = rc.element)
               WHERE (
                 ( ref.id = geom.forward_reference_id )
                 OR
@@ -89,7 +93,6 @@ export function* makeShstReferenceLoaderIterator(
                       name
                     )
                   ) AS osm_metadata_way_sections
-
                 FROM ${SCHEMA}.shst_metadata AS meta
                   INNER JOIN ${SCHEMA}.shst_metadata_osm_metadata_way_sections AS way_sections
                     ON (meta._id = way_sections.shst_metadata_id)
@@ -107,6 +110,7 @@ export function* makeShstReferenceLoaderIterator(
     shstReferenceId,
     geometryId,
     formOfWay,
+    roadClass,
     isForward,
     locationReferencesStr,
     geomFeatureStr,
@@ -136,17 +140,27 @@ export function* makeShstReferenceLoaderIterator(
       )
       .map((meta: any) => _.omit(meta, 'osm_metadata_way_section_idx'));
 
+    const osmHighwayTypes = _(osmMetadataWaySections)
+      .map('osm_way_tags.highway')
+      .filter((t) => t)
+      .sort()
+      .sortedUniq()
+      .value();
+
     feature.id = shstReferenceId;
 
     feature.properties = {
       shstReferenceId,
       geometryId,
       formOfWay,
+      roadClass,
       fromIntersectionId,
       toIntersectionId,
       locationReferences,
       isForward: !!isForward,
       osmMetadataWaySections,
+      // Adding this for convenience and faster queries.
+      osmHighwayTypes,
     };
 
     if (!isForward) {
@@ -166,11 +180,11 @@ export default function finishSharedStreetsLoad(db: any) {
 
   const indxInsertStmt = xdb.prepare(
     `
-        INSERT INTO ${SCHEMA}.shst_reference_features_geopoly_idx (
-          _shape,
-          shst_reference_id
-        ) VALUES (?, ?) ;
-      `,
+      INSERT INTO ${SCHEMA}.shst_reference_features_geopoly_idx (
+        _shape,
+        shst_reference_id
+      ) VALUES (?, ?) ;
+    `,
   );
 
   try {

@@ -74,6 +74,14 @@ CREATE TABLE __SCHEMA__.shst_reference_features (
   ),
 
   CHECK (
+    -- https://github.com/sharedstreets/sharedstreets-types/blob/3c1d5822ff4943ae063f920e018dd3e349213c8c/index.ts#L173-L186
+    json_extract(feature, '$.properties.formOfWay') BETWEEN 0 AND 7
+    AND
+    -- https://github.com/sharedstreets/sharedstreets-types/blob/3c1d5822ff4943ae063f920e018dd3e349213c8c/index.ts#L33-L44
+    json_extract(feature, '$.properties.roadClass') BETWEEN 0 AND 8
+  ),
+
+  CHECK (
     ( json_extract(feature, '$.properties.isForward') = 1 )
     OR
     ( json_extract(feature, '$.properties.isForward') = 0 )
@@ -82,6 +90,13 @@ CREATE TABLE __SCHEMA__.shst_reference_features (
   CHECK (
     ( json_array_length(
         json_extract(feature, '$.properties.osmMetadataWaySections')
+      ) > 0
+    )
+  ),
+
+  CHECK (
+    ( json_array_length(
+        json_extract(feature, '$.properties.osmHighwayTypes')
       ) > 0
     )
   )
