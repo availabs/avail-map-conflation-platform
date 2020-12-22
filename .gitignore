@@ -1,7 +1,11 @@
 node_modules/
 data/
 notes/
+cdta/
+cdta_outputs/
 output/
+npmrds_shp/
+
 # https://stackoverflow.com/a/32262670/3970755
 *.bak
 *.bak[0-9]

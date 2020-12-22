@@ -1,5 +1,13 @@
 import * as turf from '@turf/turf';
 
+import {
+  FormOfWay as SharedStreetsFormOfWay,
+  RoadClass as SharedStreetsRoadClass,
+} from 'sharedstreets-types';
+
+export { SharedStreetsFormOfWay };
+export { SharedStreetsRoadClass };
+
 export interface SharedStreetsLocationReference {
   sequence: number;
   point: [number, number];
@@ -8,16 +16,33 @@ export interface SharedStreetsLocationReference {
   intersectionId: string;
 }
 
+export type SharedStreetsReferenceId = string;
+
+export interface OsmMetadataWaySection {
+  way_id: number;
+  osm_way_tags: Record<string, any>;
+  road_class: string;
+  one_way: 0 | 1;
+  roundabout: 0 | 1;
+  link: 0 | 1;
+  name: string;
+}
+
+export type OsmHighwayType = string;
+
 export interface SharedStreetsReferenceFeature
   extends turf.Feature<turf.LineString> {
   id: string;
   properties: {
-    id: string;
+    shstReferenceId: SharedStreetsReferenceId;
     geometryId: string;
-    formOfWay: string;
+    formOfWay: SharedStreetsFormOfWay;
+    roadClass: SharedStreetsRoadClass;
     fromIntersectionId: string;
     toIntersectionId: string;
     locationReferences: SharedStreetsLocationReference[];
+    osmMetadataWaySections: OsmMetadataWaySection[];
+    osmHighwayTypes: OsmHighwayType[];
   };
 }
 

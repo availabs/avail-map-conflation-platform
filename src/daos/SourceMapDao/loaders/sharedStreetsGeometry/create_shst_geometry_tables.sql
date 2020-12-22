@@ -33,3 +33,25 @@ DROP TABLE IF EXISTS __SCHEMA__.shst_geometries_geopoly_idx;
 
 CREATE VIRTUAL TABLE __SCHEMA__.shst_geometries_geopoly_idx
   USING geopoly(id) ;
+
+-- https://github.com/sharedstreets/sharedstreets-types/blob/3c1d5822ff4943ae063f920e018dd3e349213c8c/index.ts#L33-L44
+DROP TABLE IF EXISTS __SCHEMA__.shst_geometry_road_class ;
+
+CREATE TABLE __SCHEMA__.shst_geometry_road_class
+  AS
+    SELECT
+        column1 AS element,
+        column2 as value
+      FROM (
+        VALUES
+          ('Motorway',      0),
+          ('Trunk',         1),
+          ('Primary',       2),
+          ('Secondary',     3),
+          ('Tertiary',      4),
+          ('Residential',   5),
+          ('Unclassified',  6),
+          ('Service',       7),
+          ('Other',         8)
+      )
+;

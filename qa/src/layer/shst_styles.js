@@ -27,8 +27,10 @@ export const ris2019Source = {
 
 const n = 'n', //"netlev",
   w = 10,
-  o = 10
-  //c = 'white'
+
+  o = 10,
+  c = 'white'
+
 
 export const npmrdsPaint = (NETWORK_LEVEL, WIDTH_MULT,OFFSET_MULT, COLOR) => ({
   'line-width': [
