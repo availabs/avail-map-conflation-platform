@@ -42,7 +42,6 @@ class TargetMapController {
 
     const response = {};
 
-    let i = 0;
     for (const {
       targetMapId,
       chosenMatchesFeatureCollection,
@@ -60,10 +59,6 @@ class TargetMapController {
       );
 
       response[targetMapId] = matchesMetadata;
-
-      if (++i === 3) {
-        break;
-      }
     }
 
     return response;
