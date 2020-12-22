@@ -23,34 +23,26 @@ class ShstLayer extends MapLayer {
         fetch(`${api}/${network}/shst-matches-metadata`)
         .then(r => r.json())
         .then(matches => {
-            console.log('matches', matches)
-            this.matches = matches
-            // fetch(`${api}/gtfs-conflation-map-join`)
-            // .then(r => r.json())
-            // .then(joins => {
-            //     this.joins = joins;
-            //     // console.log('joins', joins)
-            //       fetch(`${api}/gtfs-edges`)
-            //         .then(r => r.json())
-            //         .then(edges => {
-            //             console.log('matches', matches)
-            //             console.log('edges', edges)
-            //             console.log('joins', joins)
-            //             this.calculateStatistics(matches, edges, joins)
-            //         })
-            // })
+            //this.matches = matches
+            fetch(`${api}/${network}/shst-chosen-matches`)
+            .then(r => r.json())
+            .then(joins => {
+                this.joins = joins;
+                // console.log('joins', joins)
+                  fetch(`${api}/${network}/raw-shapefile`)
+                    .then(r => r.json())
+                    .then(edges => {
+                        console.log('matches', matches)
+                        console.log('edges', edges)
+                        console.log('joins', joins)
+                        this.calculateStatistics(matches, edges, joins)
+                    })
+            })
         })
 
-        // fetch(`${api}/gtfs-conflation-schedule-join`)
-        // .then(r => r.json())
-        // .then(schedule => {
-        //     //console.log('got schedule', schedule)
-        //     this.schedule = schedule
-        //     this.calculateSchedule(schedule)
-        // })
         
         this.toggleTarget = this.toggleTarget.bind(this)
-        this.transitOpacity = this.transitOpacity.bind(this)
+        this.targetOpacity = this.targetOpacity.bind(this)
         this.highlightUnJoined = this.highlightUnJoined.bind(this)
         this.highlightUnMatched = this.highlightUnMatched.bind(this)
     }
@@ -101,12 +93,12 @@ class ShstLayer extends MapLayer {
         edges.features.forEach((e,i) => {
             
             e.properties.length = length(e)
-            this.numMatches += matches[e.properties.matchId] ? 1 : 0
-            if(!matches[e.properties.matchId]) {
-                this.unMatched.push(e.properties.matchId)
+            this.numMatches += matches[e.id] ? 1 : 0
+            if(!matches[e.id]) {
+                this.unMatched.push(e.id)
             } else { 
                 
-                let matchLength = matches[e.properties.matchId]
+                let matchLength = matches[e.id]
                     .reduce((out, curr) =>  { return out + (curr.shst_ref_end - curr.shst_ref_start)},0)
                 
                 if(Math.abs(e.properties.length*1000 - matchLength) < 5){
@@ -119,21 +111,21 @@ class ShstLayer extends MapLayer {
 
             }
 
-            this.numJoins += joins[e.properties.matchId] ? 1 : 0
-            if(!joins[e.properties.matchId]) {
+            this.numJoins += joins[e.id] ? 1 : 0
+            if(!joins[e.id]) {
 
-                this.unJoined.push(e.properties.matchId)
+                this.unJoined.push(e.id)
             
             }  else { 
                 
-                joins[e.properties.matchId].forEach(seg => {
+                joins[e.id].forEach(seg => {
                     if(this.schedSegments.indexOf(seg.conflation_map_id) === -1){
                         this.schedSegments.push(seg.conflation_map_id)
                     }
                 })
 
 
-                let matchLength = joins[e.properties.matchId]
+                let matchLength = joins[e.id]
                     .reduce((out, curr) =>  { return out + (curr.conf_map_seg_len - (curr.conf_map_pre_len + curr.conf_map_post_len ))},0)
                 
                 this.join10 +=  Math.abs(e.properties.length - matchLength) < .03 ? 1 : 0
@@ -183,8 +175,7 @@ class ShstLayer extends MapLayer {
         );
     }
 
-    transitOpacity (e) {
-        console.log('hello', e)
+    targetOpacity (e) {
         if(e && e.target) {
             console.log('set', e.target.value)
             this.map.setPaintProperty('npmrds','line-opacity', e.target.value/100)
@@ -235,7 +226,7 @@ class ShstLayer extends MapLayer {
         layers: ['shst', "gtfs-edges"],
         dataFunc: function (feature) {
             
-            if(feature[0].properties.shape_id && this.joins){
+            if(feature[0].id && this.joins){
                 let matchId = `${feature[0].properties.shape_id}::${feature[0].properties.shape_index}`
                 this.matchId = matchId
                 let segments = this.joins[matchId]
@@ -325,7 +316,7 @@ const MapController = ({layer}) => {
                     <span style={{float: 'right'}}><input type='checkbox'  onClick={layer.toggleTarget}/></span>
                 </div>
                 <label style={{color: colors.light}}>Opacity</label>
-                <input type="range" min="1" max="100" onChange={layer.transitOpacity} style={{width: '100%'}}/>
+                <input type="range" min="1" max="100" onChange={layer.targetOpacity} style={{width: '100%'}}/>
                 <div style={{display: 'flex', padding: 10, borderRadius: 5, border: '1px solid DimGray', flexDirection: 'column'}}>
                     {layer.numMatches ? 
                         (

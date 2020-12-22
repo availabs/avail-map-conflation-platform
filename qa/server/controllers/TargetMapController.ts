@@ -61,9 +61,6 @@ class TargetMapController {
 
       response[targetMapId] = matchesMetadata;
 
-      if (++i === 3) {
-        break;
-      }
     }
 
     return response;
