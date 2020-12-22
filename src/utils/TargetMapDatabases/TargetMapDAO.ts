@@ -1349,6 +1349,7 @@ export default class TargetMapDAO {
             return shstMatchFeature;
           },
         )
+        .uniqBy('properties.shstMatchId') // FIXME: Hack. Why dupes in first place?
         .value();
 
       const chosenMatchesFeatureCollection = turf.featureCollection(
