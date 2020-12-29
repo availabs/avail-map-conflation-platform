@@ -3,7 +3,9 @@ import {
     ShshStyle, 
     ShstSource,
     npmrd2019Source, 
-    npmrdsStyle
+    npmrdsStyle,
+    ris2019Source,
+    risStyle
  } from './shst_styles.js'
 import MapLayer from "AvlMap/MapLayer"
 import length from '@turf/length'
@@ -11,7 +13,8 @@ import * as d3 from "d3-scale"
 
 // const COLOR = 'rgba(255, 255, 255, 0.95)'
 const api = 'http://localhost:8080' 
-const network = 'npmrds'
+const network = 'nys-ris'//'npmrds'
+
 //const api = 'http://localhost:8080/cdta'
 
 
@@ -69,7 +72,6 @@ class ShstLayer extends MapLayer {
         this.map.setPaintProperty(
             "shst",
             'line-color',
-
             ["case",
                 ["has", ["to-string", ["get", "id"]], ["literal", segmentColors]],
                 ["get", ["to-string", ["get", "id"]], ["literal", segmentColors]],
@@ -101,7 +103,7 @@ class ShstLayer extends MapLayer {
                 let matchLength = matches[e.id]
                     .reduce((out, curr) =>  { return out + (curr.shst_ref_end - curr.shst_ref_start)},0)
                 
-                if(Math.abs(e.properties.length*1000 - matchLength) < 5){
+                if(Math.abs(e.properties.length*1000 - matchLength) < 10){
                     this.match10 += 1
                 } else {
 
@@ -126,15 +128,17 @@ class ShstLayer extends MapLayer {
 
 
                 let matchLength = joins[e.id]
-                    .reduce((out, curr) =>  { return out + (curr.conf_map_seg_len - (curr.conf_map_pre_len + curr.conf_map_post_len ))},0)
+                    .reduce((out, curr) =>  { 
+                        return out + ( curr.shst_ref_end - curr.shst_ref_start )
+                    },0)
                 
-                this.join10 +=  Math.abs(e.properties.length - matchLength) < .03 ? 1 : 0
-                this.join50 +=  Math.abs(e.properties.length - matchLength) < .5 ? 1 : 0
+                this.join10 +=  Math.abs(e.properties.length*1000 - matchLength) < 5 ? 1 : 0
+                this.join50 +=  Math.abs(e.properties.length*1000 - matchLength) < 50 ? 1 : 0
 
             }
 
         })
-        console.log('scheduled segments',this.schedSegments.length)
+        // console.log('scheduled segments',this.schedSegments.length)
         
         this.edges = edges
         this.numEdges = edges.features.length
@@ -156,7 +160,7 @@ class ShstLayer extends MapLayer {
 
     highlightTarget(ids,color='crimson') {
         this.map.setPaintProperty(
-            "npmrds", 
+            network, 
             "line-color",
             ["match", 
                 ["string", ["get", "matchId"]], 
@@ -169,7 +173,7 @@ class ShstLayer extends MapLayer {
 
     toggleTarget() {
         this.map.setLayoutProperty(
-            'npmrds', 
+            network, 
             'visibility', 
             this.map.getLayoutProperty('npmrds', 'visibility') === 'visible' ? 'none' : 'visible'
         );
@@ -191,14 +195,18 @@ class ShstLayer extends MapLayer {
     segments: [],
     sources: [
         ShstSource,
-        npmrd2019Source
+        npmrd2019Source,
+        ris2019Source
     ],
     layers: [
         ShshStyle,
-        npmrdsStyle
+        network === 'npmrds' ?
+        npmrdsStyle :
+        risStyle
+
     ],
     onHover: {
-        layers: ['shst', "npmrds"],
+        layers: ['shst', network],
         dataFunc: function (feature) {
             
             if(feature[0].properties.shape_id){
@@ -223,7 +231,7 @@ class ShstLayer extends MapLayer {
         }
     },
     onClick: {
-        layers: ['shst', "gtfs-edges"],
+        layers: ['shst', network],
         dataFunc: function (feature) {
             
             if(feature[0].id && this.joins){
@@ -272,7 +280,7 @@ class ShstLayer extends MapLayer {
         }
     },
     popover: {
-        layers: ["shst","npmrds"],
+        layers: ["shst",network],
         dataFunc: function (feature,map) {
             let transit = []
             if(feature.properties.shst && this.schedule && this.schedule[feature.properties.id]){
