@@ -18,6 +18,7 @@ const {default: DbService} = require('./src/services/DbService')
 
 // OSM & SharedStreets Source Maps
 const source_map_load = require('./src/pipeline_transforms/source_map_load/yargs_wrapper')
+const {outputSourceMapShapefile} = require('./src/daos/SourceMapDao/outputShapefile/yargs_wrapper')
 
 const conflation_map = require("./src/pipeline_transforms/conflation_map/yargs_wrapper");
 
@@ -58,6 +59,7 @@ const taskCommands = yargs
     },
   })
   .command(source_map_load)
+  .command(outputSourceMapShapefile)
   .command(raw_gtfs_into_sqlite)
   .command(gtfs_as_geojson)
   .command(gtfs_network)
