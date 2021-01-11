@@ -1,8 +1,9 @@
+import { existsSync } from 'fs';
+import { join, isAbsolute } from 'path';
+
 import { sync as mkdirpSync } from 'mkdirp';
 
 import Database, { Database as SqliteDatabase } from 'better-sqlite3';
-
-import { join, isAbsolute } from 'path';
 
 import memoizeOne from 'memoize-one';
 
@@ -38,6 +39,12 @@ const getSqliteDir = memoizeOne(() => {
 
 const attachedDatabases = new Set();
 
+const getDatabaseFilePath = (databaseSchemaName: string) =>
+  join(getSqliteDir(), databaseSchemaName);
+
+const databaseFileExists = (databaseSchemaName: string) =>
+  existsSync(databaseSchemaName);
+
 const attachDatabase = (databaseSchemaName: string) => {
   verifyConfigured();
 
@@ -45,7 +52,7 @@ const attachDatabase = (databaseSchemaName: string) => {
     return;
   }
 
-  const databaseFilePath = join(getSqliteDir(), databaseSchemaName);
+  const databaseFilePath = getDatabaseFilePath(databaseSchemaName);
 
   db.exec(`ATTACH DATABASE '${databaseFilePath}' AS ${databaseSchemaName};`);
 
@@ -57,7 +64,7 @@ const getDatabaseFilePathForSchemaName = (databaseSchemaName: string) =>
 
 const openLoadingConnectionToDb = (
   databaseSchemaName: string | null = null,
-) => {
+): SqliteDatabase => {
   if (databaseSchemaName === null) {
     return new Database(db.name);
   }
@@ -95,6 +102,7 @@ const prepare = (sql: string) => {
 };
 
 const setOutputDirectory = (outputDir: string) => {
+  console.log(outputDir);
   if (OUTPUT_DIR === '') {
     OUTPUT_DIR = outputDir;
 
@@ -114,6 +122,7 @@ export default {
   transaction: db.transaction.bind(db),
   openLoadingConnectionToDb,
   closeLoadingConnectionToDb,
+  databaseFileExists,
 
   // @ts-ignore
   unsafeMode: db.unsafeMode.bind(db),
