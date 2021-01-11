@@ -373,8 +373,14 @@ export default class TargetMapDAO {
     }
   }
 
-  // eslint-disable-next-line import/prefer-default-export
-  loadMicroLevel() {
+  /** 
+    Warning: By default this method initializes the database. This allows the TargetMap PathPropertyGraph (TMPPG) tables initialization to happen in the same transaction as the Node and Edges loading.
+
+    ⚠ After initialization, the TargetMap metadata is erased and will need to be restored by the caller.
+
+    Reasons: 1) Since the Nodes and Edges are the primitive elements of TMPPG, clearing all derived tables preserves database consistency. 2) Coupling initialization and loading allows the user to rollback all changes by killing the loading process before it completes.
+  */
+  loadMicroLevel(clean: boolean = true) {
     const xdb = this.db.openLoadingConnectionToDb(this.schema);
 
     // @ts-ignore
@@ -384,6 +390,10 @@ export default class TargetMapDAO {
 
     try {
       xdb.exec('BEGIN EXCLUSIVE;');
+
+      if (clean) {
+        xTargetMapDao.initializeTargetMapDatabase();
+      }
 
       const edgesIterator = xTargetMapDao.makePreloadedTargetMapEdgesIterator();
 
@@ -405,8 +415,7 @@ export default class TargetMapDAO {
           properties: null,
         });
 
-        const edgeId = xTargetMapDao.insertEdge(edge);
-        console.log(edgeId);
+        xTargetMapDao.insertEdge(edge);
       }
 
       xdb.exec('COMMIT');

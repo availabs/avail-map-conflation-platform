@@ -13,7 +13,8 @@ export default async function loadMicroLevel() {
 
   const targetMapDao = new TargetMapDAO(db, SCHEMA);
 
-  targetMapDao.loadMicroLevel(true);
+  targetMapDao.loadMicroLevel();
+  targetMapDao.targetMapIsCenterline = true;
 
   console.timeEnd(timerId);
 }
