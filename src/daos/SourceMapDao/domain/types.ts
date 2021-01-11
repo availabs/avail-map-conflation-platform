@@ -1,12 +1,17 @@
+// https://github.com/sharedstreets/sharedstreets-types/blob/3c1d5822ff4943ae063f920e018dd3e349213c8c/index.ts
+
 import * as turf from '@turf/turf';
 
 import {
   FormOfWay as SharedStreetsFormOfWay,
   RoadClass as SharedStreetsRoadClass,
+  SharedStreetsIntersection,
 } from 'sharedstreets-types';
 
 export { SharedStreetsFormOfWay };
 export { SharedStreetsRoadClass };
+
+export type SharedStreetsIntersectionId = SharedStreetsIntersection['id'];
 
 export interface SharedStreetsLocationReference {
   sequence: number;
@@ -46,29 +51,4 @@ export interface SharedStreetsReferenceFeature
   };
 }
 
-export interface SharedStreetsMatchFeature
-  extends turf.Feature<turf.LineString> {
-  properties: {
-    shstReferenceId: string;
-    shstGeometryId: string;
-    shstFromIntersectionId: string;
-    shstToIntersectionId: string;
-    referenceLength: number;
-    section: [number, number];
-    gisReferenceId: string;
-    gisGeometryId: string;
-    gisTotalSegments: number;
-    gisSegmentIndex: number;
-    gisFromIntersectionId: string;
-    gisToIntersectionId: string;
-    startSideOfStreet: 'right' | 'left';
-    endSideOfStreet: 'right' | 'left';
-    sideOfStreet: 'right' | 'left' | 'unknown';
-    score: number;
-    matchType: string;
-    pp_targetmapid: string | number;
-    pp_id: number;
-    pp_osrm_assisted: boolean;
-    pp_match_index: number;
-  };
-}
+export type SharedStreetsGeometryId = SharedStreetsReferenceFeature['properties']['geometryId'];
