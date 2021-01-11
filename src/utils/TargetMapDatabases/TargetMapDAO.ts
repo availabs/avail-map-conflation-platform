@@ -373,7 +373,7 @@ export default class TargetMapDAO {
     }
   }
 
-  /** 
+  /**
     Warning: By default this method initializes the database. This allows the TargetMap PathPropertyGraph (TMPPG) tables initialization to happen in the same transaction as the Node and Edges loading.
 
     ⚠ After initialization, the TargetMap metadata is erased and will need to be restored by the caller.
@@ -889,7 +889,7 @@ export default class TargetMapDAO {
               INNER JOIN (
                 SELECT
                     edge_id
-                  FROM ${this.schemaQualifier}target_map_ppg_edges_geopoly_idx 
+                  FROM ${this.schemaQualifier}target_map_ppg_edges_geopoly_idx
                   WHERE geopoly_overlap(_shape, ?) -- GeoPoly Coords is 1st bound param.
               ) USING (edge_id)
             WHERE (

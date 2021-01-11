@@ -17,11 +17,14 @@
     "noEmit": true,
     "noImplicitAny": false,
     "noImplicitThis": false,
-    "strictNullChecks": true
+    "strictNullChecks": true,
+    "sourceMap": true
   },
   "include": [
     "src/",
-    "server/"
+    "server/",
+    "tasks/",
+    "spike/"
   ],
   "ts-node": {
     "transpileOnly": true

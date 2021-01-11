@@ -5,6 +5,7 @@ cdta/
 cdta_outputs/
 output/
 npmrds_shp/
+logs/
 
 # https://stackoverflow.com/a/32262670/3970755
 *.bak
