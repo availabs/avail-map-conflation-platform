@@ -7,7 +7,7 @@ import shstMatchFeatures from './shstMatchFeatures';
 import removeRedundantMatches from './removeRedundantMatches';
 
 import { TargetMapEdgeFeature } from '../../../utils/TargetMapDatabases/TargetMapDAO';
-import { SharedStreetsMatchFeature } from '../../../daos/SourceMapDao/domain/types';
+import { SharedStreetsMatchResult } from './domain/types';
 
 const BATCH_SIZE = 25;
 
@@ -70,7 +70,7 @@ const match = async (features: TargetMapEdgeFeature[], flags: string[]) => {
     : shstMatchFeatures(unmatchedFeatures, flags);
 };
 
-const handleMatches = (matches: SharedStreetsMatchFeature[]) => {
+const handleMatches = (matches: SharedStreetsMatchResult[]) => {
   const keepers = removeRedundantMatches(matches);
   const orderedMatches = _.sortBy(keepers, (f) => f.properties.pp_id);
   return orderedMatches;
@@ -81,7 +81,7 @@ async function matchSegmentedShapeFeatures(
   flags: string[],
 ): Promise<{
   osrmDir: string;
-  matches: SharedStreetsMatchFeature[];
+  matches: SharedStreetsMatchResult[];
 } | null> {
   const { matches, osrmDir } = (await match(batch, flags)) || {};
 
@@ -93,7 +93,7 @@ async function matchSegmentedShapeFeatures(
   return null;
 }
 
-export async function* makeMatchedTargetMapEdgesIterator(
+export async function* makeShstMatchesIterator(
   featuresIterator: Generator<TargetMapEdgeFeature>,
   options?: { centerline: boolean },
 ) {
@@ -121,6 +121,7 @@ export async function* makeMatchedTargetMapEdgesIterator(
 
     console.log();
     console.log('-'.repeat(20));
+    console.log(`Total Features: ${totalTargetMapFeatures}`);
     console.log(`Batch Match: ${_.round((numMatched / inBatch) * 100, 2)}%`);
     console.log(
       `Total Match: ${_.round(

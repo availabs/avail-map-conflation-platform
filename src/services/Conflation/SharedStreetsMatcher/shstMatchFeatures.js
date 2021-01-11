@@ -286,16 +286,6 @@ const shstMatchFeatures = async (features, flags = []) => {
     return null;
   }
 
-  // if (
-  // flags.includes(CAR) ||
-  // flags.includes(MOTORWAYS_ONLY) ||
-  // flags.includes(SURFACE_STREETS_ONLY)
-  // ) {
-  // throw new Error(
-  // "The matcher attempts all, motorway-only, and surface-streets-only. Flags specifying road types are invalid"
-  // );
-  // }
-
   const unmatched = features.slice();
   const matches = [];
 

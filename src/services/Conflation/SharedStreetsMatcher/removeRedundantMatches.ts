@@ -1,7 +1,7 @@
 import * as turf from '@turf/turf';
 import _ from 'lodash';
 
-import { SharedStreetsMatchFeature } from '../../../daos/SourceMapDao/domain/types';
+import { SharedStreetsMatchResult } from './domain/types';
 
 const matchesComparator = (a: turf.Feature, b: turf.Feature) =>
   // length of the geometry coordinates array descending
@@ -11,12 +11,12 @@ const matchesComparator = (a: turf.Feature, b: turf.Feature) =>
   a.properties?.pp_osrm_assisted - b.properties?.pp_osrm_assisted;
 
 type MatchedByShstRef = Record<
-  SharedStreetsMatchFeature['properties']['shstReferenceId'],
-  SharedStreetsMatchFeature[]
+  SharedStreetsMatchResult['properties']['shstReferenceId'],
+  SharedStreetsMatchResult[]
 >;
 
 export default function removeRedundantMatches(
-  matches: SharedStreetsMatchFeature[],
+  matches: SharedStreetsMatchResult[],
 ) {
   // Group the shst matches by GTFS network segment
   const matchesByTargetMapId = matches.reduce((acc, matchFeature) => {
@@ -37,7 +37,7 @@ export default function removeRedundantMatches(
   }, {});
 
   const targetMapIds = Object.keys(matchesByTargetMapId);
-  const keepers: SharedStreetsMatchFeature[] = [];
+  const keepers: SharedStreetsMatchResult[] = [];
 
   for (let i = 0; i < targetMapIds.length; ++i) {
     const tmId = targetMapIds[i];
@@ -47,7 +47,7 @@ export default function removeRedundantMatches(
 
     // for this target map segment
     const matchesByShstRef = matchesByTargetMapId[tmId].reduce(
-      (acc: MatchedByShstRef, matchFeature: SharedStreetsMatchFeature) => {
+      (acc: MatchedByShstRef, matchFeature: SharedStreetsMatchResult) => {
         const {
           properties: { shstReferenceId },
         } = matchFeature;
@@ -87,7 +87,7 @@ export default function removeRedundantMatches(
       {},
     );
 
-    const filteredMatches: SharedStreetsMatchFeature[] = _.values(
+    const filteredMatches: SharedStreetsMatchResult[] = _.values(
       matchesByShstRef,
     );
 
