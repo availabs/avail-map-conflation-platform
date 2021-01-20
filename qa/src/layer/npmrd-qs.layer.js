@@ -10,10 +10,13 @@ import {
 import MapLayer from "AvlMap/MapLayer"
 import length from '@turf/length'
 import * as d3 from "d3-scale"
+import get from 'lodash.get'
 
 // const COLOR = 'rgba(255, 255, 255, 0.95)'
 const api = 'http://localhost:8080' 
-const network = 'nys-ris'//'npmrds'
+const networks = ['nys-ris','npmrds']
+const network = networks[0]
+
 
 //const api = 'http://localhost:8080/cdta'
 
@@ -35,9 +38,10 @@ class ShstLayer extends MapLayer {
                   fetch(`${api}/${network}/raw-shapefile`)
                     .then(r => r.json())
                     .then(edges => {
-                        console.log('matches', matches)
-                        console.log('edges', edges)
-                        console.log('joins', joins)
+                        this.edges=edges.features
+                        //console.log('matches', matches)
+                        console.log('edges', edges.features)
+                        //console.log('joins', joins)
                         this.calculateStatistics(matches, edges, joins)
                     })
             })
@@ -103,12 +107,7 @@ class ShstLayer extends MapLayer {
                 let matchLength = matches[e.id]
                     .reduce((out, curr) =>  { return out + (curr.shst_ref_end - curr.shst_ref_start)},0)
                 
-                if(Math.abs(e.properties.length*1000 - matchLength) < 10){
-                    this.match10 += 1
-                } else {
-
-                }
-
+                this.match10 +=  Math.abs(e.properties.length*1000 - matchLength) < 5 ? 1 : 0
                 this.match50 +=  Math.abs(e.properties.length*1000 - matchLength) < 50 ? 1 : 0
 
             }
@@ -120,13 +119,7 @@ class ShstLayer extends MapLayer {
             
             }  else { 
                 
-                joins[e.id].forEach(seg => {
-                    if(this.schedSegments.indexOf(seg.conflation_map_id) === -1){
-                        this.schedSegments.push(seg.conflation_map_id)
-                    }
-                })
-
-
+                
                 let matchLength = joins[e.id]
                     .reduce((out, curr) =>  { 
                         return out + ( curr.shst_ref_end - curr.shst_ref_start )
@@ -140,7 +133,7 @@ class ShstLayer extends MapLayer {
         })
         // console.log('scheduled segments',this.schedSegments.length)
         
-        this.edges = edges
+        this.edges = edges.features
         this.numEdges = edges.features.length
         
         this.highlightTarget(this.unMatched)
@@ -175,14 +168,13 @@ class ShstLayer extends MapLayer {
         this.map.setLayoutProperty(
             network, 
             'visibility', 
-            this.map.getLayoutProperty('npmrds', 'visibility') === 'visible' ? 'none' : 'visible'
+            this.map.getLayoutProperty(network, 'visibility') === 'visible' ? 'none' : 'visible'
         );
     }
 
     targetOpacity (e) {
         if(e && e.target) {
-            console.log('set', e.target.value)
-            this.map.setPaintProperty('npmrds','line-opacity', e.target.value/100)
+            this.map.setPaintProperty(network,'line-opacity', e.target.value/100)
         }
     }   
 }
@@ -192,7 +184,9 @@ class ShstLayer extends MapLayer {
     new ShstLayer("Conflation QA", {
     active: true,
     matches: {},
+    matchProperties: {},
     segments: [],
+    edges: [],
     sources: [
         ShstSource,
         npmrd2019Source,
@@ -208,7 +202,6 @@ class ShstLayer extends MapLayer {
     onHover: {
         layers: ['shst', network],
         dataFunc: function (feature) {
-            
             if(feature[0].properties.shape_id){
                 let matchIndex = `${feature[0].properties.shape_id}::${feature[0].properties.shape_index}`
                 
@@ -231,47 +224,42 @@ class ShstLayer extends MapLayer {
         }
     },
     onClick: {
-        layers: ['shst', network],
+        layers: [network],// 'shst',
         dataFunc: function (feature) {
-            
-            if(feature[0].id && this.joins){
-                let matchId = `${feature[0].properties.shape_id}::${feature[0].properties.shape_index}`
+            if(feature[0].properties.fid && this.joins){
+                let properties = get(this.edges.filter(d => d.properties.fid == feature[0].id),'[0].properties', {})
+                
+                let matchId = feature[0].properties.fid
                 this.matchId = matchId
-                let segments = this.joins[matchId]
-                console.log('click data',segments, this.joins, matchId, this.joins[matchId])
+                this.matchProperties = properties
+
+                let segments = this.joins[matchId] || []
+                console.log('click data', matchId, properties, segments.length, segments)
                 this.map.setPaintProperty(
-                    "gtfs-edges", 
+                    network, 
                     "line-color",
                     ["match", 
-                        ["string", ["get", "matchId"]], 
+                        ["get", "fid"], 
                         matchId,
                         '#FF8C00',
-                        'slateblue'
+                        '#6495ED'
                     ]
                 )
                
                 if(segments) {
                     this.segments = segments || []
-                    let shstIds = Object.values(segments).map(v => +v.conflation_map_id)
+                    let shstIds = Object.values(segments).map(v => v.shst_reference)
                     console.log('conflation ids', shstIds)
                     this.map.setPaintProperty(
                         "shst", 
                         "line-color",
                         ["match", 
-                            ["get", "id"], 
+                            ["get", "s"], 
                             shstIds,
                             'yellow',
                             'white'
                         ]
                     )
-                    console.log('fetch', `${api}/gtfs-conflation-schedule-join/${segments[0]}`)
-                    fetch(`${api}/gtfs-conflation-schedule-join/${shstIds[0]}`)
-                        .then(r => r.json())
-                        .then(sched => {
-                            console.log('a schedule', sched)
-                        })
-
-
                 }
 
 
@@ -283,15 +271,8 @@ class ShstLayer extends MapLayer {
         layers: ["shst",network],
         dataFunc: function (feature,map) {
             let transit = []
-            if(feature.properties.shst && this.schedule && this.schedule[feature.properties.id]){
-                console.log(this.schedule[feature.properties.id])
-                transit.push([
-                    <div style={{fontSize:'1.5em', fontWeight: 500}}>Bus AADT</div>,
-                    <div style={{fontSize:'1.5em', fontWeight: 500}}>{this.schedule[feature.properties.id].aadt}</div>
-                ])
-                
-            }
-            return [...transit,...Object.keys(feature.properties).map(k => [k, feature.properties[k]]),]
+            
+            return [['id', feature.id],...Object.keys(feature.properties).map(k => [k, feature.properties[k]]),]
         }
     },
     infoBoxes: {
@@ -310,11 +291,7 @@ const MapController = ({layer}) => {
         primary: '#333',
         light: '#aaa'
     }
-    // const transitVisibility = (e,v) => {
-    //     console.log('transitVisibility', e.target.value/100, layer)
-    //     (e.target.value/100)
-    // } 
-    //console.log('segments', layer.segments)
+    
     return  (
 
         <div style={{backgroundColor: '#fff',padding: 15}}>
@@ -328,7 +305,7 @@ const MapController = ({layer}) => {
                 <div style={{display: 'flex', padding: 10, borderRadius: 5, border: '1px solid DimGray', flexDirection: 'column'}}>
                     {layer.numMatches ? 
                         (
-                        <>
+                        <React.Fragment>
                         <div style={{display: 'flex', paddingBottom: 15}}>
                             <div style={{flex: '1',textAlign:'center', width: '100%'}}>
                                 <div># Edges</div>
@@ -364,26 +341,67 @@ const MapController = ({layer}) => {
                                  <div> 50m </div>
                                 <div style={{fontSize:'3em', fontWeight: 500, padding: 5}}>{ ((layer.join50 / layer.numEdges) *100).toFixed(1)}</div>
                             </div>
+
                         </div>
-                        </>)
+                        </React.Fragment>)
                         : <div style={{flex: '1',textAlign:'center'}}><h4>Loading Conflation</h4></div>
                     }
                 </div>
-                
-                <div>
-                    {layer.matchId}
-                    <table>
-                        <tbody>
-                            {layer.segments.map(d => <tr><td>{d.shst_match_id}</td><td>{d.shst_reference}</td></tr>)}
-                        </tbody>    
-                    </table>
-                    
-                </div>
+                <SegmentDetails layer={layer} />
             </div>
         </div>
     )
 }
 
+const SegmentDetails = ({layer}) => {
+
+    return (
+        <div>
+            <div style={{padding: 10}}>
+                <span style={{fontSize: '2em', padding: 5}}>{layer.matchProperties.road_name}</span>
+                <span style={{padding: 5}}>{layer.matchProperties.gis_id}-{layer.matchProperties.beg_mp}</span>  
+                {layer.matchProperties.begin_description || layer.matchProperties.end_description ? 
+                <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                    <div style={{border: '1px solid #ddd', flex:1, padding: 10}}> <strong>from<br/></strong>  {layer.matchProperties.begin_description} </div>
+                    <div style={{border: '1px solid #ddd', flex:1, padding: 10}}> <strong>to<br/></strong>  {layer.matchProperties.end_description} </div>
+                </div> : ''}
+                <div style={{display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap'}}>
+                    <div style={{border: '1px solid #ddd', flex:1, padding: 10}}> 
+                        <strong>Oneway<br/></strong>  
+                        {layer.matchProperties.oneway} 
+                    </div>
+                    <div style={{border: '1px solid #ddd', flex:1, padding: 10}}> 
+                        <strong>Divided<br/></strong>  
+                        {layer.matchProperties.divided} 
+                    </div>
+
+                    <div style={{border: '1px solid #ddd', flex:1, padding: 10}}> 
+                        <strong>Direction<br/></strong>  
+                        {layer.matchProperties.direction} 
+                    </div>
+                    <div style={{border: '1px solid #ddd', flex:1, padding: 10}}> 
+                        <strong>lanes<br/></strong>  
+                        {layer.matchProperties.total_lanes} | {layer.matchProperties.primary_dir_lanes}
+                    </div>
+                    <div style={{border: '1px solid #ddd', flex:1, padding: 10}}> 
+                        <strong>length (calc)<br/></strong>  
+                         {get(layer, 'matchProperties.shape_length', 0).toFixed(2) } ({ (get(layer, 'matchProperties.length',0) * 1000).toFixed(2) })
+                    </div>
+                    <div style={{border: '1px solid #ddd', flex:1, padding: 10}}> 
+                        <strong>Type<br/></strong>  
+                        {layer.matchProperties.roadway_type}
+                    </div>
+                </div>
+            </div>
+            <table>
+                <tbody>
+                    {layer.segments.map( (d,i) => <tr key={d.shst_match_id}><td>{d.shst_match_id}</td><td>{d.shst_reference}</td></tr>)}
+                </tbody>    
+            </table>
+            
+        </div>
+    )
+}
 
 function median(values){
   if(values.length ===0) return 0;

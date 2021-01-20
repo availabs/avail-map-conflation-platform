@@ -184,7 +184,7 @@ export const npmrdsPaint = (NETWORK_LEVEL, WIDTH_MULT,OFFSET_MULT, COLOR) => ({
     [55, 65],
     0,
     [70, 80],
-    0,
+    2,
     [75, 85],
     0,
     1
@@ -206,7 +206,7 @@ export const npmrdsPaint = (NETWORK_LEVEL, WIDTH_MULT,OFFSET_MULT, COLOR) => ({
     [55, 65],
     0,
     [70, 80],
-    0,
+    2,
     [75, 85],
     0,
     1
@@ -228,7 +228,7 @@ export const npmrdsPaint = (NETWORK_LEVEL, WIDTH_MULT,OFFSET_MULT, COLOR) => ({
     [55, 65],
     1,
     [70, 80],
-    0.5,
+    2,
     [75, 85],
     0,
     1
@@ -248,11 +248,11 @@ export const npmrdsPaint = (NETWORK_LEVEL, WIDTH_MULT,OFFSET_MULT, COLOR) => ({
     [50, 60],
     8,
     [55, 65],
-    0,
-    [70, 80],
     1,
+    [70, 80],
+    2,
     [75, 85],
-    0,
+    2,
     1
   ]
 ]
