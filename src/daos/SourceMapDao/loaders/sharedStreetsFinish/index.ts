@@ -178,15 +178,6 @@ export default function finishSharedStreetsLoad(db: any) {
   // @ts-ignore
   xdb.unsafeMode(true);
 
-  const indxInsertStmt = xdb.prepare(
-    `
-      INSERT INTO ${SCHEMA}.shst_reference_features_geopoly_idx (
-        _shape,
-        shst_reference_id
-      ) VALUES (?, ?) ;
-    `,
-  );
-
   try {
     xdb.exec('BEGIN EXCLUSIVE;');
 
@@ -195,6 +186,15 @@ export default function finishSharedStreetsLoad(db: any) {
       .replace(/__SCHEMA__/g, SCHEMA);
 
     xdb.exec(sql);
+
+    const indxInsertStmt = xdb.prepare(
+      `
+      INSERT INTO ${SCHEMA}.shst_reference_features_geopoly_idx (
+        _shape,
+        shst_reference_id
+      ) VALUES (?, ?) ;
+    `,
+    );
 
     const shstRefInsertStmt = xdb.prepare(
       `

@@ -16,7 +16,7 @@ const main = async ({
   output_dir,
 }) => {
   try {
-    await loadOpenStreetMap(osm_xml);
+    // await loadOpenStreetMap(osm_xml);
 
     const shstCacheDir = isAbsolute(shst_tile_cache_dir)
       ? shst_tile_cache_dir
