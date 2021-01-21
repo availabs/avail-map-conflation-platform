@@ -18,6 +18,8 @@ import getGeoProximityKey from '../getGeoProximityKey';
 import lineMerge from '../gis/lineMerge';
 import getBufferPolygonCoords from '../getBufferPolygonCoords';
 
+import { SharedStreetsReferenceId } from '../../daos/SourceMapDao/domain/types';
+
 const ascendingNumberComparator = (a: number, b: number) => a - b;
 
 const initializeTargetMapDatabaseTemplateSql = readFileSync(
@@ -100,6 +102,15 @@ export type TargetMapMetadata = {
   targetMapIsCenterline?: boolean;
 };
 
+export type ChosenSharedStreetsMatch = {
+  targetMapEdgeId: TargetMapEdgeId;
+  isForward: boolean;
+  targetMapEdgeShstMatchIdx: number;
+  shstReferenceId: SharedStreetsReferenceId;
+  sectionStart: number;
+  sectionEnd: number;
+};
+
 const getEdgeIdsWhereClause = (n: number | null) =>
   n !== null && n > -1
     ? `WHERE ( edge_id IN (${new Array(n).fill('?')}) )`
@@ -130,6 +141,8 @@ export default class TargetMapDAO {
     groupedRawEdgeFeaturesStmt?: Record<number, Record<number, Statement>>;
     targetMapEdgeFeaturesStmt?: Record<number, Statement>;
     targetMapEdgesOverlappingPolyStmt?: Statement;
+    insertTargetMapEdgeShstMatchStmt?: Statement;
+    chosenShstMatchesPathStmt?: Statement;
   };
 
   constructor(xdb?: any, schema?: TargetMapSchema | null) {
@@ -183,6 +196,23 @@ export default class TargetMapDAO {
     this.updateTargetMapMetadataStmt.run([
       'targetMapIsCenterline',
       JSON.stringify(targetMapIsCenterline),
+    ]);
+  }
+
+  // https://en.wikipedia.org/wiki/Eulerian_path
+  get targetMapPathsAreEulerian() {
+    const targetMapMetadata = JSON.parse(
+      this.queryTargetMapMetadata.raw().get()[0],
+    );
+
+    return !!targetMapMetadata.targetMapPathsAreEulerian;
+  }
+
+  // Should be TRUE for NPMRDS & NYS_RIS, false for GTFS.
+  set targetMapPathsAreEulerian(targetMapPathsAreEulerian: boolean) {
+    this.updateTargetMapMetadataStmt.run([
+      'targetMapPathsAreEulerian',
+      JSON.stringify(targetMapPathsAreEulerian),
     ]);
   }
 
@@ -479,7 +509,7 @@ export default class TargetMapDAO {
         this.insertPathEdgeStmt.run([pathId, pathIdx, edgeId]);
       }
     } catch (err) {
-      console.log(JSON.stringify({ properties, edgeIdSequence }, null, 4));
+      console.error(JSON.stringify({ properties, edgeIdSequence }, null, 4));
       throw err;
     }
 
@@ -884,7 +914,7 @@ export default class TargetMapDAO {
       this.preparedStatements.targetMapEdgesOverlappingPolyStmt = this.db.prepare(
         `
           SELECT
-              edge_features.feature AS targetMapPathEdge,
+              edge_features.feature AS targetMapPathEdge
             FROM ${this.schemaQualifier}target_map_ppg_edge_line_features AS edge_features
               INNER JOIN (
                 SELECT
@@ -925,6 +955,141 @@ export default class TargetMapDAO {
       .map(([targetMapPathEdgeStr]) => JSON.parse(targetMapPathEdgeStr));
 
     return targetMapEdges;
+  }
+
+  private get xInsertTargetMapEdgeShstMatchSql(): string {
+    return `
+      INSERT OR IGNORE INTO ${this.schemaQualifier}target_map_edge_shst_matches (
+        edge_id,
+        is_forward,
+        edge_shst_match_idx,
+        shst_reference,
+        section_start,
+        section_end
+      )
+        VALUES(?, ?, ?, ?, ?, ?) ;
+    `;
+  }
+
+  private static xInsertTargetMapEdgeShstMatch(
+    xInsertStmt: Statement,
+    chosenShstMatch: ChosenSharedStreetsMatch,
+  ): boolean | null {
+    const {
+      targetMapEdgeId,
+      isForward,
+      targetMapEdgeShstMatchIdx,
+      shstReferenceId,
+      sectionStart,
+      sectionEnd,
+    } = chosenShstMatch;
+
+    const { changes } = xInsertStmt.run([
+      targetMapEdgeId,
+      +!!isForward,
+      targetMapEdgeShstMatchIdx,
+      shstReferenceId,
+      sectionStart,
+      sectionEnd,
+    ]);
+
+    return changes > 0;
+  }
+
+  async bulkLoadShstMatches(
+    chosenShstMatchesIter: Generator<ChosenSharedStreetsMatch, void, unknown>,
+  ) {
+    if (!this.schema) {
+      throw new Error(
+        'When bulk loading SharedStreets matches, the TargetMapDAO must be initialized with a DB schema.',
+      );
+    }
+
+    // FIXME: I'd rather load the matching using a loading connection.
+    //        However, I was getting a locked database error.
+    //        Using the primary DbService doesn't have that problem.
+
+    // const xdb = db.openLoadingConnectionToDb(this.schema);
+    const xdb = db;
+
+    try {
+      // @ts-ignore
+      db.unsafeMode(true);
+      xdb.unsafeMode(true);
+
+      console.log(0);
+      xdb.exec('BEGIN EXCLUSIVE;');
+
+      xdb.prepare(
+        `DELETE FROM ${this.schemaQualifier}target_map_edge_shst_matches;`,
+      );
+
+      const xInsertStmt = xdb.prepare(this.xInsertTargetMapEdgeShstMatchSql);
+
+      const insertChosenShstMatch = TargetMapDAO.xInsertTargetMapEdgeShstMatch.bind(
+        null,
+        xInsertStmt,
+      );
+
+      for await (const chosenShstMatch of chosenShstMatchesIter) {
+        insertChosenShstMatch(chosenShstMatch);
+      }
+
+      xdb.exec('COMMIT');
+    } catch (err) {
+      xdb.exec('ROLLBACK;');
+      throw err;
+    } finally {
+      // db.closeLoadingConnectionToDb(xdb);
+      db.unsafeMode(false);
+    }
+  }
+
+  private get chosenShstMatchesPathStmt(): Statement {
+    if (!this.preparedStatements.chosenShstMatchesPathStmt) {
+      // TODO TODO TODO This belongs in a VIEW
+      this.preparedStatements.chosenShstMatchesPathStmt = db.prepare(
+        `
+          SELECT
+              json_group_array(
+                json_object(
+                  'edgeId',
+                  edge_id,
+                  'isForward',
+                  is_forward,
+                  'edgeShstMatchIdx',
+                  edge_shst_match_idx,
+                  'shstReferenceId',
+                  shst_reference,
+                  'sectionStart',
+                  section_start,
+                  'sectionEnd',
+                  section_end
+                )
+              )
+            FROM ${this.schemaQualifier}target_map_edge_shst_matches
+              GROUP BY shst_reference
+              ORDER BY shst_reference, section_start, section_end
+          ;
+        `,
+      );
+    }
+
+    // @ts-ignore
+    return this.preparedStatements.chosenShstMatchesPathStmt;
+  }
+
+  *makeChosenShstMatchesIterator(): Generator<ChosenSharedStreetsMatch> {
+    const iter = this.chosenShstMatchesPathStmt.raw().iterate();
+
+    for (const [chosenMatchesStr] of iter) {
+      const chosenMatches = JSON.parse(chosenMatchesStr);
+
+      for (let i = 0; i < chosenMatches.length; ++i) {
+        const chosenMatch = chosenMatches[i];
+        yield chosenMatch;
+      }
+    }
   }
 
   vacuumDatabase() {
