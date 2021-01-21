@@ -46,6 +46,7 @@ export interface SharedStreetsReferenceFeature
     fromIntersectionId: string;
     toIntersectionId: string;
     locationReferences: SharedStreetsLocationReference[];
+    isForward: boolean;
     osmMetadataWaySections: OsmMetadataWaySection[];
     osmHighwayTypes: OsmHighwayType[];
   };
