@@ -1,7 +1,7 @@
 /*
     The idea behind this module is to increase number of coordinates
     being passed to OSRM's (via SharedStreets) Hidden Markov Model matcher.
- 
+
     Not sure how effective (or counter-productive) it is.
 */
 

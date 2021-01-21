@@ -19,8 +19,8 @@ const N = 10;
 const LEN_DIFF_R_REJECT_TH = 0.05;
 const SIMILARITY_THOLD = 0.008;
 
-const splitLineStringUsingSmoothness = require('../../../../utils/splitLineStringUsingSmoothness');
-const lineStringsComparator = require('../../../../utils/lineStringsComparator');
+const splitLineStringUsingSmoothness = require('../../../../../../utils/splitLineStringUsingSmoothness');
+const lineStringsComparator = require('../../../../../../utils/lineStringsComparator');
 
 // osrmDir is in the console logged info when running shst match.
 //   It contains the road network subgraph created to match

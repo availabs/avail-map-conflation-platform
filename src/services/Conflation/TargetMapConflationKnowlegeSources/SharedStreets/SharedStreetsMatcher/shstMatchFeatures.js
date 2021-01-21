@@ -19,7 +19,7 @@ const INF_PATH = 'features.geojson';
 const OUTF_PATH = 'shst_match_output.geojson';
 const MATCHED_PATH = OUTF_PATH.replace(/geojson$/, 'matched.geojson');
 
-const PROJECT_ROOT = join(__dirname, '../../../../');
+const PROJECT_ROOT = join(__dirname, '../../../../../../');
 const SHST_DATA_DIR = join(PROJECT_ROOT, 'data/shst/');
 const SHST_PATH = join(PROJECT_ROOT, 'node_modules/.bin/shst');
 

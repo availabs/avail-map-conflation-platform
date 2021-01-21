@@ -1,7 +1,7 @@
 import * as turf from '@turf/turf';
 import _ from 'lodash';
 
-import { SharedStreetsMatchResult } from './domain/types';
+import { SharedStreetsMatchResult } from '../../../domain/types';
 
 const matchesComparator = (a: turf.Feature, b: turf.Feature) =>
   // length of the geometry coordinates array descending

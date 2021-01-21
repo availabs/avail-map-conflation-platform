@@ -6,8 +6,8 @@ import _ from 'lodash';
 import shstMatchFeatures from './shstMatchFeatures';
 import removeRedundantMatches from './removeRedundantMatches';
 
-import { TargetMapEdgeFeature } from '../../../utils/TargetMapDatabases/TargetMapDAO';
-import { SharedStreetsMatchResult } from './domain/types';
+import { TargetMapEdgeFeature } from '../../../../../utils/TargetMapDatabases/TargetMapDAO';
+import { SharedStreetsMatchResult } from '../../../domain/types';
 
 const BATCH_SIZE = 25;
 
