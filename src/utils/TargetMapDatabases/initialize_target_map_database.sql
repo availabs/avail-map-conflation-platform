@@ -339,7 +339,7 @@ CREATE TABLE __SCHEMA_QUALIFIER__target_map_edge_shst_matches (
   edge_shst_match_idx     INTEGER NOT NULL,
   shst_reference          TEXT NOT NULL,
   section_start           REAL,
-  section_end             REAL
+  section_end             REAL,
 
   PRIMARY KEY(edge_id, shst_reference),
 
