@@ -1,7 +1,7 @@
 /* eslint-disable import/no-extraneous-dependencies */
 
-import { existsSync } from 'fs';
-import { join, isAbsolute } from 'path';
+import {existsSync} from 'fs';
+import {join, isAbsolute} from 'path';
 
 import restify from 'restify';
 import corsMiddleware from 'restify-cors-middleware';
@@ -53,7 +53,7 @@ const targetMapControllers = {
 server.get('/shst/shst-references', (req, res, next) => {
   try {
     const {
-      query: { id },
+      query: {id},
     } = req;
 
     const ids = Array.isArray(id) ? id : [id];
@@ -71,7 +71,7 @@ server.get('/shst/shst-references', (req, res, next) => {
 server.get('/shst/metadata', (req, res, next) => {
   try {
     const {
-      query: { id },
+      query: {id},
     } = req;
 
     const ids = Array.isArray(id) ? id : [id];
@@ -89,7 +89,7 @@ server.get('/shst/metadata', (req, res, next) => {
 server.get('/shared-streets/shst-references', (req, res, next) => {
   try {
     const {
-      query: { id },
+      query: {id},
     } = req;
 
     const ids = Array.isArray(id) ? id : [id];
@@ -106,7 +106,7 @@ server.get('/shared-streets/shst-references', (req, res, next) => {
 
 server.get('/:targetMap/raw-shapefile', (req, res, next) => {
   try {
-    const { targetMap } = req.params;
+    const {targetMap} = req.params;
 
     const controller = targetMapControllers[targetMap];
     const featureCollection = controller.getRawTargetMapFeatureCollection();
@@ -122,8 +122,8 @@ server.get('/:targetMap/raw-shapefile', (req, res, next) => {
 server.get('/:targetMap/features', (req, res, next) => {
   try {
     const {
-      params: { targetMap },
-      query: { id },
+      params: {targetMap},
+      query: {id},
     } = req;
 
     const ids = Array.isArray(id) ? id : [id];
@@ -141,7 +141,7 @@ server.get('/:targetMap/features', (req, res, next) => {
 
 server.get('/:targetMap/shst-matches-metadata', (req, res, next) => {
   try {
-    const { targetMap } = req.params;
+    const {targetMap} = req.params;
 
     const controller = targetMapControllers[targetMap];
 
@@ -156,7 +156,7 @@ server.get('/:targetMap/shst-matches-metadata', (req, res, next) => {
 
 server.get('/:targetMap/shst-chosen-matches', (req, res, next) => {
   try {
-    const { targetMap } = req.params;
+    const {targetMap} = req.params;
 
     const controller = targetMapControllers[targetMap];
     const result = controller.getShstChosenMatchesMetadata();

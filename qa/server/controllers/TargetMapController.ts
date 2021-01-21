@@ -3,15 +3,26 @@
 import * as turf from '@turf/turf';
 
 import TargetMapDAO from '../../../src/utils/TargetMapDatabases/TargetMapDAO';
+import TargetMapConflationBlackboardDao from '../../../src/services/Conflation/TargetMapConflationBlackboardDao'
 
 class TargetMapController {
   private targetMapDao: TargetMapDAO;
+  private targetMapConflationBlackboardDao?: TargetMapConflationBlackboardDao;
+  private schema: string;
 
   constructor(schema: string) {
-    this.targetMapDao = new TargetMapDAO(null, schema);
+    this.schema = schema
+    this.targetMapDao = new TargetMapDAO(null, this.schema);
+  }
+
+  // Because this needs to happen after everything loaded.
+  private initializeBlackboardDao() {
+    this.targetMapConflationBlackboardDao =
+      this.targetMapConflationBlackboardDao || new TargetMapConflationBlackboardDao(this.schema)
   }
 
   getRawTargetMapFeatureCollection() {
+    this.initializeBlackboardDao()
     const allRawTargetMapFeatures = [
       ...this.targetMapDao.makeRawEdgeFeaturesIterator(),
     ];
@@ -20,17 +31,19 @@ class TargetMapController {
   }
 
   getFeatures(ids: string[]) {
+    this.initializeBlackboardDao()
     const rawTargetMapFeatures = this.targetMapDao.getRawEdgeFeatures(ids);
 
     return turf.featureCollection(rawTargetMapFeatures);
   }
 
   getShstMatchesMetadata() {
-    const matchesMetadataIter = this.targetMapDao.makeShstMatchMetadataByTargetMapIdIterator();
+    this.initializeBlackboardDao()
+    const matchesMetadataIter = this.targetMapConflationBlackboardDao.makeShstMatchMetadataByTargetMapIdIterator();
 
     const response = {};
 
-    for (const { targetMapId, shstMatchesMetadata } of matchesMetadataIter) {
+    for (const {targetMapId, shstMatchesMetadata} of matchesMetadataIter) {
       response[targetMapId] = shstMatchesMetadata;
     }
 
@@ -38,29 +51,28 @@ class TargetMapController {
   }
 
   getShstChosenMatchesMetadata() {
-    const chosenMatchesIter = this.targetMapDao.makeTargetMapEdgesChosenMatchesIterator();
+    this.initializeBlackboardDao()
+    const chosenMatchesIter = this.targetMapDao.makeChosenShstMatchesIterator();
 
     const response = {};
 
-    let i = 0;
-    for (const {
-      targetMapId,
-      chosenMatchesFeatureCollection,
-    } of chosenMatchesIter) {
-      const matches = chosenMatchesFeatureCollection.features;
+    for (const chosenMatch of chosenMatchesIter) {
+      const {
+        targetMapId,
+        shstReferenceId,
+        isForward,
+        sectionStart,
+        sectionEnd
+      } = chosenMatch
 
-      const matchesMetadata = matches.map(
-        ({
-          properties: {
-            shstMatchId: shst_match_id,
-            shstReferenceId: shst_reference,
-            section: [shst_ref_start, shst_ref_end],
-          },
-        }) => ({ shst_match_id, shst_reference, shst_ref_start, shst_ref_end }),
-      );
+      response[targetMapId] = response[targetMapId] || []
 
-      response[targetMapId] = matchesMetadata;
-
+      response[targetMapId].push({
+        shst_reference: shstReferenceId,
+        isForward,
+        shst_ref_start: sectionStart,
+        shst_ref_end: sectionEnd,
+      })
     }
 
     return response;

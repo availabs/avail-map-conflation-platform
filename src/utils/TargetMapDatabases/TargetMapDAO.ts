@@ -103,6 +103,7 @@ export type TargetMapMetadata = {
 };
 
 export type ChosenSharedStreetsMatch = {
+  targetMapId: TargetMapId;
   targetMapEdgeId: TargetMapEdgeId;
   isForward: boolean;
   targetMapEdgeShstMatchIdx: number;
@@ -1053,7 +1054,9 @@ export default class TargetMapDAO {
           SELECT
               json_group_array(
                 json_object(
-                  'edgeId',
+                  'targetMapId',
+                  target_map_id,
+                  'targetMapEdgeId',
                   edge_id,
                   'isForward',
                   is_forward,
@@ -1068,8 +1071,10 @@ export default class TargetMapDAO {
                 )
               )
             FROM ${this.schemaQualifier}target_map_edge_shst_matches
-              GROUP BY shst_reference
-              ORDER BY shst_reference, section_start, section_end
+              INNER JOIN ${this.schemaQualifier}target_map_ppg_edge_id_to_target_map_id
+              USING (edge_id)
+            GROUP BY shst_reference
+            ORDER BY shst_reference, section_start, section_end
           ;
         `,
       );
