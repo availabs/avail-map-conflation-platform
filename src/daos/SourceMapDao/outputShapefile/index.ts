@@ -109,7 +109,7 @@ export default function outputShapefile({
   const iter = makeSharedStreetsReferenceFeaturesIterator();
 
   for (const shstReference of iter) {
-    const layerName =
+    const layerName = // 'shared_streets';
       shstRoadClassEnumDecoder[shstReference.properties.roadClass];
 
     const layer = getLayer(layerName);
