@@ -43,7 +43,7 @@ const getDatabaseFilePath = (databaseSchemaName: string) =>
   join(getSqliteDir(), databaseSchemaName);
 
 const databaseFileExists = (databaseSchemaName: string) =>
-  existsSync(databaseSchemaName);
+  existsSync(join(getSqliteDir(), databaseSchemaName));
 
 const attachDatabase = (databaseSchemaName: string) => {
   verifyConfigured();
