@@ -374,7 +374,8 @@ export default function outputPathVicinityShapefile({
     throw new Error(`Invalid targetMapPathId: ${targetMapPathId}`);
   }
 
-  const outputDir = join(shpfileDir, `targetMapPath_${targetMapPathId}`);
+  const shpDirName = `targetMapPath_${targetMapPathId}`;
+  const outputDir = join(shpfileDir, shpDirName);
 
   console.log(outputDir);
 
@@ -437,9 +438,9 @@ export default function outputPathVicinityShapefile({
   const vicinityLayerDefinitionFile = vicinityLayerDefinitionFileTemplate
     .replace(
       /__TMPATH_VICINITY__/g,
-      `TargetMapPath ${targetMapPathId} TargetMapPathVicinity`,
+      `TargetMapPath ${targetMap} ${targetMapPathId} TargetMapPathVicinity`,
     )
-    .replace(/__SHAPEFILE_DIR__/g, outputDir)
+    .replace(/__SHAPEFILE_DIR__/g, `../${shpDirName}`)
     .replace(/__XMIN__/g, `${xMin}`)
     .replace(/__XMAX__/g, `${xMax}`)
     .replace(/__YMIN__/g, `${yMin}`)
