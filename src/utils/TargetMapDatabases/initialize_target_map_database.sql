@@ -33,6 +33,8 @@ DROP INDEX IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_path_edges_edge_id_idx ;
 DROP VIEW IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_edge_id_to_target_map_id;
 
 DROP VIEW IF EXISTS __SCHEMA_QUALIFIER__target_map_edge_chosen_matches ;
+
+DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_edge_shst_matches;
 DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_paths_edge_optimal_matches ;
 DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_nodes_geopoly_idx;
 DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_edges_geopoly_idx;
@@ -47,6 +49,7 @@ DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_paths;
 DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_edges;
 
 DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_nodes;
+
 
 -- ========== Target Map Nodes ==========
 CREATE TABLE __SCHEMA_QUALIFIER__target_map_metadata
@@ -329,3 +332,22 @@ CREATE VIEW __SCHEMA_QUALIFIER__target_map_ppg_path_feature_collections
       USING(edge_id)
     GROUP BY path_id
 ;
+
+CREATE TABLE __SCHEMA_QUALIFIER__target_map_edge_shst_matches (
+  edge_id                 INTEGER NOT NULL,
+  is_forward              INTEGER NOT NULL,
+  edge_shst_match_idx     INTEGER NOT NULL,
+  shst_reference          TEXT NOT NULL,
+  section_start           REAL,
+  section_end             REAL
+
+  PRIMARY KEY(edge_id, shst_reference),
+
+  FOREIGN KEY(edge_id)
+    REFERENCES target_map_ppg_edges(edge_id),
+
+  CHECK(is_forward BETWEEN 0 AND 1),
+  CHECK(edge_shst_match_idx >= 0),
+  CHECK(section_start >= 0),
+  CHECK(section_start < section_end)
+) WITHOUT ROWID ;
