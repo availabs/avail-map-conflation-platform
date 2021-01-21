@@ -99,6 +99,10 @@ export default class TargetMapConflationBlackboardDao {
     return this.targetMapDao.targetMapIsCenterline;
   }
 
+  get targetMapPathsAreEulerian() {
+    return this.targetMapDao.targetMapPathsAreEulerian;
+  }
+
   makeTargetMapEdgeFeaturesGeoProximityIterator() {
     return this.targetMapDao.makeTargetMapEdgesGeoproximityIterator();
   }
