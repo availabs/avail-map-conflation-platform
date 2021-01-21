@@ -28,6 +28,8 @@ export default async function loadMesoLevelPaths() {
 
     const targetMapDao = new TargetMapDAO(xdb, SCHEMA);
 
+    targetMapDao.targetMapPathsAreEulerian = true;
+
     targetMapDao.deleteAllPathsWithLabel(MESO_LEVEL_PATH);
 
     const edgesByLinearTmcIterator = targetMapDao.makeGroupedRawEdgeFeaturesIterator(
