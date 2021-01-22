@@ -51,12 +51,12 @@ test('Get chosenShstMatchs.', (t) => {
   const targetMapEdgeChosenMatchesLengths = chosenMatches.reduce(
     (acc, chosenMatch) => {
       const {
-        properties: { edgeId, isForward, sectionStart, sectionEnd },
+        properties: { targetMapEdgeId, isForward, sectionStart, sectionEnd },
       } = chosenMatch;
 
       const dir = isForward ? 'forward' : 'backward';
 
-      acc[edgeId][dir] += sectionEnd - sectionStart;
+      acc[targetMapEdgeId][dir] += sectionEnd - sectionStart;
 
       return acc;
     },
