@@ -30,13 +30,11 @@ export default class SharedStreetsMatcherKnowledgeSource {
   }
 
   async matchEntireTargetMap() {
-    this.blkbrdDao.clearShstMatches();
-
     const iter = this.blkbrdDao.makeTargetMapEdgeFeaturesGeoProximityIterator();
     const isCenterline = this.blkbrdDao.targetMapIsCenterline;
 
     const shstMatchesIter = makeShstMatchesGenerator(iter, isCenterline);
 
-    this.blkbrdDao.bulkLoadShstMatches(shstMatchesIter);
+    await this.blkbrdDao.bulkLoadShstMatches(shstMatchesIter, true);
   }
 }

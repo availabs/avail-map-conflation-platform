@@ -81,17 +81,19 @@ export default class TargetMapConflationBlackboardDao {
     );
   }
 
+  private get initializeBlackBoardDatabaseSql() {
+    return initializeBlackBoardDatabaseTemplateSql.replace(
+      /__SCHEMA__/g,
+      this.blkbrdDbSchema,
+    );
+  }
+
   /**
    * WARNING: Drops all existing tables in the TargetMapDatabase.
    */
   initializeTargetMapConflationBlackBoardDatabase() {
-    const sql = initializeBlackBoardDatabaseTemplateSql.replace(
-      /__SCHEMA__/g,
-      this.blkbrdDbSchema,
-    );
-
     db.exec('BEGIN;');
-    db.exec(sql);
+    db.exec(this.initializeBlackBoardDatabaseSql);
     db.exec('COMMIT;');
   }
 
@@ -191,6 +193,7 @@ export default class TargetMapConflationBlackboardDao {
 
   async bulkLoadShstMatches(
     shstMatchesIter: AsyncGenerator<SharedStreetsMatchResult, void, unknown>,
+    clean = false,
   ) {
     const xdb = db.openLoadingConnectionToDb(this.blkbrdDbSchema);
 
@@ -199,6 +202,10 @@ export default class TargetMapConflationBlackboardDao {
       xdb.unsafeMode(true);
 
       xdb.exec('BEGIN EXCLUSIVE;');
+
+      if (clean) {
+        xdb.exec(this.initializeBlackBoardDatabaseSql);
+      }
 
       const xInsertStmt = xdb.prepare(this.insertMatchSql);
 

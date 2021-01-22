@@ -9,6 +9,5 @@ export default async function loadShstMatches() {
     SCHEMA,
   );
 
-  targetMapConflationController.clean();
   await targetMapConflationController.conflate();
 }

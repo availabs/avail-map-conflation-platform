@@ -54,11 +54,6 @@ export default class TargetMapConflationController {
     );
   }
 
-  clean() {
-    this.blkbrdDao.initializeTargetMapConflationBlackBoardDatabase();
-    this.blkbrdDao.vacuumDatabase();
-  }
-
   //  Pipeline's root run script SHOULD ONLY have 'conflate'
   //    As a pattern, each Input Source or SQLite DB has a run script.
   //      1. Load Raw
@@ -84,7 +79,7 @@ export default class TargetMapConflationController {
 
     const chosenShstMatchesIter = createChosenMatchesIterator(this.blkbrdDao);
 
-    this.blkbrdDao.bulkLoadShstMatches(chosenShstMatchesIter);
+    this.blkbrdDao.bulkLoadChosenShstMatches(chosenShstMatchesIter);
 
     // let counter = 0;
     // for (const chosenMatches of chosenShstMatchesIter) {
