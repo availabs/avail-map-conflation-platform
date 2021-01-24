@@ -6,6 +6,10 @@ import {join, isAbsolute} from 'path';
 import restify from 'restify';
 import corsMiddleware from 'restify-cors-middleware';
 
+import socketio from 'socket.io';
+
+import EventBus from './services/EventBus';
+
 import NpmrdsController from './controllers/NpmrdsController';
 import NysRisController from './controllers/NysRisController';
 import * as SharedStreetsController from './controllers/SharedStreetsController';
@@ -44,6 +48,25 @@ server.use(cors.actual);
 server.use(restify.plugins.queryParser());
 server.use(restify.plugins.bodyParser());
 server.use(restify.plugins.gzipResponse());
+
+// http://restify.com/docs/home/#socketio
+const socketServer = new socketio.Server({
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST'],
+  },
+});
+
+socketServer.listen(server.server);
+
+EventBus.injectSocketServer(socketServer);
+
+socketServer.sockets.on('connection', socket => {
+  socket.onAny((event, action) => {
+    EventBus.emitAction(event, action, true)
+  })
+})
+
 
 const targetMapControllers = {
   npmrds: NpmrdsController,
@@ -162,6 +185,24 @@ server.get('/:targetMap/shst-chosen-matches', (req, res, next) => {
     const result = controller.getShstChosenMatchesMetadata();
 
     res.send(result);
+
+    return next();
+  } catch (err) {
+    return next(err);
+  }
+});
+
+server.post('/:targetMap/run-shst-matcher', (req, res, next) => {
+  try {
+    const {targetMap} = req.params;
+    const {
+      flags
+    } = req.body
+
+    const controller = targetMapControllers[targetMap];
+    const uuid = controller.runShstMatch(flags);
+
+    res.send(uuid);
 
     return next();
   } catch (err) {
