@@ -95,13 +95,13 @@ async function matchSegmentedShapeFeatures(
 
 export async function* makeShstMatchesIterator(
   featuresIterator: Generator<TargetMapEdgeFeature>,
-  options?: { centerline: boolean },
+  options?: { centerline?: boolean; flags?: string[] },
 ) {
   const centerline = !!options?.centerline;
 
-  const flags: string[] = [];
+  const flags: string[] = options?.flags ?? [];
 
-  if (!centerline) {
+  if (!centerline && !flags.includes('--follow-line-direction')) {
     flags.push('--follow-line-direction');
   }
 
