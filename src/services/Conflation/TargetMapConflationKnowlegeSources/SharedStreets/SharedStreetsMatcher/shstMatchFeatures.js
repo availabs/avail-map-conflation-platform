@@ -29,6 +29,8 @@ const DISTANCE_SLICE_METHOD = 'DISTANCE_SLICE_METHOD';
 const BEARING_SLICE_METHOD = 'BEARING_SLICE_METHOD';
 
 const SHST_CHILD_PROC_OPTS = {
+  // DO NOT ENABLE SHELL. This spawned process receives use configuration from the QA UI.
+  // https://nodejs.org/api/child_process.html#child_process_child_process_spawn_command_args_options
   cwd: PROJECT_ROOT,
   env: { ...process.env, HOME: SHST_DATA_DIR },
 };
@@ -48,7 +50,6 @@ const MATCHES_LENGTH_RATIO_THOLD = 0.1;
 
 const runShstMatch = (inFilePath, outFilePath, flags) => {
   return new Promise((resolve) => {
-    // Why not runSync>
     const cp = spawn(
       `${SHST_PATH}`,
       _.concat(
