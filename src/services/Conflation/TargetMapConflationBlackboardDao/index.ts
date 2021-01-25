@@ -35,6 +35,8 @@ const initializeBlackBoardDatabaseTemplateSql = readFileSync(
   initializeSqlPath,
 ).toString();
 
+export type QueryPolygon = turf.Feature<turf.Polygon>;
+
 export default class TargetMapConflationBlackboardDao {
   readonly targetMapSchema: TargetMapSchema;
 
@@ -55,6 +57,8 @@ export default class TargetMapConflationBlackboardDao {
   bulkLoadChosenShstMatches: TargetMapDAO['bulkLoadShstMatches'];
 
   makeChosenShstMatchesIterator: TargetMapDAO['makeChosenShstMatchesIterator'];
+
+  makeTargetMapEdgeFeaturesGeoProximityIterator: TargetMapDAO['makeTargetMapEdgesGeoproximityIterator'];
 
   constructor(targetMapSchema: TargetMapSchema) {
     this.targetMapSchema = targetMapSchema;
@@ -77,6 +81,10 @@ export default class TargetMapConflationBlackboardDao {
     );
 
     this.makeChosenShstMatchesIterator = this.targetMapDao.makeChosenShstMatchesIterator.bind(
+      this.targetMapDao,
+    );
+
+    this.makeTargetMapEdgeFeaturesGeoProximityIterator = this.targetMapDao.makeTargetMapEdgesGeoproximityIterator.bind(
       this.targetMapDao,
     );
   }
@@ -103,10 +111,6 @@ export default class TargetMapConflationBlackboardDao {
 
   get targetMapPathsAreEulerian() {
     return this.targetMapDao.targetMapPathsAreEulerian;
-  }
-
-  makeTargetMapEdgeFeaturesGeoProximityIterator() {
-    return this.targetMapDao.makeTargetMapEdgesGeoproximityIterator();
   }
 
   private get shstMatchesAreLoadedStmt(): Statement {
