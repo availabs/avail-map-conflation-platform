@@ -112,6 +112,8 @@ export type ChosenSharedStreetsMatch = {
   sectionEnd: number;
 };
 
+export type QueryPolygon = turf.Feature<turf.Polygon>;
+
 const getEdgeIdsWhereClause = (n: number | null) =>
   n !== null && n > -1
     ? `WHERE ( edge_id IN (${new Array(n).fill('?')}) )`
@@ -140,7 +142,7 @@ export default class TargetMapDAO {
     rawEdgeFeaturesStmt?: Statement;
     allRawEdgeFeaturesStmt?: Statement;
     groupedRawEdgeFeaturesStmt?: Record<number, Record<number, Statement>>;
-    targetMapEdgeFeaturesStmt?: Record<number, Statement>;
+    targetMapEdgeFeaturesStmt?: Statement;
     targetMapEdgesOverlappingPolyStmt?: Statement;
     insertTargetMapEdgeShstMatchStmt?: Statement;
     chosenShstMatchesPathStmt?: Statement;
@@ -861,46 +863,71 @@ export default class TargetMapDAO {
     }
   }
 
-  private prepareTargetMapEdgeFeaturesStmt(
-    numEdgeIds: number | null,
-  ): Statement {
-    // eslint-disable-next-line no-param-reassign
-    numEdgeIds = numEdgeIds === null ? -1 : numEdgeIds;
-
-    this.preparedStatements.targetMapEdgeFeaturesStmt =
-      this.preparedStatements.targetMapEdgeFeaturesStmt || {};
-
-    if (!this.preparedStatements.targetMapEdgeFeaturesStmt[numEdgeIds]) {
-      const whereClause = getEdgeIdsWhereClause(numEdgeIds);
-
-      this.preparedStatements.targetMapEdgeFeaturesStmt[
-        numEdgeIds
-      ] = this.db.prepare(
+  // TODO: Make this query
+  get targetMapEdgeFeaturesStmt(): Statement {
+    if (!this.preparedStatements.targetMapEdgeFeaturesStmt) {
+      this.preparedStatements.targetMapEdgeFeaturesStmt = this.db.prepare(
         `
+          WITH cte_specified_edge_ids(edge_ids_arr) AS (
+            SELECT json(?) AS edge_ids_arr
+          ), cte_specified_geopoly(bounding_geopoly) AS (
+            SELECT json(?) AS bounding_geopoly
+          )
           SELECT
               feature
             FROM ${this.schemaQualifier}target_map_ppg_edge_line_features
-            ${whereClause}
-            ORDER BY geoprox_key; `,
+            WHERE (
+              ( -- No filtering specified, return all.
+                ( SELECT json(edge_ids_arr) = json('null') FROM cte_specified_edge_ids )
+                AND
+                ( SELECT bounding_geopoly = 'null' FROM cte_specified_geopoly )
+              )
+              OR
+              ( -- UNION of the edgeList and the edges overlapping the specified geopoly
+                ( -- EdgeId in the specified list
+                  edge_id IN (
+                    SELECT
+                        value AS edge_id
+                      FROM cte_specified_edge_ids, json_each(edge_ids_arr)
+                  )
+                )
+                OR
+                ( -- Edges overlap the Polygon
+                  edge_id IN (
+                    SELECT
+                        edge_id
+                      FROM ${this.schemaQualifier}target_map_ppg_edges_geopoly_idx
+                      WHERE geopoly_overlap(
+                        _shape,
+                        ( SELECT bounding_geopoly FROM cte_specified_geopoly )
+                      )
+                  )
+                )
+              )
+            )
+            ORDER BY geoprox_key;
+        `,
       );
     }
 
-    return this.preparedStatements.targetMapEdgeFeaturesStmt[numEdgeIds];
+    // @ts-ignore
+    return this.preparedStatements.targetMapEdgeFeaturesStmt;
   }
 
   *makeTargetMapEdgesGeoproximityIterator(queryParams?: {
-    edgeIds: TargetMapEdgeId[];
+    edgeIds?: TargetMapEdgeId[] | null;
+    boundingPolygon?: QueryPolygon | null;
   }): TargetMapEdgesGeoproximityIterator {
-    const { edgeIds = null } = queryParams || {};
+    const { edgeIds = null, boundingPolygon = null } = queryParams || {};
 
-    const iterQuery = this.prepareTargetMapEdgeFeaturesStmt(
-      edgeIds && edgeIds.length,
-    );
+    const specifiedGeoPoly =
+      boundingPolygon && turf.getCoords(boundingPolygon)[0];
 
-    const iter: IterableIterator<string> =
-      edgeIds === null
-        ? iterQuery.raw().iterate()
-        : iterQuery.raw().iterate(edgeIds);
+    const iterQuery = this.targetMapEdgeFeaturesStmt;
+
+    const iter: IterableIterator<string> = iterQuery
+      .raw()
+      .iterate([JSON.stringify(edgeIds), JSON.stringify(specifiedGeoPoly)]);
 
     for (const [featureStr] of iter) {
       const feature = JSON.parse(featureStr);
@@ -1018,7 +1045,6 @@ export default class TargetMapDAO {
       db.unsafeMode(true);
       xdb.unsafeMode(true);
 
-      console.log(0);
       xdb.exec('BEGIN EXCLUSIVE;');
 
       xdb.prepare(

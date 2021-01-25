@@ -35,8 +35,6 @@ const initializeBlackBoardDatabaseTemplateSql = readFileSync(
   initializeSqlPath,
 ).toString();
 
-export type QueryPolygon = turf.Feature<turf.Polygon>;
-
 export default class TargetMapConflationBlackboardDao {
   readonly targetMapSchema: TargetMapSchema;
 
