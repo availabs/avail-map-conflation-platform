@@ -1,19 +1,25 @@
 import React, {useState, useEffect, useRef} from 'react';
 
+import * as turf from '@turf/turf'
 import _ from 'lodash'
 
 import SharedStreetsMatchRunner from '../pipelineProcessRunners/SharesStreetMatchRunner'
 
+const labLoc = turf.point([-73.82182113595792, 42.67706452958626])
+const labVicinity = turf.buffer(labLoc, 1, {units: 'kilometers'}) // Within 1/2 mile of the lab.
+
 // Image from https://commons.wikimedia.org/wiki/File:Plug-in_Noun_project_4032.svg
 export default function ShstMatchControl() {
   const [ready, setReady] = useState(false);
+  const [targetMap, setTargetMap] = useState('nys_ris');
+  const [queryPolygon, setQueryPolygon] = useState(labVicinity);
+  const [searchRadius, setSearchRadius] = useState(10);
   const [currentNums, setCurrentNums] = useState({numTMEdgeIds: 0, numShstMatches: 0})
 
   const runner = useRef(null);
   const previousNums = useRef({prevNumTMEdgeIds: 0, prevNumShstMatches: 0})
 
   let {current: currentRunner} = runner
-
 
   const destroyCurrentRunner = () => {
     if (currentRunner) {
@@ -35,7 +41,11 @@ export default function ShstMatchControl() {
 
     destroyCurrentRunner()
 
-    const newRunner = new SharedStreetsMatchRunner('nys-ris', ['--search-radius=25'])
+    const newRunner = new SharedStreetsMatchRunner({
+      targetMap,
+      flags: [`--search-radius=${searchRadius}`],
+      queryPolygon
+    })
 
     newRunner.addShstMatchListener(_.debounce(() => {
       setCurrentNums({

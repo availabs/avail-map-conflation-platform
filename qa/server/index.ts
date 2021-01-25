@@ -31,8 +31,6 @@ if (!existsSync(outputDirAbsolute)) {
   process.exit(1);
 }
 
-console.log(outputDirAbsolute);
-
 db.setOutputDirectory(outputDirAbsolute);
 
 const server = restify.createServer();
@@ -70,7 +68,7 @@ socketServer.sockets.on('connection', socket => {
 
 const targetMapControllers = {
   npmrds: NpmrdsController,
-  'nys-ris': NysRisController,
+  nys_ris: NysRisController,
 };
 
 server.get('/shst/shst-references', (req, res, next) => {
@@ -195,17 +193,17 @@ server.get('/:targetMap/shst-chosen-matches', (req, res, next) => {
 server.post('/:targetMap/run-shst-matcher', (req, res, next) => {
   try {
     const {targetMap} = req.params;
-    const {
-      flags
-    } = req.body
+    const config = req.body
 
     const controller = targetMapControllers[targetMap];
-    const uuid = controller.runShstMatch(flags);
+    const uuid = controller.runShstMatch(config);
 
     res.send(uuid);
 
     return next();
   } catch (err) {
+    console.error(err)
+
     return next(err);
   }
 });

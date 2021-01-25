@@ -7,17 +7,30 @@ import EventBus, {EventBusActionHandler} from '../EventBus';
 import {makeShstMatchesIterator} from '../../../../src/services/Conflation/TargetMapConflationKnowlegeSources/SharedStreets/SharedStreetsMatcher';
 
 import TargetMapConflationBlackboardDao from '../../../../src/services/Conflation/TargetMapConflationBlackboardDao';
+import {TargetMapEdgeId, QueryPolygon} from '../../../../src/services/Conflation/domain/types';
 
 const getUnixTimestamp = () => _.round(Date.now() / 1000)
+
+export type UIControlledSharedStreetsMatchRunnerConfig = {
+  shstMatcherFlags?: string[] | null;
+  edgeIds?: TargetMapEdgeId[] | null;
+  queryPolygon?: QueryPolygon | null;
+}
 
 export default class UIControlledSharedStreetsMatchRunner {
   private readonly blkbrdDao: TargetMapConflationBlackboardDao;
   private readonly uuid: string;
+
+  // @ts-ignore
   private _isLocked: boolean;
+
   private boundActionHandler: EventBusActionHandler;
-  private shstMatcherFlags: string[]
   private previousHeartbeatTimestamp: number;
   private heartbeatMonitor: any;
+
+  private readonly shstMatcherFlags: string[];
+  private readonly edgeIds: TargetMapEdgeId[] | null
+  private readonly queryPolygon: QueryPolygon | null
 
   private controls: {
     lock: Promise<void> | null;
@@ -25,7 +38,7 @@ export default class UIControlledSharedStreetsMatchRunner {
     halt: boolean;
   };
 
-  constructor(blkbrdDao: TargetMapConflationBlackboardDao, uuid: string, shstMatcherFlags: string[] = []) {
+  constructor(blkbrdDao: TargetMapConflationBlackboardDao, uuid: string, config: UIControlledSharedStreetsMatchRunnerConfig) {
     this.blkbrdDao = blkbrdDao;
     this.uuid = uuid;
     this.controls = {
@@ -34,11 +47,13 @@ export default class UIControlledSharedStreetsMatchRunner {
       halt: false,
     };
 
+    this.shstMatcherFlags = config.shstMatcherFlags ?? []
+    this.edgeIds = config.edgeIds ?? null
+    this.queryPolygon = config.queryPolygon ?? null
+
     this.lock()
 
     this.boundActionHandler = this.actionHandler.bind(this);
-
-    this.shstMatcherFlags = shstMatcherFlags
 
     this.previousHeartbeatTimestamp = getUnixTimestamp()
 
@@ -75,6 +90,7 @@ export default class UIControlledSharedStreetsMatchRunner {
       return
     }
 
+    // @ts-ignore
     this.controls.releaseLock()
     this.controls.lock = null
   }
@@ -96,6 +112,8 @@ export default class UIControlledSharedStreetsMatchRunner {
   }
 
   actionHandler(action: any) {
+    // console.log(JSON.stringify(action, null, 4))
+
     if (action.type === 'PROCEED') {
       this.unlock();
     }
@@ -114,7 +132,10 @@ export default class UIControlledSharedStreetsMatchRunner {
   }
 
   *makeInputIterator() {
-    const targetMapEdgesGeoProximityIterator = this.blkbrdDao.makeTargetMapEdgeFeaturesGeoProximityIterator();
+    const targetMapEdgesGeoProximityIterator = this.blkbrdDao.makeTargetMapEdgeFeaturesGeoProximityIterator({
+      edgeIds: this.edgeIds,
+      boundingPolygon: this.queryPolygon,
+    });
 
     for (const targetMapEdge of targetMapEdgesGeoProximityIterator) {
       EventBus.emitAction(this.uuid, {
@@ -126,6 +147,10 @@ export default class UIControlledSharedStreetsMatchRunner {
 
       yield targetMapEdge;
     }
+
+    EventBus.emitAction(this.uuid, {
+      type: 'TARGET_MAP_EDGE_ITERATOR_DONE',
+    });
   }
 
   async runShstMatch() {

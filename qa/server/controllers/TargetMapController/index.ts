@@ -8,7 +8,7 @@ import * as turf from '@turf/turf';
 import TargetMapDAO from '../../../../src/utils/TargetMapDatabases/TargetMapDAO';
 import TargetMapConflationBlackboardDao from '../../../../src/services/Conflation/TargetMapConflationBlackboardDao';
 
-import UIControlledSharedStreetsMatchRunner from '../../services/ShstMatcher/UIControlledSharedStreetsMatchRunner';
+import UIControlledSharedStreetsMatchRunner, {UIControlledSharedStreetsMatchRunnerConfig} from '../../services/ShstMatcher/UIControlledSharedStreetsMatchRunner';
 
 // function bindRouteHandlers(server: Server) {
 // const controller = this;
@@ -168,13 +168,13 @@ class TargetMapController {
     return response;
   }
 
-  runShstMatch(flags: string[]) {
+  runShstMatch(config: UIControlledSharedStreetsMatchRunnerConfig) {
     const uuid = uuidv4();
 
     const runner = new UIControlledSharedStreetsMatchRunner(
       this.blackboardDao,
       uuid,
-      flags
+      config
     );
 
     runner.runShstMatch();

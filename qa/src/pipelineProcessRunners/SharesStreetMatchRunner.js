@@ -5,11 +5,19 @@ import EventBus from '../EventBus';
 import {API_HOST} from '../config';
 
 export default class SharedStreetsMatchRunner {
-  constructor(targetMap, flags = []) {
+  constructor(config) {
+    const {
+      targetMap,
+      flags = [],
+      queryPolygon
+    } = config
+
     this.targetMap = targetMap
 
     // https://github.com/sharedstreets/sharedstreets-js#options-1
     this.flags = flags
+
+    this.queryPolygon = queryPolygon
 
     this.matchRunId = null
 
@@ -32,7 +40,8 @@ export default class SharedStreetsMatchRunner {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        flags: this.flags
+        flags: this.flags,
+        queryPolygon: this.queryPolygon
       })
     })
 
