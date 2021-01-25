@@ -159,17 +159,19 @@ export async function* makeShstMatchesIterator(
   }
 
   // Last batch
-  const { matches, osrmDir } =
-    (await matchSegmentedShapeFeatures(batch, flags)) || {};
+  if (batch.length > 0) {
+    const { matches, osrmDir } =
+      (await matchSegmentedShapeFeatures(batch, flags)) || {};
 
-  logMatchStats(matches);
-  if (matches) {
-    try {
-      for (const matchFeature of matches) {
-        yield { osrmDir, matchFeature };
+    logMatchStats(matches);
+    if (matches) {
+      try {
+        for (const matchFeature of matches) {
+          yield { osrmDir, matchFeature };
+        }
+      } catch (err) {
+        console.error(err);
       }
-    } catch (err) {
-      console.error(err);
     }
   }
 }
