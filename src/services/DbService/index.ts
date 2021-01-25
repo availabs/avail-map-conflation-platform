@@ -102,7 +102,7 @@ const prepare = (sql: string) => {
 };
 
 const setOutputDirectory = (outputDir: string) => {
-  console.log(outputDir);
+  console.log('SQLite Databases Dir:', outputDir);
   if (OUTPUT_DIR === '') {
     OUTPUT_DIR = outputDir;
 
