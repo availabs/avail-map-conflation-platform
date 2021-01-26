@@ -22,7 +22,8 @@
   },
   "include": [
     "src/",
-    "server/",
+    "qa/server/",
+    "qa/src/",
     "tasks/",
     "spike/"
   ],

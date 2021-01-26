@@ -8,12 +8,14 @@ import { SharedStreetsReferenceFeature } from '../../../daos/SourceMapDao/domain
 export type RawTargetMapFeatureFeature = TargetMapDaoTypes.RawTargetMapFeatureFeature;
 export type TargetMapSchema = TargetMapDaoTypes.TargetMapSchema;
 export type TargetMapEdge = TargetMapDaoTypes.TargetMapEdge;
+export type TargetMapEdgeId = TargetMapDaoTypes.TargetMapEdgeId;
 export type TargetMapEdgeFeature = TargetMapDaoTypes.TargetMapEdgeFeature;
 export type TargetMapPathEdgeFeature = TargetMapDaoTypes.TargetMapPathEdgeFeature;
 export type TargetMapPathEdgeFeatures = TargetMapDaoTypes.TargetMapPathEdgeFeatures;
 export type TargetMapPathId = TargetMapDaoTypes.TargetMapPathId;
 export type TargetMapEdgesGeoproximityIterator = TargetMapDaoTypes.TargetMapEdgesGeoproximityIterator;
 export type ChosenSharedStreetsMatch = TargetMapDaoTypes.ChosenSharedStreetsMatch;
+export type QueryPolygon = TargetMapDaoTypes.QueryPolygon;
 
 export * from '../../../daos/SourceMapDao/domain/types';
 
