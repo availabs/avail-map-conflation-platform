@@ -30,6 +30,9 @@ function App() {
           <Route exact path="/shst-match">
             <ShstMatchControl />
           </Route>
+          <Route exact path="/shst-match/:uuid">
+            <ShstMatchControl />
+          </Route>
         </Switch>
       </Router>
     </div>

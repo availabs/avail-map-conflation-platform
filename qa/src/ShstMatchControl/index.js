@@ -1,4 +1,5 @@
 import React, {useState, useEffect, useRef} from 'react';
+import {useHistory, useParams} from 'react-router-dom';
 
 import * as turf from '@turf/turf'
 import _ from 'lodash'
@@ -15,8 +16,12 @@ export default function ShstMatchControl() {
   const [queryPolygon, setQueryPolygon] = useState(labVicinity);
   const [searchRadius, setSearchRadius] = useState(10);
   const [currentNums, setCurrentNums] = useState({numTMEdgeIds: 0, numShstMatches: 0})
+  const [runnerDone, setRunnerDone] = useState(false)
+  const history = useHistory()
+  const {uuid: currentMatchRunId} = useParams()
 
   const runner = useRef(null);
+
   const previousNums = useRef({prevNumTMEdgeIds: 0, prevNumShstMatches: 0})
 
   let {current: currentRunner} = runner
@@ -33,6 +38,8 @@ export default function ShstMatchControl() {
     })
 
     runner.current = null
+
+    history.push('/shst-match')
   }
 
   const createNewRunner = () => {
@@ -43,22 +50,35 @@ export default function ShstMatchControl() {
 
     const newRunner = new SharedStreetsMatchRunner({
       targetMap,
-      flags: [`--search-radius=${searchRadius}`],
-      queryPolygon
+      flags: [`--search-radius=${searchRadius}`, '--snap-intersections'],
+      queryPolygon,
+      currentMatchRunId
     })
 
-    newRunner.addShstMatchListener(_.debounce(() => {
+    newRunner.addShstMatcherBatchDoneListener(() => {
       setCurrentNums({
         numTMEdgeIds: newRunner.targetMapEdgeIds.length,
         numShstMatches: newRunner.shstMatches.length
       })
-    }, 500))
+    })
 
-    newRunner.run().then(setReady)
+    newRunner.addShstMatcherDoneListener(() => {
+      // console.log('SHST_MATCHER_DONE')
+      setRunnerDone(true)
+    })
+
+    newRunner.run().then(() => {
+      if (currentMatchRunId !== newRunner.matchRunId) {
+        history.push(`/shst-match/${newRunner.matchRunId}`)
+      }
+      setReady(true)
+    })
 
     runner.current = newRunner
 
+
     setReady(true)
+    setRunnerDone(false)
   }
 
   useEffect(() => {
@@ -117,36 +137,43 @@ export default function ShstMatchControl() {
     }
   }
 
+  // console.log('REFRESH')
   return (
     <div style={{position: 'absolute', top: '200px', left: '200px'}}>
       <div style={{borderStyle: 'solid'}}>
         {
-          currentRunner !== null ?
-            <div>
-              <span
-                style={{padding: '15px', cursor: 'pointer'}}
-                onClick={currentRunner.toggleLock.bind(currentRunner)}
-                title={currentRunner.locked ? 'play' : 'pause'}
-              >
-                {currentRunner.locked ? '▶' : '⏸'}
-              </span>
-              <span
-                style={{padding: '15px', cursor: 'pointer'}}
-                onClick={destroyCurrentRunner}
-                title={'stop'}
-              >
-                ⏹
-        </span>
+          !(runnerDone || currentRunner === null) ?
+            <div style={{display: 'inline-block'}}>
+              <div style={{borderStyle: 'solid'}}>
+                <span
+                  style={{padding: '25px', cursor: 'pointer'}}
+                  onClick={currentRunner.toggleLock.bind(currentRunner)}
+                  title={currentRunner.locked ? 'play' : 'pause'}
+                >
+                  {currentRunner.locked ? '▶' : '⏸'}
+                </span>
+              </div>
+              <div style={{borderStyle: 'solid'}}>
+                <span
+                  style={{padding: '15px', cursor: 'pointer'}}
+                  onClick={destroyCurrentRunner}
+                  title={'stop'}
+                >
+                  ⏹
+                </span>
+              </div>
             </div>
             : <span />
         }
-        <span
-          style={{padding: '15px', cursor: 'pointer'}}
-          onClick={createNewRunner}
-          title={'restart'}
-        >
-          ⟳
+        <div style={{borderStyle: 'solid'}}>
+          <span
+            style={{padding: '25px', cursor: 'pointer'}}
+            onClick={createNewRunner}
+            title={'restart'}
+          >
+            ⟳
         </span>
+        </div>
       </div>
       <div>
         <span >Num Target Map Path Edges: {numTMEdgeIds}</span>

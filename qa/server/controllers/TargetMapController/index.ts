@@ -10,82 +10,6 @@ import TargetMapConflationBlackboardDao from '../../../../src/services/Conflatio
 
 import UIControlledSharedStreetsMatchRunner, {UIControlledSharedStreetsMatchRunnerConfig} from '../../services/ShstMatcher/UIControlledSharedStreetsMatchRunner';
 
-// function bindRouteHandlers(server: Server) {
-// const controller = this;
-// const { schema } = controller;
-
-// server.get.call(
-// server,
-// `/${this.schema}/raw-shapefile`,
-// (_req: Request, res: Response, next: Next) => {
-// try {
-// const featureCollection = controller.getRawTargetMapFeatureCollection();
-
-// res.send(featureCollection);
-
-// return next();
-// } catch (err) {
-// return next(err);
-// }
-// },
-// );
-
-// server.get.call(
-// server,
-// `/${this.schema}/features`,
-// (req: Request, res: Response, next: Next) => {
-// try {
-// const {
-// query: { id },
-// } = req;
-
-// const ids = Array.isArray(id) ? id : [id];
-
-// const featureCollection = controller.getFeatures(ids);
-
-// res.send(featureCollection);
-
-// return next();
-// } catch (err) {
-// return next(err);
-// }
-// },
-// );
-
-// server.get.call(
-// server,
-// `/${schema}/shst-matches-metadata`,
-// (_req: Request, res: Response, next: Next) => {
-// try {
-// const metadata = controller.getShstMatchesMetadata();
-// res.send(metadata);
-
-// console.log(JSON.stringify(metadata, null, 4));
-
-// return next();
-// } catch (err) {
-// return next(err);
-// }
-// },
-// );
-
-// server.get.call(
-// server,
-// `/${schema}/shst-chosen-matches`,
-// (_req: Request, res: Response, next: Next) => {
-// try {
-// const result = controller.getShstChosenMatchesMetadata();
-
-// res.send(result);
-
-// return next();
-// } catch (err) {
-// return next(err);
-// }
-// },
-// );
-// }
-
 class TargetMapController {
   private targetMapDao: TargetMapDAO;
 
@@ -101,10 +25,6 @@ class TargetMapController {
 
     this.lazy = {};
   }
-
-  // registerRoutes(server: Server) {
-  // bindRouteHandlers.call(this, server);
-  // }
 
   // Because this needs to happen after everything loaded.
   private get blackboardDao() {

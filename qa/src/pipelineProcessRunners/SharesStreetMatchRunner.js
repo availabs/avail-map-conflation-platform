@@ -9,7 +9,8 @@ export default class SharedStreetsMatchRunner {
     const {
       targetMap,
       flags = [],
-      queryPolygon
+      queryPolygon,
+      currentMatchRunId = null
     } = config
 
     this.targetMap = targetMap
@@ -19,11 +20,14 @@ export default class SharedStreetsMatchRunner {
 
     this.queryPolygon = queryPolygon
 
-    this.matchRunId = null
+    this.matchRunId = currentMatchRunId
 
     this.unsubscribe = () => {}
 
     this.locked = true
+
+    this.shstMatcherBatchDoneListeners = new Set()
+    this.shstMatcherDoneListeners = new Set()
 
     this.targetMapEdgeIds = []
     this.targetMapEdgeIdListeners = new Set()
@@ -33,19 +37,21 @@ export default class SharedStreetsMatchRunner {
   }
 
   async run() {
-    const res = await fetch(`${API_HOST}/${this.targetMap}/run-shst-matcher`, {
-      method: 'POST',
-      mode: 'cors',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        flags: this.flags,
-        queryPolygon: this.queryPolygon
+    if (this.matchRunId === null) {
+      const res = await fetch(`${API_HOST}/${this.targetMap}/run-shst-matcher`, {
+        method: 'POST',
+        mode: 'cors',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          flags: this.flags,
+          queryPolygon: this.queryPolygon
+        })
       })
-    })
 
-    this.matchRunId = await res.json()
+      this.matchRunId = await res.json()
+    }
 
     const actionListener = this.actionHandler.bind(this)
 
@@ -60,6 +66,15 @@ export default class SharedStreetsMatchRunner {
   }
 
   actionHandler(action) {
+    if (action.type === 'SHST_MATCHER_BATCH_DONE') {
+      console.log('SHST_MATCHER_BATCH_DONE')
+      return this.shstMatcherBatchDoneListeners.forEach(listener => listener())
+    }
+
+    if (action.type === 'SHST_MATCHER_DONE') {
+      return this.shstMatcherDoneListeners.forEach(listener => listener())
+    }
+
     if (action.type === 'TARGET_MAP_EDGE_ID') {
       const targetMapEdgeId = action.payload
       this.targetMapEdgeIds.push(targetMapEdgeId)
@@ -91,6 +106,22 @@ export default class SharedStreetsMatchRunner {
     this.locked = false
   }
 
+  addShstMatcherBatchDoneListener(listener) {
+    this.shstMatcherBatchDoneListeners.add(listener)
+  }
+
+  removeShstMatcherBatchDoneListener(listener) {
+    this.shstMatcherBatchDoneListeners.remove(listener)
+  }
+
+  addShstMatcherDoneListener(listener) {
+    this.shstMatcherDoneListeners.add(listener)
+  }
+
+  removeShstMatcherDoneListener(listener) {
+    this.shstMatcherDoneListeners.remove(listener)
+  }
+
   addTargetMapEdgeListener(listener) {
     this.targetMapEdgeListeners.add(listener)
   }
@@ -110,6 +141,7 @@ export default class SharedStreetsMatchRunner {
   destroy() {
     clearInterval(this.hearbeat)
     this.unsubscribe()
+    this.shstMatcherBatchDoneListeners.clear()
     this.targetMapEdgeIdListeners.clear()
     this.shstMatchListeners.clear()
     EventBus.emitAction(this.matchRunId, {type: 'HALT'});
