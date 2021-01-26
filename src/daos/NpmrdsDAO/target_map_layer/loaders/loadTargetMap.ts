@@ -1,6 +1,6 @@
 import db from '../../../../services/DbService';
 
-import { NYS_RIS as SCHEMA } from '../../../../constants/databaseSchemaNames';
+import { NPMRDS as SCHEMA } from '../../../../constants/databaseSchemaNames';
 
 import loadMicroLevel from './loadMicroLevel';
 import loadMesoLevel from './loadMesoLevel';

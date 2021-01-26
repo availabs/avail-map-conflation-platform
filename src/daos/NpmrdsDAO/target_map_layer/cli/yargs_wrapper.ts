@@ -1,20 +1,10 @@
 /* eslint-disable global-require */
-import loadMicroLevel from '../loaders/loadMicroLevel';
-
-import loadMesoLevel from '../loaders/loadMesoLevel';
+import loadTargetMap from '../loaders/loadTargetMap';
 
 // eslint-disable-next-line import/prefer-default-export
-export const loadNpmrdsMicroLevel = {
-  command: 'load_npmrds_target_map_microlevel',
-  desc: 'Load the NPMRDS Target Map Nodes and Edges Tables.',
+export const loadNpmrdsTargetMap = {
+  command: 'load_npmrds_target_map',
+  desc: 'Load the NPMRDS Target Map Nodes, Edges and Paths Tables.',
   builder: {},
-  handler: loadMicroLevel,
-};
-
-export const loadNpmrdsMesoLevel = {
-  command: 'load_npmrds_target_map_mesolevel',
-  desc:
-    'Load the NPMRDS Target Map Meso-Level Paths (Cross-County Network Traversals).',
-  builder: {},
-  handler: loadMesoLevel,
+  handler: loadTargetMap,
 };

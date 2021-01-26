@@ -1,4 +1,4 @@
-import { existsSync } from 'fs';
+import { existsSync, chmodSync } from 'fs';
 import { join, isAbsolute } from 'path';
 
 import { sync as mkdirpSync } from 'mkdirp';
@@ -59,6 +59,18 @@ const attachDatabase = (databaseSchemaName: string) => {
   attachedDatabases.add(databaseSchemaName);
 };
 
+const detachDatabase = (databaseSchemaName: string) => {
+  verifyConfigured();
+
+  if (!attachedDatabases.has(databaseSchemaName)) {
+    return;
+  }
+
+  db.exec(`DETACH DATABASE ${databaseSchemaName};`);
+
+  attachedDatabases.delete(databaseSchemaName);
+};
+
 const getDatabaseFilePathForSchemaName = (databaseSchemaName: string) =>
   join(getSqliteDir(), databaseSchemaName);
 
@@ -112,6 +124,26 @@ const setOutputDirectory = (outputDir: string) => {
   }
 };
 
+const makeDatabaseWritable = (databaseSchemaName: string) => {
+  detachDatabase(databaseSchemaName);
+
+  const databaseFilePath = getDatabaseFilePathForSchemaName(databaseSchemaName);
+
+  chmodSync(databaseFilePath, 0o777);
+
+  attachDatabase(databaseSchemaName);
+};
+
+const makeDatabaseReadOnly = (databaseSchemaName: string) => {
+  detachDatabase(databaseSchemaName);
+
+  const databaseFilePath = getDatabaseFilePathForSchemaName(databaseSchemaName);
+
+  chmodSync(databaseFilePath, 0o444);
+
+  attachDatabase(databaseSchemaName);
+};
+
 // Can bind more db methods if they are needed.
 //   https://github.com/JoshuaWise/better-sqlite3/blob/master/docs/api.md
 export default {
@@ -123,6 +155,9 @@ export default {
   openLoadingConnectionToDb,
   closeLoadingConnectionToDb,
   databaseFileExists,
+
+  makeDatabaseWritable,
+  makeDatabaseReadOnly,
 
   // @ts-ignore
   unsafeMode: db.unsafeMode.bind(db),
