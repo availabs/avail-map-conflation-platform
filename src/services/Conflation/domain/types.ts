@@ -3,10 +3,11 @@ import * as SharedStreetsTypes from 'sharedstreets-types';
 
 import * as TargetMapDaoTypes from '../../../utils/TargetMapDatabases/TargetMapDAO';
 
-import { SharedStreetsReferenceFeature } from '../../../daos/SourceMapDao/domain/types';
+import * as ShstSourceMapTypes from '../../../daos/SourceMapDao/domain/types';
 
 export type RawTargetMapFeatureFeature = TargetMapDaoTypes.RawTargetMapFeatureFeature;
 export type TargetMapSchema = TargetMapDaoTypes.TargetMapSchema;
+export type TargetMapId = TargetMapDaoTypes.TargetMapId;
 export type TargetMapEdge = TargetMapDaoTypes.TargetMapEdge;
 export type TargetMapEdgeId = TargetMapDaoTypes.TargetMapEdgeId;
 export type TargetMapEdgeFeature = TargetMapDaoTypes.TargetMapEdgeFeature;
@@ -14,11 +15,12 @@ export type TargetMapPathEdgeFeature = TargetMapDaoTypes.TargetMapPathEdgeFeatur
 export type TargetMapPathEdgeFeatures = TargetMapDaoTypes.TargetMapPathEdgeFeatures;
 export type TargetMapPathId = TargetMapDaoTypes.TargetMapPathId;
 export type TargetMapEdgesGeoproximityIterator = TargetMapDaoTypes.TargetMapEdgesGeoproximityIterator;
-export type ChosenSharedStreetsMatch = TargetMapDaoTypes.ChosenSharedStreetsMatch;
 export type QueryPolygon = TargetMapDaoTypes.QueryPolygon;
 
 export * from '../../../daos/SourceMapDao/domain/types';
 
+export type SharedStreetsReferenceId = ShstSourceMapTypes.SharedStreetsReferenceId;
+export type SharedStreetsReferenceFeature = ShstSourceMapTypes.SharedStreetsReferenceFeature;
 export type SharedStreetsReferenceChain = SharedStreetsReferenceFeature[];
 
 export type ShstReferenceRoadClass = SharedStreetsTypes.RoadClass;
@@ -98,4 +100,14 @@ export type TargetMapPathChosenMatches = {
 export type ToposortedShstRefs = {
   forwardPaths: SharedStreetsReferenceFeature[][];
   backwardPaths: SharedStreetsReferenceFeature[][];
+};
+
+export type ChosenSharedStreetsMatch = {
+  targetMapId: TargetMapId;
+  targetMapEdgeId: TargetMapEdgeId;
+  isForward: boolean;
+  targetMapEdgeShstMatchIdx: number;
+  shstReferenceId: SharedStreetsReferenceId;
+  sectionStart: number;
+  sectionEnd: number;
 };

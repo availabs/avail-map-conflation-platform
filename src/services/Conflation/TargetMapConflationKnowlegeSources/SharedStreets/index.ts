@@ -31,6 +31,7 @@ export default class SharedStreetsMatcherKnowledgeSource {
 
   async matchEntireTargetMap() {
     const iter = this.blkbrdDao.makeTargetMapEdgeFeaturesGeoProximityIterator();
+
     const isCenterline = this.blkbrdDao.targetMapIsCenterline;
 
     const shstMatchesIter = makeShstMatchesGenerator(iter, isCenterline);

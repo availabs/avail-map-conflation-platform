@@ -3,14 +3,20 @@ import { join, isAbsolute } from 'path';
 
 import { sync as mkdirpSync } from 'mkdirp';
 
-import Database, { Database as SqliteDatabase } from 'better-sqlite3';
+import Database, {
+  Database as SqliteDatabase,
+  Options as SqliteDatabaseConnectionOptions,
+} from 'better-sqlite3';
 
 import memoizeOne from 'memoize-one';
 
+export type DatabaseSchemaName = string;
+export type DatabaseDirectory = string;
+
 const IN_MEMORY = ':memory:';
 
-// const db = new Database(IN_MEMORY, { verbose: console.log });
-const db = new Database(IN_MEMORY);
+const db = new Database(IN_MEMORY, { verbose: console.log });
+// const db = new Database(IN_MEMORY);
 
 const registeredDatabases: string[] = Object.values(
   require('../../constants/databaseSchemaNames'),
@@ -42,8 +48,10 @@ const attachedDatabases = new Set();
 const getDatabaseFilePath = (databaseSchemaName: string) =>
   join(getSqliteDir(), databaseSchemaName);
 
-const databaseFileExists = (databaseSchemaName: string) =>
-  existsSync(join(getSqliteDir(), databaseSchemaName));
+const databaseFileExists = (
+  databaseSchemaName: DatabaseSchemaName,
+  databaseDirectory?: DatabaseDirectory | null,
+) => existsSync(join(databaseDirectory || getSqliteDir(), databaseSchemaName));
 
 const attachDatabase = (databaseSchemaName: string) => {
   verifyConfigured();
@@ -71,8 +79,50 @@ const detachDatabase = (databaseSchemaName: string) => {
   attachedDatabases.delete(databaseSchemaName);
 };
 
-const getDatabaseFilePathForSchemaName = (databaseSchemaName: string) =>
-  join(getSqliteDir(), databaseSchemaName);
+const getDatabaseFilePathForSchemaName = (
+  databaseSchemaName: string,
+  databaseDirectory?: DatabaseDirectory | null,
+) => join(databaseDirectory || getSqliteDir(), databaseSchemaName);
+
+const attachDatabaseToConnection = (
+  xdb: SqliteDatabase,
+  databaseSchemaName: DatabaseSchemaName,
+  databaseDirectory: DatabaseDirectory | null = null,
+) => {
+  const databaseFilePath = getDatabaseFilePathForSchemaName(
+    databaseSchemaName,
+    databaseDirectory,
+  );
+
+  xdb.exec(`ATTACH DATABASE '${databaseFilePath}' AS ${databaseSchemaName};`);
+};
+
+const detachDatabaseFromConnection = (
+  xdb: SqliteDatabase,
+  databaseSchemaName: DatabaseSchemaName,
+) => {
+  xdb.exec(`DETACH DATABASE '${databaseSchemaName}';`);
+};
+
+/**
+ * All databases ATTACHED to a :MEMORY: database AS databaseSchemaName.
+ */
+const openConnectionToDb = (
+  databaseSchemaName: DatabaseSchemaName,
+  databaseDirectory: DatabaseDirectory | null = null,
+  config?: SqliteDatabaseConnectionOptions,
+): SqliteDatabase => {
+  // const xdb = new Database(IN_MEMORY, { verbose: console.log });
+  const xdb = new Database(IN_MEMORY, config);
+
+  attachDatabaseToConnection(xdb, databaseSchemaName, databaseDirectory);
+
+  return xdb;
+};
+
+const closeConnectionToDb = (xdb: SqliteDatabase) => {
+  xdb.close();
+};
 
 const openLoadingConnectionToDb = (
   databaseSchemaName: string | null = null,
@@ -152,6 +202,12 @@ export default {
   prepare,
   exec: db.exec.bind(db),
   transaction: db.transaction.bind(db),
+
+  attachDatabaseToConnection,
+  detachDatabaseFromConnection,
+  openConnectionToDb,
+  closeConnectionToDb,
+
   openLoadingConnectionToDb,
   closeLoadingConnectionToDb,
   databaseFileExists,

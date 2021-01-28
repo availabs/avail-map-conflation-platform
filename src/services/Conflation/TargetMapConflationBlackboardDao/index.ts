@@ -3,12 +3,12 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-import { Statement } from 'better-sqlite3';
+import { Database, Statement } from 'better-sqlite3';
 
 import * as turf from '@turf/turf';
 import _ from 'lodash';
 
-import db from '../../DbService';
+import db, { DatabaseSchemaName, DatabaseDirectory } from '../../DbService';
 
 import * as SourceMapDAO from '../../../daos/SourceMapDao';
 
@@ -24,7 +24,12 @@ import {
   TargetMapEdgeShstMatches,
   TargetMapPathMatchesIterator,
   SharedStreetsReferenceFeature,
+  ChosenSharedStreetsMatch,
 } from '../domain/types';
+
+export type TargetMapConflationBlackboardDaoConfig = {
+  databaseDirectory?: DatabaseDirectory | null;
+};
 
 const initializeSqlPath = join(
   __dirname,
@@ -40,51 +45,133 @@ export default class TargetMapConflationBlackboardDao {
 
   private readonly targetMapDao: TargetMapDAO;
 
-  readonly blkbrdDbSchema: string;
+  readonly blkbrdDbSchema: DatabaseSchemaName;
 
-  private readonly preparedStatements: {
+  readonly databaseDirectory: DatabaseDirectory | null;
+
+  // Used for reads
+  readonly dbReadConnection: Database;
+
+  // Used for writes
+  readonly dbWriteConnection: Database;
+
+  private readonly preparedReadStatements: {
+    allTargetMapPathIdsInSubnetStmt?: Statement;
+    databaseHasBeenInitializedStmt?: Statement;
     shstMatchesAreLoadedStmt?: Statement;
-    insertShstMatchStmt?: Statement;
     allShstMatchFeaturesStmt?: Statement;
     shstMatchMetadataByTargetMapIdStmt?: Statement;
-    clearShstMatchesStmt?: Statement;
     shstMatchesForPathStmt?: Statement;
     shstMatchesForTargetMapEdgesStmt?: Statement;
+    chosenShstMatchesPathStmt?: Statement;
   };
 
-  bulkLoadChosenShstMatches: TargetMapDAO['bulkLoadShstMatches'];
-
-  makeChosenShstMatchesIterator: TargetMapDAO['makeChosenShstMatchesIterator'];
+  private readonly preparedWriteStatements: {
+    insertShstMatchStmt?: Statement;
+    clearShstMatchesStmt?: Statement;
+    insertChosenShstMatchStmt?: Statement;
+    populateTargetMapIdsSubsetsStmt?: Statement;
+  };
 
   makeTargetMapEdgeFeaturesGeoProximityIterator: TargetMapDAO['makeTargetMapEdgesGeoproximityIterator'];
 
-  constructor(targetMapSchema: TargetMapSchema) {
+  constructor(
+    targetMapSchema: TargetMapSchema,
+    config: TargetMapConflationBlackboardDaoConfig = {},
+  ) {
     this.targetMapSchema = targetMapSchema;
     this.blkbrdDbSchema = `${this.targetMapSchema}_conflation_blackboard`;
 
-    this.targetMapDao = new TargetMapDAO(db, this.targetMapSchema);
+    this.databaseDirectory = config.databaseDirectory || null;
 
-    const dbHasBeenInitialized = db.databaseFileExists(this.blkbrdDbSchema);
+    this.dbReadConnection = db.openConnectionToDb(
+      this.blkbrdDbSchema,
+      this.databaseDirectory,
+      // { verbose: console.log.bind(console) },
+    );
 
-    db.attachDatabase(this.blkbrdDbSchema);
+    db.attachDatabaseToConnection(this.dbReadConnection, this.targetMapSchema);
 
-    if (!dbHasBeenInitialized) {
+    // Write connection strictly for writes to this DB.
+    this.dbWriteConnection = db.openConnectionToDb(
+      this.blkbrdDbSchema,
+      this.databaseDirectory,
+      // { verbose: console.log.bind(console) },
+    );
+    db.attachDatabaseToConnection(this.dbWriteConnection, this.targetMapSchema);
+
+    this.preparedReadStatements = {};
+    this.preparedWriteStatements = {};
+
+    this.targetMapDao = new TargetMapDAO(
+      this.dbReadConnection,
+      this.targetMapSchema,
+    );
+
+    if (!this.databaseHasBeenInitialized) {
+      this.beginWriteTransaction();
       this.initializeTargetMapConflationBlackBoardDatabase();
+      this.commitWriteTransaction();
     }
-
-    this.preparedStatements = {};
-
-    this.bulkLoadChosenShstMatches = this.targetMapDao.bulkLoadShstMatches.bind(
-      this.targetMapDao,
-    );
-
-    this.makeChosenShstMatchesIterator = this.targetMapDao.makeChosenShstMatchesIterator.bind(
-      this.targetMapDao,
-    );
 
     this.makeTargetMapEdgeFeaturesGeoProximityIterator = this.targetMapDao.makeTargetMapEdgesGeoproximityIterator.bind(
       this.targetMapDao,
     );
+  }
+
+  beginWriteTransaction() {
+    this.dbWriteConnection.exec('BEGIN');
+  }
+
+  commitWriteTransaction() {
+    this.dbWriteConnection.exec('COMMIT');
+  }
+
+  rollbackWriteTransaction() {
+    this.dbWriteConnection.exec('ROLLBACK');
+  }
+
+  private get populateTargetMapIdsSubsetsStmt(): Statement {
+    if (!this.preparedWriteStatements.populateTargetMapIdsSubsetsStmt) {
+      this.preparedWriteStatements.populateTargetMapIdsSubsetsStmt = this.dbWriteConnection.prepare(
+        `
+        INSERT INTO ${this.blkbrdDbSchema}.target_map_ids
+          SELECT
+              edge_id,
+              target_map_id
+            FROM ${this.targetMapSchema}.target_map_ppg_edge_id_to_target_map_id
+        ;
+      `,
+      );
+    }
+
+    // @ts-ignore
+    return this.preparedWriteStatements.populateTargetMapIdsSubsetsStmt;
+  }
+
+  private populateTargetMapIdsSubsets() {
+    // NOTE: In SubClass, check if this.boundingPolygon is set. If not, no-op.
+    this.populateTargetMapIdsSubsetsStmt.run();
+  }
+
+  private get databaseHasBeenInitializedStmt(): Statement {
+    if (!this.preparedReadStatements.databaseHasBeenInitializedStmt) {
+      this.preparedReadStatements.databaseHasBeenInitializedStmt = this.dbReadConnection.prepare(
+        `
+          SELECT EXISTS (
+            SELECT
+                name
+              FROM ${this.blkbrdDbSchema}.sqlite_master WHERE type = 'table'
+          ) ;`,
+      );
+    }
+
+    // @ts-ignore
+    return this.preparedReadStatements.databaseHasBeenInitializedStmt;
+  }
+
+  private get databaseHasBeenInitialized(): boolean {
+    return this.databaseHasBeenInitializedStmt.raw().get()[0] === 1;
   }
 
   private get initializeBlackBoardDatabaseSql() {
@@ -98,9 +185,8 @@ export default class TargetMapConflationBlackboardDao {
    * WARNING: Drops all existing tables in the TargetMapDatabase.
    */
   initializeTargetMapConflationBlackBoardDatabase() {
-    db.exec('BEGIN;');
-    db.exec(this.initializeBlackBoardDatabaseSql);
-    db.exec('COMMIT;');
+    this.dbWriteConnection.exec(this.initializeBlackBoardDatabaseSql);
+    this.populateTargetMapIdsSubsets();
   }
 
   get targetMapIsCenterline() {
@@ -112,8 +198,8 @@ export default class TargetMapConflationBlackboardDao {
   }
 
   private get shstMatchesAreLoadedStmt(): Statement {
-    if (!this.preparedStatements.shstMatchesAreLoadedStmt) {
-      this.preparedStatements.shstMatchesAreLoadedStmt = db.prepare(
+    if (!this.preparedReadStatements.shstMatchesAreLoadedStmt) {
+      this.preparedReadStatements.shstMatchesAreLoadedStmt = this.dbReadConnection.prepare(
         `
           SELECT EXISTS (
             SELECT
@@ -124,7 +210,7 @@ export default class TargetMapConflationBlackboardDao {
     }
 
     // @ts-ignore
-    return this.preparedStatements.shstMatchesAreLoadedStmt;
+    return this.preparedReadStatements.shstMatchesAreLoadedStmt;
   }
 
   get shstMatchesAreLoaded(): boolean {
@@ -145,19 +231,18 @@ export default class TargetMapConflationBlackboardDao {
   }
 
   private get insertShstMatchStmt(): Statement {
-    if (!this.preparedStatements.insertShstMatchStmt) {
-      this.preparedStatements.insertShstMatchStmt = db.prepare(
+    if (!this.preparedWriteStatements.insertShstMatchStmt) {
+      this.preparedWriteStatements.insertShstMatchStmt = this.dbWriteConnection.prepare(
         this.insertMatchSql,
       );
     }
 
     // @ts-ignore
-    return this.preparedStatements.insertShstMatchStmt;
+    return this.preparedWriteStatements.insertShstMatchStmt;
   }
 
-  private xInsertShstMatch(
+  private insertShstMatch(
     shstMatch: SharedStreetsMatchResult,
-    insertShstMatchStmt: Statement = this.insertShstMatchStmt,
   ): SharedStreetsMatchFeature['id'] | null {
     const {
       properties: {
@@ -169,7 +254,7 @@ export default class TargetMapConflationBlackboardDao {
 
     const featureLenKm = _.round(turf.length(shstMatch), 6);
 
-    const { changes, lastInsertRowid } = insertShstMatchStmt.run([
+    const { changes, lastInsertRowid } = this.insertShstMatchStmt.run([
       `${edgeId}`,
       `${shstReferenceId}`,
       `${section_start}`,
@@ -187,46 +272,22 @@ export default class TargetMapConflationBlackboardDao {
     return shstMatchId;
   }
 
-  insertShstMatch(
-    shstMatch: SharedStreetsMatchResult,
-  ): SharedStreetsMatchFeature['id'] | null {
-    return this.xInsertShstMatch(shstMatch);
-  }
-
   async bulkLoadShstMatches(
     shstMatchesIter: AsyncGenerator<SharedStreetsMatchResult, void, unknown>,
     clean = false,
   ) {
-    const xdb = db.openLoadingConnectionToDb(this.blkbrdDbSchema);
+    if (clean) {
+      this.initializeTargetMapConflationBlackBoardDatabase();
+    }
 
-    try {
-      // @ts-ignore
-      xdb.unsafeMode(true);
-
-      xdb.exec('BEGIN EXCLUSIVE;');
-
-      if (clean) {
-        xdb.exec(this.initializeBlackBoardDatabaseSql);
-      }
-
-      const xInsertStmt = xdb.prepare(this.insertMatchSql);
-
-      for await (const shstMatch of shstMatchesIter) {
-        this.xInsertShstMatch(shstMatch, xInsertStmt);
-      }
-
-      xdb.exec('COMMIT');
-    } catch (err) {
-      xdb.exec('ROLLBACK;');
-      throw err;
-    } finally {
-      db.closeLoadingConnectionToDb(xdb);
+    for await (const shstMatch of shstMatchesIter) {
+      this.insertShstMatch(shstMatch);
     }
   }
 
   private get allShstMatchFeaturesStmt(): Statement {
-    if (!this.preparedStatements.allShstMatchFeaturesStmt) {
-      this.preparedStatements.allShstMatchFeaturesStmt = db.prepare(
+    if (!this.preparedReadStatements.allShstMatchFeaturesStmt) {
+      this.preparedReadStatements.allShstMatchFeaturesStmt = this.dbReadConnection.prepare(
         `
           SELECT
               json_set(
@@ -239,7 +300,7 @@ export default class TargetMapConflationBlackboardDao {
     }
 
     // @ts-ignore
-    return this.preparedStatements.allShstMatchFeaturesStmt;
+    return this.preparedReadStatements.allShstMatchFeaturesStmt;
   }
 
   *makeAllShstMatchesIterator(): Generator<
@@ -255,8 +316,8 @@ export default class TargetMapConflationBlackboardDao {
   }
 
   private get shstMatchMetadataByTargetMapIdStmt(): Statement {
-    if (!this.preparedStatements.shstMatchMetadataByTargetMapIdStmt) {
-      this.preparedStatements.shstMatchMetadataByTargetMapIdStmt = db.prepare(
+    if (!this.preparedReadStatements.shstMatchMetadataByTargetMapIdStmt) {
+      this.preparedReadStatements.shstMatchMetadataByTargetMapIdStmt = this.dbReadConnection.prepare(
         `
           SELECT
               target_map_id,
@@ -280,7 +341,7 @@ export default class TargetMapConflationBlackboardDao {
     }
 
     // @ts-ignore
-    return this.preparedStatements.shstMatchMetadataByTargetMapIdStmt;
+    return this.preparedReadStatements.shstMatchMetadataByTargetMapIdStmt;
   }
 
   *makeShstMatchMetadataByTargetMapIdIterator(): Generator<{
@@ -297,24 +358,55 @@ export default class TargetMapConflationBlackboardDao {
   }
 
   private get clearShstMatchesStmt(): Statement {
-    if (!this.preparedStatements.clearShstMatchesStmt) {
-      this.preparedStatements.clearShstMatchesStmt = db.prepare(
+    if (!this.preparedWriteStatements.clearShstMatchesStmt) {
+      this.preparedWriteStatements.clearShstMatchesStmt = this.dbWriteConnection.prepare(
         `DELETE FROM ${this.blkbrdDbSchema}.target_map_edges_shst_matches;`,
       );
     }
 
     // @ts-ignore
-    return this.preparedStatements.clearShstMatchesStmt;
+    return this.preparedWriteStatements.clearShstMatchesStmt;
   }
 
   clearShstMatches() {
     this.clearShstMatchesStmt.run();
   }
 
+  private get allTargetMapPathIdsInSubnetStmt(): Statement {
+    if (!this.preparedReadStatements.allTargetMapPathIdsInSubnetStmt) {
+      this.preparedReadStatements.allTargetMapPathIdsInSubnetStmt = this.dbReadConnection.prepare(
+        `
+          SELECT DISTINCT
+              path_id
+            FROM ${this.targetMapSchema}.target_map_ppg_path_edges
+            INNER JOIN ${this.blkbrdDbSchema}.target_map_ids
+              USING (edge_id)
+            ORDER BY 1 ;`,
+      );
+    }
+
+    // @ts-ignore
+    return this.preparedReadStatements.allTargetMapPathIdsInSubnetStmt;
+  }
+
+  *makeTargetMapPathIdsIterator(): Generator<TargetMapPathId> {
+    const iter = this.allTargetMapPathIdsInSubnetStmt.raw().iterate();
+
+    for (const [pathId] of iter) {
+      yield pathId;
+    }
+  }
+
+  /**
+    NOTE: Only TargetMapPathEdges within the induced subnet are included
+          in the result set. TargetMapPathEdges that are outside of subnet
+          are not considerd part of the TargetMapPath in this context.
+          This is so that TargetMapPathEdges will have nearby TargetMapEdges,
+          even if in the complete TargetMap those edges are part of the same path.
+    */
   private get shstMatchesForPathStmt(): Statement {
-    if (!this.preparedStatements.shstMatchesForPathStmt) {
-      // TODO TODO TODO This belongs in a VIEW
-      this.preparedStatements.shstMatchesForPathStmt = db.prepare(
+    if (!this.preparedReadStatements.shstMatchesForPathStmt) {
+      this.preparedReadStatements.shstMatchesForPathStmt = this.dbReadConnection.prepare(
         `
           SELECT
               -- An array of {targetMapEdge, shstMatches}, for each path
@@ -325,7 +417,7 @@ export default class TargetMapConflationBlackboardDao {
                     ppg_edges.feature,
                     '$.properties.targetMapPathId',
                     path_id,
-                    '$.properties.targetMapPathIdx',
+                    '$.properties.targetMapPathIdx', -- NOTE: In induced subnets, may start > 0.
                     path_edge_idx
                   ),
 
@@ -350,7 +442,9 @@ export default class TargetMapConflationBlackboardDao {
                         matches.shst_match_id
                       )
                     ) AS shst_matches
-                  FROM ${this.targetMapSchema}.target_map_ppg_path_edges AS ppg_paths
+                  FROM ${this.targetMapSchema}.target_map_ppg_path_edges
+                    INNER JOIN ${this.blkbrdDbSchema}.target_map_ids -- Only
+                      USING (edge_id)
                     LEFT OUTER JOIN ${this.blkbrdDbSchema}.target_map_edges_shst_matches AS matches
                       USING (edge_id)
                   GROUP BY path_id, path_edge_idx, edge_id
@@ -364,13 +458,11 @@ export default class TargetMapConflationBlackboardDao {
     }
 
     // @ts-ignore
-    return this.preparedStatements.shstMatchesForPathStmt;
+    return this.preparedReadStatements.shstMatchesForPathStmt;
   }
 
-  makeTargetMapPathIdsIterator() {
-    return this.targetMapDao.makeTargetMapPathIdsIterator();
-  }
-
+  // FIXME: Need to (optionally?) split noncontinuous paths
+  //        if subnet induction removes internal path edges.
   getTargetMapPathMatches(targetMapPathId: TargetMapPathId) {
     // We get the matches on-demand so that the chooser can insert matches as needed.
     //  EG: Match mutations or gap-filling "matches"
@@ -400,8 +492,6 @@ export default class TargetMapConflationBlackboardDao {
       _.omit(e, 'path_id'),
     );
 
-    // console.log(JSON.stringify(targetMapPathMatches, null, 4));
-
     return { targetMapPathId, targetMapPathMatches };
   }
 
@@ -418,9 +508,8 @@ export default class TargetMapConflationBlackboardDao {
   }
 
   private get shstMatchesForTargetMapEdgesStmt(): Statement {
-    if (!this.preparedStatements.shstMatchesForTargetMapEdgesStmt) {
-      // TODO TODO TODO This belongs in a VIEW
-      this.preparedStatements.shstMatchesForTargetMapEdgesStmt = db.prepare(
+    if (!this.preparedReadStatements.shstMatchesForTargetMapEdgesStmt) {
+      this.preparedReadStatements.shstMatchesForTargetMapEdgesStmt = this.dbReadConnection.prepare(
         `
           SELECT
               edge_id,
@@ -448,10 +537,9 @@ export default class TargetMapConflationBlackboardDao {
     }
 
     // @ts-ignore
-    return this.preparedStatements.shstMatchesForTargetMapEdgesStmt;
+    return this.preparedReadStatements.shstMatchesForTargetMapEdgesStmt;
   }
 
-  // FIXME should return TargetMapEdgeShstMatches
   getVicinityTargetMapEdgesShstMatches(
     boundingPolyCoords: number[][],
     queryParams: { excludedTargetMapEdges?: number[] },
@@ -463,7 +551,6 @@ export default class TargetMapConflationBlackboardDao {
 
     const targetMapEdgeIds = targetMapEdges.map(({ id }) => id);
 
-    // foo
     const shstMatchesByTargetMapEdgeId = this.shstMatchesForTargetMapEdgesStmt
       .raw()
       .all([JSON.stringify(targetMapEdgeIds)])
@@ -505,7 +592,131 @@ export default class TargetMapConflationBlackboardDao {
     }
   }
 
+  private get insertChosenShstMatchStmt(): Statement {
+    if (!this.preparedWriteStatements.insertChosenShstMatchStmt) {
+      this.preparedWriteStatements.insertChosenShstMatchStmt = this.dbWriteConnection.prepare(
+        `
+          -- INSERT OR IGNORE INTO ${this.blkbrdDbSchema}.target_map_edge_chosen_shst_matches (
+          INSERT OR IGNORE INTO ${this.blkbrdDbSchema}.target_map_edge_chosen_shst_matches (
+            edge_id,
+            is_forward,
+            edge_shst_match_idx,
+            shst_reference,
+            section_start,
+            section_end
+          )
+            VALUES(?, ?, ?, ?, ?, ?) ; `,
+      );
+    }
+
+    // @ts-ignore
+    return this.preparedWriteStatements.insertChosenShstMatchStmt;
+  }
+
+  private insertChosenShstMatch(
+    chosenShstMatch: ChosenSharedStreetsMatch,
+  ): boolean | null {
+    const {
+      targetMapEdgeId,
+      isForward,
+      targetMapEdgeShstMatchIdx,
+      shstReferenceId,
+      sectionStart,
+      sectionEnd,
+    } = chosenShstMatch;
+
+    const { changes } = this.insertChosenShstMatchStmt.run([
+      targetMapEdgeId,
+      +!!isForward,
+      targetMapEdgeShstMatchIdx,
+      shstReferenceId,
+      sectionStart,
+      sectionEnd,
+    ]);
+
+    if (changes < 1) {
+      console.log('INSERT FAILED.');
+    }
+
+    return changes > 0;
+  }
+
+  async bulkLoadChosenShstMatches(
+    chosenShstMatchesIter: Generator<ChosenSharedStreetsMatch, void, unknown>,
+  ) {
+    // FIXME: I'd rather load the matching using a loading connection.
+    //        However, I was getting a locked database error.
+    //        Using the primary DbService doesn't have that problem.
+
+    // const dbWriteConnection = this.dbWriteConnection.openLoadingConnectionToDb(this.schema);
+    try {
+      this.dbWriteConnection
+        .prepare(
+          `DELETE FROM ${this.blkbrdDbSchema}.target_map_edge_chosen_shst_matches;`,
+        )
+        .run();
+
+      for await (const chosenShstMatch of chosenShstMatchesIter) {
+        this.insertChosenShstMatch(chosenShstMatch);
+      }
+    } finally {
+      // @ts-ignore
+      this.dbWriteConnection.unsafeMode(false);
+    }
+  }
+
+  private get chosenShstMatchesPathStmt(): Statement {
+    if (!this.preparedReadStatements.chosenShstMatchesPathStmt) {
+      // TODO TODO TODO This belongs in a VIEW
+      this.preparedReadStatements.chosenShstMatchesPathStmt = this.dbReadConnection.prepare(
+        `
+          SELECT
+              json_group_array(
+                json_object(
+                  'targetMapId',
+                  target_map_id,
+                  'targetMapEdgeId',
+                  edge_id,
+                  'isForward',
+                  is_forward,
+                  'edgeShstMatchIdx',
+                  edge_shst_match_idx,
+                  'shstReferenceId',
+                  shst_reference,
+                  'sectionStart',
+                  section_start,
+                  'sectionEnd',
+                  section_end
+                )
+              )
+            FROM ${this.blkbrdDbSchema}.target_map_edge_chosen_shst_matches
+              INNER JOIN ${this.targetMapSchema}.target_map_ppg_edge_id_to_target_map_id
+              USING (edge_id)
+            GROUP BY shst_reference
+            ORDER BY shst_reference, section_start, section_end
+          ;
+        `,
+      );
+    }
+
+    // @ts-ignore
+    return this.preparedReadStatements.chosenShstMatchesPathStmt;
+  }
+
+  *makeChosenShstMatchesIterator(): Generator<ChosenSharedStreetsMatch> {
+    const iter = this.chosenShstMatchesPathStmt.raw().iterate();
+
+    for (const [chosenMatchesStr] of iter) {
+      const chosenMatches = JSON.parse(chosenMatchesStr);
+
+      for (let i = 0; i < chosenMatches.length; ++i) {
+        const chosenMatch = chosenMatches[i];
+        yield chosenMatch;
+      }
+    }
+  }
+
   vacuumDatabase() {
-    db.exec(`VACUUM ${this.blkbrdDbSchema};`);
+    this.dbWriteConnection.exec(`VACUUM ${this.blkbrdDbSchema};`);
   }
 }

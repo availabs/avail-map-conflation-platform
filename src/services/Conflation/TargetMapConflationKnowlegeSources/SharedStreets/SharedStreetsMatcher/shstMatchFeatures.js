@@ -48,7 +48,11 @@ const SHST_DATA_DIR_REGEXP = new RegExp(
 const MAX_FEATURE_LENGTH = 2; /* km */
 const MATCHES_LENGTH_RATIO_THOLD = 0.1;
 
-const runShstMatch = (inFilePath, outFilePath, flags) => {
+const runShstMatch = (
+  inFilePath,
+  outFilePath,
+  flags = ['--snap-intersections'],
+) => {
   return new Promise((resolve) => {
     const cp = spawn(
       `${SHST_PATH}`,
