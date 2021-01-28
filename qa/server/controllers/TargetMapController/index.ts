@@ -1,5 +1,5 @@
 /* eslint-disable no-restricted-syntax */
-import {v4 as uuidv4} from 'uuid';
+import { v4 as uuidv4 } from 'uuid';
 
 // import { Server, Request, Response, Next } from 'restify';
 
@@ -8,7 +8,9 @@ import * as turf from '@turf/turf';
 import TargetMapDAO from '../../../../src/utils/TargetMapDatabases/TargetMapDAO';
 import TargetMapConflationBlackboardDao from '../../../../src/services/Conflation/TargetMapConflationBlackboardDao';
 
-import UIControlledSharedStreetsMatchRunner, {UIControlledSharedStreetsMatchRunnerConfig} from '../../services/ShstMatcher/UIControlledSharedStreetsMatchRunner';
+import UIControlledSharedStreetsMatchRunner, {
+  UIControlledSharedStreetsMatchRunnerConfig,
+} from '../../services/ShstMatcher/UIControlledSharedStreetsMatchRunner';
 
 class TargetMapController {
   private targetMapDao: TargetMapDAO;
@@ -54,7 +56,7 @@ class TargetMapController {
 
     const response = {};
 
-    for (const {targetMapId, shstMatchesMetadata} of matchesMetadataIter) {
+    for (const { targetMapId, shstMatchesMetadata } of matchesMetadataIter) {
       response[targetMapId] = shstMatchesMetadata;
     }
 
@@ -62,7 +64,7 @@ class TargetMapController {
   }
 
   getShstChosenMatchesMetadata() {
-    const chosenMatchesIter = this.targetMapDao.makeChosenShstMatchesIterator();
+    const chosenMatchesIter = this.blackboardDao.makeChosenShstMatchesIterator();
 
     const response = {};
 
@@ -94,7 +96,7 @@ class TargetMapController {
     const runner = new UIControlledSharedStreetsMatchRunner(
       this.blackboardDao,
       uuid,
-      config
+      config,
     );
 
     runner.runShstMatch();
