@@ -29,6 +29,7 @@
     "await-semaphore": "^0.1.3",
     "better-sqlite3": "^7.1.1",
     "command-exists": "^1.2.9",
+    "concaveman": "^1.2.0",
     "curve-matcher": "^1.1.1",
     "deasync": "^0.1.21",
     "eslint-plugin-import": "^2.22.0",
@@ -68,6 +69,7 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^5.4.0",
+    "@types/concaveman": "^1.1.3",
     "@types/gdal": "^0.9.1",
     "@types/geojson": "^7946.0.7",
     "@types/graphlib": "^2.1.6",
