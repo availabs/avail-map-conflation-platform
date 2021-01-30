@@ -5,7 +5,6 @@ import { join } from 'path';
 
 import * as turf from '@turf/turf';
 import _ from 'lodash';
-import concaveman from 'concaveman';
 
 import { Database, Statement } from 'better-sqlite3';
 
@@ -58,8 +57,6 @@ export default class TargetMapConflationBlackboardDao {
   readonly dbWriteConnection: Database;
 
   protected readonly preparedReadStatements: {
-    targetMapEdgeFeaturesStmt?: Statement;
-    allTargetMapPathIdsStmt?: Statement;
     databaseHasBeenInitializedStmt?: Statement;
     shstMatchesAreLoadedStmt?: Statement;
     allShstMatchFeaturesStmt?: Statement;
@@ -73,7 +70,6 @@ export default class TargetMapConflationBlackboardDao {
     insertShstMatchStmt?: Statement;
     clearShstMatchesStmt?: Statement;
     insertChosenShstMatchStmt?: Statement;
-    populateTargetMapIdsSubsetsStmt?: Statement;
   };
 
   makeTargetMapEdgeFeaturesGeoProximityIterator: TargetMapDAO['makeTargetMapEdgesGeoproximityIterator'];
@@ -136,82 +132,6 @@ export default class TargetMapConflationBlackboardDao {
     this.dbWriteConnection.exec('ROLLBACK');
   }
 
-  /** SubnetBlackboardDaos should override with a no-op. */
-  protected get populateTargetMapIdsSubsetsStmt(): Statement {
-    this.preparedWriteStatements.populateTargetMapIdsSubsetsStmt =
-      this.preparedWriteStatements.populateTargetMapIdsSubsetsStmt ||
-      this.dbWriteConnection.prepare(
-        `
-        INSERT INTO ${this.blkbrdDbSchema}.target_map_ids
-          SELECT
-              edge_id,
-              target_map_id
-            FROM ${this.targetMapSchema}.target_map_ppg_edge_id_to_target_map_id
-        ;
-      `,
-      );
-
-    return this.preparedWriteStatements.populateTargetMapIdsSubsetsStmt;
-  }
-
-  protected populateTargetMapIdsTable() {
-    // NOTE: In SubClass, check if this.boundingPolygon is set. If not, no-op.
-    this.populateTargetMapIdsSubsetsStmt.run();
-  }
-
-  protected get targetMapEdgesStmt(): Statement {
-    this.preparedReadStatements.targetMapEdgeFeaturesStmt =
-      this.preparedReadStatements.targetMapEdgeFeaturesStmt ||
-      this.dbReadConnection.prepare(`
-        SELECT
-            feature
-          FROM ${this.targetMapSchema}.target_map_ppg_edge_line_features
-            INNER JOIN ${this.blkbrdDbSchema}.target_map_ids
-              USING (edge_id)
-          ORDER BY geoprox_key
-        `);
-
-    return this.preparedReadStatements.targetMapEdgeFeaturesStmt;
-  }
-
-  private targetMapEdgesHull(convex = false) {
-    const concavity = convex ? Infinity : 1;
-
-    const edgesIter = this.targetMapEdgesStmt.raw().iterate();
-
-    let points: turf.Position[] = [];
-    let counter = 0;
-    for (const [edgeStr] of edgesIter) {
-      const edge = JSON.parse(edgeStr);
-      const edgePoints = _(turf.getCoords(edge))
-        .flattenDeep()
-        .chunk(2)
-        .uniqWith(_.isEqual)
-        .value();
-
-      points.push(...edgePoints);
-
-      if (++counter === 10000) {
-        // console.log('===== merge points into hull =====');
-        points = concaveman(points, concavity);
-      }
-
-      // console.log('points.length:', points.length);
-    }
-
-    const hullCoords = concaveman(points, concavity);
-
-    return turf.polygon([hullCoords]);
-  }
-
-  get targetMapEdgesConvexHull() {
-    return this.targetMapEdgesHull(true);
-  }
-
-  get targetMapEdgesConcaveHull() {
-    return this.targetMapEdgesHull(false);
-  }
-
   protected get databaseHasBeenInitializedStmt(): Statement {
     if (!this.preparedReadStatements.databaseHasBeenInitializedStmt) {
       this.preparedReadStatements.databaseHasBeenInitializedStmt = this.dbReadConnection.prepare(
@@ -244,7 +164,6 @@ export default class TargetMapConflationBlackboardDao {
    */
   initializeTargetMapConflationBlackBoardDatabase() {
     this.dbWriteConnection.exec(this.initializeBlackBoardDatabaseSql);
-    this.populateTargetMapIdsTable();
   }
 
   get targetMapIsCenterline() {
@@ -430,31 +349,6 @@ export default class TargetMapConflationBlackboardDao {
     this.clearShstMatchesStmt.run();
   }
 
-  protected get allTargetMapPathIdsStmt(): Statement {
-    if (!this.preparedReadStatements.allTargetMapPathIdsStmt) {
-      this.preparedReadStatements.allTargetMapPathIdsStmt = this.dbReadConnection.prepare(
-        `
-          SELECT DISTINCT
-              path_id
-            FROM ${this.targetMapSchema}.target_map_ppg_path_edges
-            INNER JOIN ${this.blkbrdDbSchema}.target_map_ids
-              USING (edge_id)
-            ORDER BY 1 ;`,
-      );
-    }
-
-    // @ts-ignore
-    return this.preparedReadStatements.allTargetMapPathIdsStmt;
-  }
-
-  *makeTargetMapPathIdsIterator(): Generator<TargetMapPathId> {
-    const iter = this.allTargetMapPathIdsStmt.raw().iterate();
-
-    for (const [pathId] of iter) {
-      yield pathId;
-    }
-  }
-
   /**
     NOTE: Only TargetMapPathEdges within the induced subnet are included
           in the result set. TargetMapPathEdges that are outside of subnet
@@ -501,8 +395,6 @@ export default class TargetMapConflationBlackboardDao {
                       )
                     ) AS shst_matches
                   FROM ${this.targetMapSchema}.target_map_ppg_path_edges
-                    INNER JOIN ${this.blkbrdDbSchema}.target_map_ids -- Only
-                      USING (edge_id)
                     LEFT OUTER JOIN ${this.blkbrdDbSchema}.target_map_edges_shst_matches AS matches
                       USING (edge_id)
                   GROUP BY path_id, path_edge_idx, edge_id
@@ -553,12 +445,15 @@ export default class TargetMapConflationBlackboardDao {
     return { targetMapPathId, targetMapPathMatches };
   }
 
+  makeTargetMapPathIdsIterator() {
+    return this.targetMapDao.makeTargetMapPathIdsIterator();
+  }
+
   *makeTargetMapPathMatchesIterator(queryParams?: {
-    targetMapPathIds: TargetMapPathId[];
+    targetMapPathIds: Generator<TargetMapPathId> | Array<TargetMapPathId>;
   }): TargetMapPathMatchesIterator {
     const pathIdsIter =
-      queryParams?.targetMapPathIds ??
-      this.targetMapDao.makeTargetMapPathIdsIterator();
+      queryParams?.targetMapPathIds ?? this.makeTargetMapPathIdsIterator();
 
     for (const targetMapPathId of pathIdsIter) {
       yield this.getTargetMapPathMatches(targetMapPathId);
