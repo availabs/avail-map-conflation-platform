@@ -14,7 +14,7 @@ import get from 'lodash.get'
 
 // const COLOR = 'rgba(255, 255, 255, 0.95)'
 const api = 'http://localhost:8080' 
-const networks = ['nys-ris','npmrds']
+const networks = ['nys_ris','npmrds']
 const network = networks[0]
 
 

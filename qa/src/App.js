@@ -1,13 +1,13 @@
 import React from 'react';
 
-import {BrowserRouter as Router, Switch, Route, Link} from 'react-router-dom';
+import {BrowserRouter as Router, Switch, Route} from 'react-router-dom';
 
-import qaLayerFactory from 'layer/npmrd-qs.layer';
+import qaLayerFactory from 'layer-new/npmrd-qa.layer';
 import AvlMap from './AvlMap';
 import ShstMatchControl from './ShstMatchControl';
 
 function App() {
-  const qaLayer = qaLayerFactory({active: true});
+  const qaLayer = qaLayerFactory({active: false});
 
   return (
     <div style={{height: '100vh'}}>

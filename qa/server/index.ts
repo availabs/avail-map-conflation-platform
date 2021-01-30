@@ -1,5 +1,3 @@
-/* eslint-disable import/no-extraneous-dependencies */
-
 import {existsSync} from 'fs';
 import {join, isAbsolute} from 'path';
 
@@ -60,8 +58,8 @@ socketServer.listen(server.server);
 EventBus.injectSocketServer(socketServer);
 
 socketServer.sockets.on('connection', socket => {
-  socket.onAny((event, action) => {
-    EventBus.emitAction(event, action, true)
+  socket.onAny((event: string, action: any) => {
+    EventBus.emitAction(event, action)
   })
 })
 
@@ -85,6 +83,7 @@ server.get('/shst/shst-references', (req, res, next) => {
 
     return next();
   } catch (err) {
+    console.error(err)
     return next(err);
   }
 });
@@ -121,6 +120,7 @@ server.get('/shared-streets/shst-references', (req, res, next) => {
 
     return next();
   } catch (err) {
+    console.error(err)
     return next(err);
   }
 });
@@ -136,6 +136,23 @@ server.get('/:targetMap/raw-shapefile', (req, res, next) => {
 
     return next();
   } catch (err) {
+    console.error(err)
+    return next(err);
+  }
+});
+
+server.get('/:targetMap/raw-shapefile-properties', (req, res, next) => {
+  try {
+    const {targetMap} = req.params;
+
+    const controller = targetMapControllers[targetMap];
+    const rawTargetMapFeatureProperties = controller.getRawTargetMapFeatureProperties();
+
+    res.send(rawTargetMapFeatureProperties);
+
+    return next();
+  } catch (err) {
+    console.error(err)
     return next(err);
   }
 });
@@ -156,6 +173,7 @@ server.get('/:targetMap/features', (req, res, next) => {
 
     return next();
   } catch (err) {
+    console.error(err)
     return next(err);
   }
 });
@@ -171,6 +189,7 @@ server.get('/:targetMap/shst-matches-metadata', (req, res, next) => {
 
     return next();
   } catch (err) {
+    console.error(err)
     return next(err);
   }
 });
@@ -186,6 +205,7 @@ server.get('/:targetMap/shst-chosen-matches', (req, res, next) => {
 
     return next();
   } catch (err) {
+    console.error(err)
     return next(err);
   }
 });
@@ -203,7 +223,6 @@ server.post('/:targetMap/run-shst-matcher', (req, res, next) => {
     return next();
   } catch (err) {
     console.error(err)
-
     return next(err);
   }
 });

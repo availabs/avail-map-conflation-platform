@@ -1,5 +1,5 @@
 /* eslint-disable no-restricted-syntax */
-import { v4 as uuidv4 } from 'uuid';
+import {v4 as uuidv4} from 'uuid';
 
 // import { Server, Request, Response, Next } from 'restify';
 
@@ -45,6 +45,16 @@ class TargetMapController {
     return turf.featureCollection(allRawTargetMapFeatures);
   }
 
+  getRawTargetMapFeatureProperties() {
+    const rawTargetMapFeatureProperties = [
+      ...this.targetMapDao.makeRawEdgeFeaturesIterator(),
+    ].map(feature => {
+      return {...feature.properties, id: feature.id, featureLengthKm: turf.length(feature)}
+    });
+
+    return rawTargetMapFeatureProperties
+  }
+
   getFeatures(ids: string[]) {
     const rawTargetMapFeatures = this.targetMapDao.getRawEdgeFeatures(ids);
 
@@ -56,7 +66,7 @@ class TargetMapController {
 
     const response = {};
 
-    for (const { targetMapId, shstMatchesMetadata } of matchesMetadataIter) {
+    for (const {targetMapId, shstMatchesMetadata} of matchesMetadataIter) {
       response[targetMapId] = shstMatchesMetadata;
     }
 

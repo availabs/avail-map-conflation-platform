@@ -287,7 +287,7 @@ export const npmrdsStyle =  {
 };
 
 export const risStyle =  {
-  "id": "nys-ris",
+  "id": "nys_ris",
   "type": "line",
   "source": "ris2019Source",
   "source-layer": "nys_ris_2019",
