@@ -23,7 +23,7 @@ export default class ShstLayer extends MapLayer {
   constructor(...args: any) {
     super(...args)
 
-    this.initialiseStatVariables()
+    this.initializeStatVariables()
   }
 
   async onAdd(map: Map) {
@@ -57,7 +57,7 @@ export default class ShstLayer extends MapLayer {
     this.highlightUnMatched = this.highlightUnMatched.bind(this)
   }
 
-  initialiseStatVariables() {
+  initializeStatVariables() {
     this.numMatches = 0;
     this.numJoins = 0;
     this.match10 = 0
