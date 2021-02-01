@@ -5,15 +5,15 @@ import {v4 as uuidv4} from 'uuid';
 
 import * as turf from '@turf/turf';
 
-import TargetMapDAO from '../../../../src/utils/TargetMapDatabases/TargetMapDAO';
+import TargetMapDAO, {RawTargetMapFeatureFeature} from '../../../../src/utils/TargetMapDatabases/TargetMapDAO';
 import TargetMapConflationBlackboardDao from '../../../../src/services/Conflation/TargetMapConflationBlackboardDao';
 
 import UIControlledSharedStreetsMatchRunner, {
   UIControlledSharedStreetsMatchRunnerConfig,
 } from '../../services/ShstMatcher/UIControlledSharedStreetsMatchRunner';
 
-class TargetMapController {
-  private targetMapDao: TargetMapDAO;
+abstract class TargetMapController<T extends RawTargetMapFeatureFeature> {
+  private targetMapDao: TargetMapDAO<T>;
 
   private lazy: {
     targetMapConflationBlackboardDao?: TargetMapConflationBlackboardDao;
@@ -23,7 +23,7 @@ class TargetMapController {
 
   constructor(schema: string) {
     this.schema = schema;
-    this.targetMapDao = new TargetMapDAO(null, this.schema);
+    this.targetMapDao = new TargetMapDAO<T>(null, this.schema);
 
     this.lazy = {};
   }
@@ -37,23 +37,17 @@ class TargetMapController {
     return this.lazy.targetMapConflationBlackboardDao;
   }
 
-  getRawTargetMapFeatureCollection() {
-    const allRawTargetMapFeatures = [
+  get allRawTargetMapFeatures() {
+    return [
       ...this.targetMapDao.makeRawEdgeFeaturesIterator(),
     ];
-
-    return turf.featureCollection(allRawTargetMapFeatures);
   }
 
-  getRawTargetMapFeatureProperties() {
-    const rawTargetMapFeatureProperties = [
-      ...this.targetMapDao.makeRawEdgeFeaturesIterator(),
-    ].map(feature => {
-      return {...feature.properties, id: feature.id, featureLengthKm: turf.length(feature)}
-    });
-
-    return rawTargetMapFeatureProperties
+  getRawTargetMapFeatureCollection() {
+    return turf.featureCollection(this.allRawTargetMapFeatures);
   }
+
+  abstract getRawTargetMapFeatureProperties(): T['properties'] & {featureLengthKm: number, isUnidirectional: boolean}
 
   getFeatures(ids: string[]) {
     const rawTargetMapFeatures = this.targetMapDao.getRawEdgeFeatures(ids);
