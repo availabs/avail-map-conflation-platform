@@ -75,7 +75,7 @@ const getChosenForwardMatchesStatsRow = (layer: ShstLayer) => (
     <div style={{display: 'flex', paddingBottom: 15}}>
       <div style={{flex: '1', textAlign: 'center', cursor: 'pointer'}} onClick={layer.highlightUnJoined} >
         <div>% Matching </div>
-        <div style={divStyle}> {((layer.numChosenMatched / layer.numEdges) * 100).toFixed(1)}</div>
+        <div style={divStyle}> {((layer.numChosenForwardMatched / layer.numEdges) * 100).toFixed(1)}</div>
 
       </div>
       <div style={{flex: '1', textAlign: 'center'}}>
@@ -98,7 +98,7 @@ const getChosenBackwardMatchesStatsRow = (layer: ShstLayer) => (
     <div style={{display: 'flex', paddingBottom: 15}}>
       <div style={{flex: '1', textAlign: 'center', cursor: 'pointer'}} onClick={layer.highlightUnJoined} >
         <div>% Matching </div>
-        <div style={divStyle}> {((layer.numChosenMatched / layer.numEdges) * 100).toFixed(1)}</div>
+        <div style={divStyle}> {((layer.numChosenBackwardMatched / layer.numUnidirectional) * 100).toFixed(1)}</div>
 
       </div>
       <div style={{flex: '1', textAlign: 'center'}}>

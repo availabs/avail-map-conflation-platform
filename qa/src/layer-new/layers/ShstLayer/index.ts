@@ -14,8 +14,11 @@ export default class ShstLayer extends MapLayer {
   shstMatches!: any[];
   chosenMatches!: any[];
 
+  numUnidirectional!: number;
+
   numMatched!: number;
-  numChosenMatched!: number;
+  numChosenForwardMatched!: number;
+  numChosenBackwardMatched!: number;
 
   match10!: number;
   match50!: number;
@@ -56,6 +59,11 @@ export default class ShstLayer extends MapLayer {
     this.chosenMatches = chosenMatches
 
     this.numEdges = this.rawTargetMapFeatureProperties.length
+
+    this.numUnidirectional = this.rawTargetMapFeatureProperties.reduce(
+      (acc, tmEdgeProps) => acc + +(tmEdgeProps.isUnidirectional),
+      0
+    )
 
     console.log({
       rawTargetMapFeatureProperties,
@@ -129,12 +137,12 @@ export default class ShstLayer extends MapLayer {
         this.match10 += matchLenDiff < 10 ? 1 : 0
         this.match50 += matchLenDiff < 50 ? 1 : 0
       }
-
     })
   }
 
   calculateChosenShstMatchStatistics() {
-    this.numChosenMatched = 0
+    this.numChosenForwardMatched = 0
+    this.numChosenBackwardMatched = 0
     this.chosenForward10 = 0
     this.chosenForward50 = 0
     this.chosenBackward10 = 0
@@ -148,8 +156,6 @@ export default class ShstLayer extends MapLayer {
       if (!tmEdgeChosenMatches) {
         this.unChosenMatched.push(rawTMEdgeProps.id)
       } else {
-        this.numChosenMatched += 1
-
         type MergedChosenMatchLengths = {
           forward: Record<SharedStreetsReferenceId, number[]>,
           backward: Record<SharedStreetsReferenceId, number[]>
@@ -180,11 +186,19 @@ export default class ShstLayer extends MapLayer {
               acc + (mergedChosenMatchLengths.forward[shstRefId][1] - mergedChosenMatchLengths.forward[shstRefId][0]),
             0)
 
+        if (totalForwardChosenMatchLengths > 0) {
+          this.numChosenForwardMatched += 1
+        }
+
         const totalBackwardChosenMatchLengths = Object.keys(mergedChosenMatchLengths.backward)
           .reduce(
             (acc, shstRefId) =>
               acc + (mergedChosenMatchLengths.backward[shstRefId][1] - mergedChosenMatchLengths.backward[shstRefId][0]),
             0)
+
+        if (totalBackwardChosenMatchLengths > 0) {
+          this.numChosenBackwardMatched += 1
+        }
 
         // if (totalBackwardChosenMatchLengths && isUnidirectional) {
         // console.log('UNIDIRECTIONAL HAS BACKWARDS')
