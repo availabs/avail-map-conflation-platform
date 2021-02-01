@@ -28,15 +28,13 @@ export type TargetMapSchema = string;
 
 export interface RawTargetMapFeatureFeature
   extends turf.Feature<turf.LineString | turf.MultiLineString> {
-  id: number;
-  properties: turf.Feature['properties'] & { lineartmc: string };
-  geometry: turf.LineString | turf.MultiLineString;
+  id: number | string;
 }
 
 export interface TargetMapEdgeFeature
   extends turf.Feature<turf.LineString | turf.MultiLineString> {
   id: number;
-  properties: turf.Feature['properties'] & { lineartmc: string };
+  properties: turf.Feature['properties'];
   geometry: turf.LineString | turf.MultiLineString;
 }
 export type TargetMapEntityLabel = string;
@@ -60,7 +58,10 @@ export type TargetMapId = number | string;
 export type PreloadedTargetMapEdge = {
   startCoord: Position;
   endCoord: Position;
-  properties: { targetMapId: TargetMapId } & Record<string, any>;
+  properties: Record<string, any> & {
+    targetMapId: TargetMapId;
+    isUnidirectional: boolean;
+  };
   coordinates: [number, number][] | [number, number][][];
 };
 
@@ -107,7 +108,7 @@ const getEdgeIdsWhereClause = (n: number | null) =>
     ? `WHERE ( edge_id IN (${new Array(n).fill('?')}) )`
     : '';
 
-export default class TargetMapDAO {
+export default class TargetMapDAO<T extends RawTargetMapFeatureFeature> {
   private readonly db: any;
 
   readonly schema: string | null;
@@ -351,15 +352,17 @@ export default class TargetMapDAO {
     return edgeId;
   }
 
-  private *makePreloadedTargetMapEdgesIterator(): Generator<
-    PreloadedTargetMapEdge
-  > {
+  private *makePreloadedTargetMapEdgesIterator(
+    rawEdgeIsUnidirectional: (feature: T) => boolean,
+  ): Generator<PreloadedTargetMapEdge> {
     const rawEdgesIter = this.makeRawEdgeFeaturesIterator();
 
     // Cannot do in database using SQL because we need to compute GeoProx keys
     //   The alternative it to iterate over the table while simultaneously mutating it.
     for (const feature of rawEdgesIter) {
       const { id: targetMapId } = feature;
+
+      const isUnidirectional = rawEdgeIsUnidirectional(feature);
 
       const mergedLineStrings = lineMerge(feature).sort(
         (a, b) => turf.length(b) - turf.length(a),
@@ -373,7 +376,7 @@ export default class TargetMapDAO {
         longestLineStringCoords.length - 1
       ];
 
-      const properties = { targetMapId };
+      const properties = { targetMapId, isUnidirectional };
 
       const startCoord: turf.Position = [start_longitude, start_latitude];
       const endCoord: turf.Position = [end_longitude, end_latitude];
@@ -399,13 +402,16 @@ export default class TargetMapDAO {
 
     Reasons: 1) Since the Nodes and Edges are the primitive elements of TMPPG, clearing all derived tables preserves database consistency. 2) Coupling initialization and loading allows the user to rollback all changes by killing the loading process before it completes.
   */
-  loadMicroLevel(clean: boolean = true) {
+  loadMicroLevel(
+    clean: boolean = true,
+    rawEdgeIsUnidirectional: (feature: T) => boolean,
+  ) {
     const xdb = this.db.openConnectionToDb(this.schema);
 
     // @ts-ignore
     xdb.unsafeMode(true);
 
-    const xTargetMapDao = new TargetMapDAO(xdb, this.schema);
+    const xTargetMapDao = new TargetMapDAO<T>(xdb, this.schema);
 
     try {
       xdb.exec('BEGIN EXCLUSIVE;');
@@ -414,7 +420,9 @@ export default class TargetMapDAO {
         xTargetMapDao.initializeTargetMapDatabase();
       }
 
-      const edgesIterator = xTargetMapDao.makePreloadedTargetMapEdgesIterator();
+      const edgesIterator = xTargetMapDao.makePreloadedTargetMapEdgesIterator(
+        rawEdgeIsUnidirectional,
+      );
 
       for (const edge of edgesIterator) {
         const {
@@ -752,7 +760,7 @@ export default class TargetMapDAO {
   }
 
   // Can be wrapped to create induced subgraph iterators.
-  *makeRawEdgeFeaturesIterator(): Generator<RawTargetMapFeatureFeature> {
+  *makeRawEdgeFeaturesIterator(): Generator<T> {
     const iter = this.allRawEdgeFeaturesStmt.raw().iterate();
 
     for (const [f] of iter) {

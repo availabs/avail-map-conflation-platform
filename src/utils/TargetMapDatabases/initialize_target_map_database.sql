@@ -154,6 +154,7 @@ CREATE TABLE __SCHEMA_QUALIFIER__target_map_ppg_edges (
     --   targetMapId, targetMapMesoId, targetMapMacroId
     --   MUST be set using target_map_ppg_paths id and label
     CHECK(json_extract(properties, '$.targetMapId') IS NOT NULL),
+    CHECK(json_extract(properties, '$.isUnidirectional') BETWEEN 0 AND 1),
     CHECK(json_extract(properties, '$.targetMapMesoId') IS NULL),
     CHECK(json_extract(properties, '$.targetMapMacroId') IS NULL),
 

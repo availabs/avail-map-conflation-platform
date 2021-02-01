@@ -477,5 +477,6 @@ export interface NysRoadInventorySystemProperties {
 
 export interface NysRoadInventorySystemFeature
   extends turf.Feature<turf.LineString | turf.MultiLineString> {
+  id: number;
   properties: NysRoadInventorySystemProperties;
 }
