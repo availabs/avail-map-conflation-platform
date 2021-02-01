@@ -52,4 +52,15 @@ export interface SharedStreetsReferenceFeature
   };
 }
 
+export interface SharedStreetsIntersectionFeature
+  extends turf.Feature<turf.Point> {
+  id: SharedStreetsIntersectionId;
+  properties: {
+    id: SharedStreetsIntersectionId;
+    nodeId: number | string;
+    inboundReferenceIds: Array<SharedStreetsReferenceId>;
+    outboundReferenceIds: Array<SharedStreetsReferenceId>;
+  };
+}
+
 export type SharedStreetsGeometryId = SharedStreetsReferenceFeature['properties']['geometryId'];
