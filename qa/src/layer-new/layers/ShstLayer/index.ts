@@ -2,21 +2,33 @@ import {Map} from 'mapbox-gl'
 
 import MapLayer from "AvlMap/MapLayer"
 
+import {SharedStreetsReferenceId} from '../../../domain/TargetMapConflationBlackboardDomain/types'
+
 // const COLOR = 'rgba(255, 255, 255, 0.95)'
 const api = 'http://localhost:8080'
 const networks = ['nys_ris', 'npmrds']
 const network = networks[0]
 
 export default class ShstLayer extends MapLayer {
-  numMatches!: number;
-  numJoins!: number;
+  rawTargetMapFeatureProperties!: any[];
+  shstMatches!: any[];
+  chosenMatches!: any[];
+
+  numMatched!: number;
+  numChosenMatched!: number;
+
   match10!: number;
   match50!: number;
-  join10!: number;
-  join50!: number;
+
+  chosenForward10!: number;
+  chosenForward50!: number;
+
+  chosenBackward10!: number;
+  chosenBackward50!: number;
+
   numEdges!: number;
-  rawTargetMapFeatureProperties!: any[];
   unMatched!: any[]
+  unChosenMatched!: any[]
   unJoined!: any[]
   schedSegments!: any[]
 
@@ -30,26 +42,31 @@ export default class ShstLayer extends MapLayer {
     super.onAdd(map);
 
     const [
+      rawTargetMapFeatureProperties,
       shstMatches,
-      chosenShstMatches,
-      rawTargetMapFeatureProperties
+      chosenMatches,
     ] = await Promise.all([
+      fetch(`${api}/${network}/raw-shapefile-properties`).then(r => r.json()),
       fetch(`${api}/${network}/shst-matches-metadata`).then(r => r.json()),
       fetch(`${api}/${network}/shst-chosen-matches`).then(r => r.json()),
-      fetch(`${api}/${network}/raw-shapefile-properties`).then(r => r.json())
     ])
 
+    this.rawTargetMapFeatureProperties = rawTargetMapFeatureProperties
+    this.shstMatches = shstMatches
+    this.chosenMatches = chosenMatches
+
+    this.numEdges = this.rawTargetMapFeatureProperties.length
+
     console.log({
+      rawTargetMapFeatureProperties,
       shstMatches,
-      chosenShstMatches,
-      rawTargetMapFeatureProperties
+      chosenMatches,
     })
 
-    this.calculateStatistics(
-      shstMatches,
-      rawTargetMapFeatureProperties,
-      chosenShstMatches
-    )
+    this.calculateShstMatchStatistics()
+    this.calculateChosenShstMatchStatistics()
+
+    this.component.forceUpdate()
 
     this.toggleTarget = this.toggleTarget.bind(this)
     this.targetOpacity = this.targetOpacity.bind(this)
@@ -58,65 +75,141 @@ export default class ShstLayer extends MapLayer {
   }
 
   initializeStatVariables() {
-    this.numMatches = 0;
-    this.numJoins = 0;
-    this.match10 = 0
-    this.match50 = 0
-    this.join10 = 0
-    this.join50 = 0
+    this.numMatched = 0;
 
     this.numEdges = 0
     this.rawTargetMapFeatureProperties = []
     this.unMatched = []
+    this.unChosenMatched = []
     this.unJoined = []
   }
 
-  calculateStatistics(shstMatches, rawTargetMapFeatureProperties, chosenShstMatches) {
+  calculateShstMatchStatistics() {
+    this.numMatched = 0
+    this.match10 = 0
+    this.match50 = 0
 
-    rawTargetMapFeatureProperties.forEach((rawTMEdgeProps) => {
+    this.rawTargetMapFeatureProperties.forEach((rawTMEdgeProps) => {
+      const {featureLengthKm, isUnidirectional} = rawTMEdgeProps
 
-      this.numMatches += shstMatches[rawTMEdgeProps.id] ? 1 : 0
-      if (!shstMatches[rawTMEdgeProps.id]) {
+      const tmEdgeMatches = this.shstMatches[rawTMEdgeProps.id]
+
+      if (!tmEdgeMatches) {
         this.unMatched.push(rawTMEdgeProps.id)
       } else {
+        this.numMatched += 1
 
-        let matchLength = shstMatches[rawTMEdgeProps.id]
-          .reduce((out, curr) => {return out + (curr.shst_ref_end - curr.shst_ref_start)}, 0)
+        const mergedShstMatchLengths = tmEdgeMatches.reduce(
+          (acc: Record<SharedStreetsReferenceId, number[]>, shstMatch: any) => {
+            const {shstReferenceId, shst_ref_start, shst_ref_end} = shstMatch
 
-        this.match10 += Math.abs(rawTMEdgeProps.featureLengthKm * 1000 - matchLength) < 5 ? 1 : 0
-        this.match50 += Math.abs(rawTMEdgeProps.featureLengthKm * 1000 - matchLength) < 50 ? 1 : 0
+            acc[shstReferenceId] = acc[shstReferenceId] || [Infinity, -Infinity]
 
-      }
+            if (shst_ref_start < acc[shstReferenceId][0]) {
+              acc[shstReferenceId][0] = shst_ref_start
+            }
 
-      this.numJoins += chosenShstMatches[rawTMEdgeProps.id] ? 1 : 0
+            if (shst_ref_end > acc[shstReferenceId][1]) {
+              acc[shstReferenceId][1] = shst_ref_end
+            }
 
-      if (!chosenShstMatches[rawTMEdgeProps.id]) {
+            return acc
+          }, {})
 
-        this.unJoined.push(rawTMEdgeProps.id)
+        const totalShstMatchLengths = Object.keys(mergedShstMatchLengths)
+          .reduce(
+            (acc, shstRefId) =>
+              acc + mergedShstMatchLengths[shstRefId][1] - mergedShstMatchLengths[shstRefId][0],
+            0)
 
-      } else {
+        const shstMatchLenPerDirection = isUnidirectional ? totalShstMatchLengths : totalShstMatchLengths / 2
 
+        const matchLenDiff = Math.abs(featureLengthKm * 1000 - shstMatchLenPerDirection)
 
-        let matchLength = chosenShstMatches[rawTMEdgeProps.id]
-          .reduce((out, curr) => {
-            return out + (curr.shst_ref_end - curr.shst_ref_start)
-          }, 0)
-
-        this.join10 += Math.abs(rawTMEdgeProps.featureLengthKm * 1000 - matchLength) < 5 ? 1 : 0
-        this.join50 += Math.abs(rawTMEdgeProps.featureLengthKm * 1000 - matchLength) < 50 ? 1 : 0
-
+        this.match10 += matchLenDiff < 10 ? 1 : 0
+        this.match50 += matchLenDiff < 50 ? 1 : 0
       }
 
     })
+  }
 
-    this.rawTargetMapFeatureProperties = rawTargetMapFeatureProperties
-    this.numEdges = rawTargetMapFeatureProperties.length
+  calculateChosenShstMatchStatistics() {
+    this.numChosenMatched = 0
+    this.chosenForward10 = 0
+    this.chosenForward50 = 0
+    this.chosenBackward10 = 0
+    this.chosenBackward50 = 0
 
-    this.highlightTarget(this.unMatched)
+    this.rawTargetMapFeatureProperties.forEach((rawTMEdgeProps) => {
+      const {featureLengthKm, isUnidirectional} = rawTMEdgeProps
 
-    this.component.forceUpdate()
-    console.log('done',)
+      const tmEdgeChosenMatches = this.chosenMatches[rawTMEdgeProps.id]
 
+      if (!tmEdgeChosenMatches) {
+        this.unChosenMatched.push(rawTMEdgeProps.id)
+      } else {
+        this.numChosenMatched += 1
+
+        type MergedChosenMatchLengths = {
+          forward: Record<SharedStreetsReferenceId, number[]>,
+          backward: Record<SharedStreetsReferenceId, number[]>
+        }
+
+        const mergedChosenMatchLengths = tmEdgeChosenMatches.reduce(
+          (acc: MergedChosenMatchLengths, shstMatch: any) => {
+            const {shstReferenceId, isForward, shst_ref_start, shst_ref_end} = shstMatch
+
+            const dir = isForward ? 'forward' : 'backward'
+
+            acc[dir][shstReferenceId] = acc[dir][shstReferenceId] || [Infinity, -Infinity]
+
+            if (shst_ref_start < acc[dir][shstReferenceId][0]) {
+              acc[dir][shstReferenceId][0] = shst_ref_start
+            }
+
+            if (shst_ref_end > acc[dir][shstReferenceId][1]) {
+              acc[dir][shstReferenceId][1] = shst_ref_end
+            }
+
+            return acc
+          }, {forward: {}, backward: {}})
+
+        const totalForwardChosenMatchLengths = Object.keys(mergedChosenMatchLengths.forward)
+          .reduce(
+            (acc, shstRefId) =>
+              acc + (mergedChosenMatchLengths.forward[shstRefId][1] - mergedChosenMatchLengths.forward[shstRefId][0]),
+            0)
+
+        const totalBackwardChosenMatchLengths = Object.keys(mergedChosenMatchLengths.backward)
+          .reduce(
+            (acc, shstRefId) =>
+              acc + (mergedChosenMatchLengths.backward[shstRefId][1] - mergedChosenMatchLengths.backward[shstRefId][0]),
+            0)
+
+        // if (totalBackwardChosenMatchLengths && isUnidirectional) {
+        // console.log('UNIDIRECTIONAL HAS BACKWARDS')
+        // console.log({
+        // road_name: rawTMEdgeProps.road_name,
+        // oneway: rawTMEdgeProps.oneway,
+        // divided: rawTMEdgeProps.divided,
+        // primary_dir_lanes: rawTMEdgeProps.primary_dir_lanes,
+        // total_lanes: rawTMEdgeProps.total_lanes,
+        // totalBackwardChosenMatchLengths,
+        // })
+        // }
+
+        const forwardMatchLenDiffMeters = Math.abs(featureLengthKm - totalForwardChosenMatchLengths) * 1000
+        const backwardMatchLenDiffMeters = Math.abs(featureLengthKm - totalBackwardChosenMatchLengths) * 1000
+
+        // console.log(isUnidirectional, featureLengthKm, chosenMatchLenPerDirection)
+
+        this.chosenForward10 += forwardMatchLenDiffMeters < 10 ? 1 : 0
+        this.chosenForward50 += forwardMatchLenDiffMeters < 50 ? 1 : 0
+
+        this.chosenBackward10 += backwardMatchLenDiffMeters < 10 ? 1 : 0
+        this.chosenBackward50 += backwardMatchLenDiffMeters < 50 ? 1 : 0
+      }
+    })
   }
 
   highlightUnJoined() {

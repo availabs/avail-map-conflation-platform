@@ -46,36 +46,69 @@ const getNumEdgesRow = (layer: ShstLayer) => (
 )
 
 const getShstMatchesStatsRow = (layer: ShstLayer) => (
-  <div style={{display: 'flex', paddingBottom: 15}}>
-    <div style={{flex: '1', textAlign: 'center', cursor: 'pointer'}} onClick={layer.highlightUnMatched} >
-      <div>% Matching </div>
-      <div style={divStyle}> {((layer.numMatches / layer.numEdges) * 100).toFixed(1)}</div>
+  <div>
+    <div style={{flex: '1', textAlign: 'center', width: '100%'}}>
+      <div>SharedStreets Matches Stats</div>
     </div>
-    <div style={{flex: '1', textAlign: 'center'}}>
-      <div>5m </div>
-      <div style={divStyle}> {((layer.match10 / layer.numEdges) * 100).toFixed(1)}</div>
-    </div>
-    <div style={{flex: '1', textAlign: 'center'}}>
-      <div>50m </div>
-      <div style={divStyle}> {((layer.match50 / layer.numEdges) * 100).toFixed(1)}</div>
+    <div style={{display: 'flex', paddingBottom: 15}}>
+      <div style={{flex: '1', textAlign: 'center', cursor: 'pointer'}} onClick={layer.highlightUnMatched} >
+        <div>% Matching </div>
+        <div style={divStyle}> {((layer.numMatched / layer.numEdges) * 100).toFixed(1)}</div>
+      </div>
+      <div style={{flex: '1', textAlign: 'center'}}>
+        <div>5m </div>
+        <div style={divStyle}> {((layer.match10 / layer.numEdges) * 100).toFixed(1)}</div>
+      </div>
+      <div style={{flex: '1', textAlign: 'center'}}>
+        <div>50m </div>
+        <div style={divStyle}> {((layer.match50 / layer.numEdges) * 100).toFixed(1)}</div>
+      </div>
     </div>
   </div>
 )
 
-const getChosenShstMatchesStatsRow = (layer: ShstLayer) => (
-  <div style={{display: 'flex', paddingBottom: 15}}>
-    <div style={{flex: '1', textAlign: 'center', cursor: 'pointer'}} onClick={layer.highlightUnJoined} >
-      <div>% Matching </div>
-      <div style={divStyle}> {((layer.numJoins / layer.numEdges) * 100).toFixed(1)}</div>
+const getChosenForwardMatchesStatsRow = (layer: ShstLayer) => (
+  <div>
+    <div style={{flex: '1', textAlign: 'center', width: '100%'}}>
+      <div>Chosen Forward Matches Stats</div>
+    </div>
+    <div style={{display: 'flex', paddingBottom: 15}}>
+      <div style={{flex: '1', textAlign: 'center', cursor: 'pointer'}} onClick={layer.highlightUnJoined} >
+        <div>% Matching </div>
+        <div style={divStyle}> {((layer.numChosenMatched / layer.numEdges) * 100).toFixed(1)}</div>
 
+      </div>
+      <div style={{flex: '1', textAlign: 'center'}}>
+        <div>5m </div>
+        <div style={divStyle}> {((layer.chosenForward10 / layer.numEdges) * 100).toFixed(1)}</div>
+      </div>
+      <div style={{flex: '1', textAlign: 'center'}}>
+        <div>50m </div>
+        <div style={divStyle}> {((layer.chosenForward50 / layer.numEdges) * 100).toFixed(1)}</div>
+      </div>
     </div>
-    <div style={{flex: '1', textAlign: 'center'}}>
-      <div>5m </div>
-      <div style={divStyle}> {((layer.join10 / layer.numEdges) * 100).toFixed(1)}</div>
+  </div>
+)
+
+const getChosenBackwardMatchesStatsRow = (layer: ShstLayer) => (
+  <div>
+    <div style={{flex: '1', textAlign: 'center', width: '100%'}}>
+      <div>Chosen Backward Matches Stats</div>
     </div>
-    <div style={{flex: '1', textAlign: 'center'}}>
-      <div>50m </div>
-      <div style={divStyle}> {((layer.join50 / layer.numEdges) * 100).toFixed(1)}</div>
+    <div style={{display: 'flex', paddingBottom: 15}}>
+      <div style={{flex: '1', textAlign: 'center', cursor: 'pointer'}} onClick={layer.highlightUnJoined} >
+        <div>% Matching </div>
+        <div style={divStyle}> {((layer.numChosenMatched / layer.numEdges) * 100).toFixed(1)}</div>
+
+      </div>
+      <div style={{flex: '1', textAlign: 'center'}}>
+        <div>5m </div>
+        <div style={divStyle}> {((layer.chosenBackward10 / layer.numEdges) * 100).toFixed(1)}</div>
+      </div>
+      <div style={{flex: '1', textAlign: 'center'}}>
+        <div>50m </div>
+        <div style={divStyle}> {((layer.chosenBackward50 / layer.numEdges) * 100).toFixed(1)}</div>
+      </div>
     </div>
   </div>
 )
@@ -83,14 +116,16 @@ const getChosenShstMatchesStatsRow = (layer: ShstLayer) => (
 const getStatsTable = (layer: ShstLayer) => (
   <div style={containerStyle}>
     {
-      layer.numMatches ?
+      layer.numMatched ?
         (
           <React.Fragment>
             {getNumEdgesRow(layer)}
 
             {getShstMatchesStatsRow(layer)}
 
-            {getChosenShstMatchesStatsRow(layer)}
+            {getChosenForwardMatchesStatsRow(layer)}
+
+            {getChosenBackwardMatchesStatsRow(layer)}
           </React.Fragment>)
         : <div style={{flex: '1', textAlign: 'center'}}> <h4>Loading Conflation </h4></div >
     }
