@@ -74,8 +74,8 @@ const handleGdbEntry = (
 
     return { properties, shape };
   } catch (err) {
-    console.error('NYS RIS FID:', fid);
-    console.error(err);
+    console.warn('Error loading NYS RIS FID:', fid);
+    console.error(err.message);
     return null;
   }
 };
