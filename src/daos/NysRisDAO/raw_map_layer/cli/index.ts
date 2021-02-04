@@ -106,7 +106,7 @@ function* makeNysRisGeodatabaseIterator(
   const gdbtableFileDir =
     dirname(gdbtableFile) === '.' ? '' : `/${dirname(gdbtableFile)}`;
 
-  gdal.verbose();
+  // gdal.verbose();
 
   const dataset = gdal.open(
     `/vsitar/${nys_ris_geodatabase_tgz}${gdbtableFileDir}`,
