@@ -10,6 +10,8 @@ import Database, {
 
 import memoizeOne from 'memoize-one';
 
+import { SOURCE_MAP } from '../../constants/databaseSchemaNames';
+
 export type DatabaseSchemaName = string;
 export type DatabaseDirectory = string;
 
@@ -18,22 +20,21 @@ const IN_MEMORY = ':memory:';
 // const db = new Database(IN_MEMORY, { verbose: console.log });
 const db = new Database(IN_MEMORY);
 
-const registeredDatabases: string[] = Object.values(
-  require('../../constants/databaseSchemaNames'),
-);
+const envVarOutputDirOverride =
+  process.env.AVAIL_MAP_CONFLATION_OUTPUT_DIR || null;
 
-let OUTPUT_DIR = '';
+const envVaribleOutputDirPath =
+  envVarOutputDirOverride &&
+  (isAbsolute(envVarOutputDirOverride)
+    ? envVarOutputDirOverride
+    : join(process.cwd(), envVarOutputDirOverride));
 
-const verifyConfigured = () => {
-  if (OUTPUT_DIR === '') {
-    throw new Error('Database output_dir is not configured.');
-  }
-};
+const defaultOutputDirPath = join(__dirname, '../../../output/');
+
+const OUTPUT_DIR = envVaribleOutputDirPath || defaultOutputDirPath;
 
 // Needs to run after module is loaded so "main" has a chance to set.
 const getSqliteDir = memoizeOne(() => {
-  verifyConfigured();
-
   const sqliteDir = isAbsolute(OUTPUT_DIR)
     ? join(OUTPUT_DIR, 'sqlite')
     : join(process.cwd(), OUTPUT_DIR, 'sqlite');
@@ -54,8 +55,6 @@ const databaseFileExists = (
 ) => existsSync(join(databaseDirectory || getSqliteDir(), databaseSchemaName));
 
 const attachDatabase = (databaseSchemaName: string) => {
-  verifyConfigured();
-
   if (attachedDatabases.has(databaseSchemaName)) {
     return;
   }
@@ -67,9 +66,10 @@ const attachDatabase = (databaseSchemaName: string) => {
   attachedDatabases.add(databaseSchemaName);
 };
 
-const detachDatabase = (databaseSchemaName: string) => {
-  verifyConfigured();
+// The SOURCE_MAP database is automatically ATTACHED.
+attachDatabase(SOURCE_MAP);
 
+const detachDatabase = (databaseSchemaName: string) => {
   if (!attachedDatabases.has(databaseSchemaName)) {
     return;
   }
@@ -150,8 +150,6 @@ const preparedStmts = {};
 
 // Idempotent
 const prepare = (sql: string) => {
-  verifyConfigured();
-
   if (preparedStmts[sql]) {
     return preparedStmts[sql];
   }
@@ -161,16 +159,6 @@ const prepare = (sql: string) => {
   // https://stackoverflow.com/a/28841863/3970755
   preparedStmts[sql] = stmt;
   return stmt;
-};
-
-const setOutputDirectory = (outputDir: string) => {
-  if (OUTPUT_DIR === '') {
-    OUTPUT_DIR = outputDir;
-
-    registeredDatabases.forEach(attachDatabase);
-  } else if (OUTPUT_DIR !== outputDir) {
-    throw new Error('Output Directory cannot be changed.');
-  }
 };
 
 const makeDatabaseWritable = (databaseSchemaName: string) => {
@@ -196,7 +184,6 @@ const makeDatabaseReadOnly = (databaseSchemaName: string) => {
 // Can bind more db methods if they are needed.
 //   https://github.com/JoshuaWise/better-sqlite3/blob/master/docs/api.md
 export default {
-  setOutputDirectory,
   attachDatabase,
   prepare,
   exec: db.exec.bind(db),

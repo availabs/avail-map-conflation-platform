@@ -1,5 +1,10 @@
 # DBService
 
+## Output Directory
+
+To override the default output directory, set the AVAIL_MAP_CONFLATION_OUTPUT_DIR
+environment variable.
+
 ## SQLite
 
 Pipeline stages read from and write to SQLite databases.

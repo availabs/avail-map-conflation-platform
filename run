@@ -14,8 +14,6 @@ const yargs = require("yargs");
 //   their programmatic, camelCase names.
 require('ts-node').register()
 
-const {default: DbService} = require('./src/services/DbService')
-
 // OSM & SharedStreets Source Maps
 const source_map_load = require('./src/pipeline_transforms/source_map_load/yargs_wrapper')
 const {outputSourceMapShapefile} = require('./src/daos/SourceMapDao/outputShapefile/yargs_wrapper')
@@ -36,14 +34,7 @@ const gtfs_conflation_schedule_join = require("./src/pipeline_transforms/gtfs_co
 
 const output = require("./src/pipeline_transforms/output/yargs_wrapper");
 
-function addOutputDirToEnvironment(argv) {
-  const {output_dir} = argv;
-  DbService.setOutputDirectory(output_dir)
-  return argv;
-}
-
 const taskCommands = yargs
-  .middleware(addOutputDirToEnvironment)
   .parserConfiguration({
     "camel-case-expansion": false,
     "flatten-duplicate-arrays": false,
