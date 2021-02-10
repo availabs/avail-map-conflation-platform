@@ -21,5 +21,8 @@ backups/
 
 test.js
 
+*.spec.js
+*.spec.ts
+
 // Directories ending with timestamp
 *.[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]/
