@@ -1,6 +1,3 @@
-import {existsSync} from 'fs';
-import {join, isAbsolute} from 'path';
-
 import restify from 'restify';
 import corsMiddleware from 'restify-cors-middleware';
 
@@ -12,24 +9,7 @@ import NpmrdsController from './controllers/NpmrdsController';
 import NysRisController from './controllers/NysRisController';
 import * as SharedStreetsController from './controllers/SharedStreetsController';
 
-import db from '../../src/services/DbService';
-
 const PORT = process.env.PORT || 8080;
-
-const outputDir = process.env.OUTPUT_DIR || join(__dirname, '../output');
-
-const outputDirAbsolute = isAbsolute(outputDir)
-  ? outputDir
-  : join(process.cwd(), outputDir);
-
-if (!existsSync(outputDirAbsolute)) {
-  console.error(
-    `Conflation output directory ${outputDirAbsolute} does not exist.`,
-  );
-  process.exit(1);
-}
-
-db.setOutputDirectory(outputDirAbsolute);
 
 const server = restify.createServer();
 
@@ -219,6 +199,21 @@ server.post('/:targetMap/run-shst-matcher', (req, res, next) => {
     const uuid = controller.runShstMatch(config);
 
     res.send(uuid);
+
+    return next();
+  } catch (err) {
+    console.error(err)
+    return next(err);
+  }
+});
+
+server.get('/:targetMap/target-map-path-vicinity/:targetMapPathId', (req, res, next) => {
+  try {
+    const {targetMap, targetMapPathId} = req.params;
+
+    const vicinity = targetMapControllers[targetMap].getTargetMapPathVicinity(targetMapPathId);
+
+    res.send(vicinity)
 
     return next();
   } catch (err) {

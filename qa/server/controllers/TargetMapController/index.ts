@@ -1,12 +1,15 @@
 /* eslint-disable no-restricted-syntax */
 import {v4 as uuidv4} from 'uuid';
 
-// import { Server, Request, Response, Next } from 'restify';
-
 import * as turf from '@turf/turf';
 
-import TargetMapDAO, {RawTargetMapFeatureFeature} from '../../../../src/utils/TargetMapDatabases/TargetMapDAO';
+import TargetMapDAO, {
+  TargetMapPathId,
+  RawTargetMapFeatureFeature
+} from '../../../../src/utils/TargetMapDatabases/TargetMapDAO';
+
 import TargetMapConflationBlackboardDao from '../../../../src/services/Conflation/TargetMapConflationBlackboardDao';
+import TargetMapPathVicinity from '../../../../src/services/Conflation/TargetMapConflationHypothesesContexts/TargetMapPathVicinity'
 
 import UIControlledSharedStreetsMatchRunner, {
   UIControlledSharedStreetsMatchRunnerConfig,
@@ -92,6 +95,19 @@ abstract class TargetMapController<T extends RawTargetMapFeatureFeature> {
     }
 
     return response;
+  }
+
+  getTargetMapPathVicinity(targetMapPathId: TargetMapPathId) {
+    const vicinity = new TargetMapPathVicinity(this.blackboardDao, targetMapPathId)
+
+    return {
+      targetMapPathId: vicinity.targetMapPathId,
+      targetMapPath: vicinity.targetMapPathEdges,
+      targetMapPathShstMatches: vicinity.targetMapPathShstMatches,
+      nearbyTargetMapEdges: vicinity.nearbyTargetMapEdges,
+      nearbyTargetMapEdgesShstMatches: vicinity.nearbyTargetMapEdgesShstMatches,
+      vicinityShstReferences: vicinity.vicinitySharedStreetsReferences,
+    }
   }
 
   runShstMatch(config: UIControlledSharedStreetsMatchRunnerConfig) {

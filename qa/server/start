@@ -36,7 +36,10 @@ const {argv: {port, output_dir}} = yargs
 const tsNode = join(__dirname, '../node_modules/.bin/ts-node')
 const server = join(__dirname, './index.ts')
 
-const {error, stdout, stderr} = exec(`node ${tsNode} ${server}`, {env: {PORT: port, OUTPUT_DIR: output_dir}})
+const {error, stdout, stderr} = exec(
+  `node ${tsNode} ${server}`,
+  {env: {PORT: port, AVAIL_MAP_CONFLATION_OUTPUT_DIR: output_dir}}
+)
 
 stdout.pipe(process.stdout)
 stderr.pipe(process.stderr)
