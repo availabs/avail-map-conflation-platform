@@ -16,17 +16,22 @@ import { NPMRDS as SCHEMA } from '../../../constants/databaseSchemaNames';
 
 import TargetMapDAO from '../../../utils/TargetMapDatabases/TargetMapDAO';
 
-const targetMapDao = new TargetMapDAO(db, SCHEMA);
+import { NpmrdsTmcFeature } from '../raw_map_layer/domain/types';
 
 // @ts-ignore
 const wgs84 = gdal.SpatialReference.fromEPSG(4326);
 
 type gdalOFTType = string;
 
+type NpmrdsTargetMapDao = TargetMapDAO<NpmrdsTmcFeature>;
+
 const addFieldToLayer = (layer: gdal.Layer, name: string, type: gdalOFTType) =>
   layer.fields.add(new gdal.FieldDefn(name, type));
 
-const addRawNpmrdsLayer = (dataset: gdal.Dataset) => {
+const addRawNpmrdsLayer = (
+  targetMapDao: NpmrdsTargetMapDao,
+  dataset: gdal.Dataset,
+) => {
   // @ts-ignore
   const layer = dataset.layers.create(
     `raw_npmrds`,
@@ -248,7 +253,10 @@ const addRawNpmrdsLayer = (dataset: gdal.Dataset) => {
   }
 };
 
-const addShstMatchesLayer = (dataset: gdal.Dataset) => {
+const addShstMatchesLayer = (
+  targetMapDao: NpmrdsTargetMapDao,
+  dataset: gdal.Dataset,
+) => {
   // @ts-ignore
   const layer = dataset.layers.create(`shst_matches`, wgs84, gdal.LineString);
 
@@ -346,6 +354,8 @@ export default function outputShapefile({
   output_directory: string;
   clean?: boolean;
 }) {
+  const targetMapDao: NpmrdsTargetMapDao = new TargetMapDAO(db, SCHEMA);
+
   if (!output_directory) {
     console.error('The output_file parameter is required');
     process.exit(1);
@@ -357,8 +367,8 @@ export default function outputShapefile({
 
   const dataset = gdal.open(output_directory, 'w', 'ESRI Shapefile');
 
-  addRawNpmrdsLayer(dataset);
-  addShstMatchesLayer(dataset);
+  addRawNpmrdsLayer(targetMapDao, dataset);
+  addShstMatchesLayer(targetMapDao, dataset);
 
   dataset.close();
 }

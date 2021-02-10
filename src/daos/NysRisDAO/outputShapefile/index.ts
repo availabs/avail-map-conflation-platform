@@ -1,5 +1,4 @@
 /* eslint-disable no-restricted-syntax */
-
 import { existsSync } from 'fs';
 
 import * as turf from '@turf/turf';
@@ -15,18 +14,24 @@ import db from '../../../services/DbService';
 import { NYS_RIS as SCHEMA } from '../../../constants/databaseSchemaNames';
 
 import TargetMapDAO from '../../../utils/TargetMapDatabases/TargetMapDAO';
+// import TargetMapConflationBlackboardDao from '../../../services/Conflation/TargetMapConflationBlackboardDao';
 
-const targetMapDao = new TargetMapDAO(db, SCHEMA);
+import { NysRoadInventorySystemFeature } from '../raw_map_layer/domain/types';
 
 // @ts-ignore
 const wgs84 = gdal.SpatialReference.fromEPSG(4326);
 
 type gdalOFTType = string;
 
+type NysRisTargetMapDao = TargetMapDAO<NysRoadInventorySystemFeature>;
+
 const addFieldToLayer = (layer: gdal.Layer, name: string, type: gdalOFTType) =>
   layer.fields.add(new gdal.FieldDefn(name, type));
 
-const addRawNysRisLayer = (dataset: gdal.Dataset) => {
+const addRawNysRisLayer = (
+  targetMapDao: NysRisTargetMapDao,
+  dataset: gdal.Dataset,
+) => {
   // @ts-ignore
   const layer = dataset.layers.create(
     `raw_nys_ris`,
@@ -648,7 +653,10 @@ const addRawNysRisLayer = (dataset: gdal.Dataset) => {
   }
 };
 
-const addShstMatchesLayer = (dataset: gdal.Dataset) => {
+const addShstMatchesLayer = (
+  targetMapDao: TargetMapDAO,
+  dataset: gdal.Dataset,
+) => {
   // @ts-ignore
   const layer = dataset.layers.create(`shst_matches`, wgs84, gdal.LineString);
 
@@ -683,7 +691,11 @@ const addShstMatchesLayer = (dataset: gdal.Dataset) => {
   }
 };
 
-const addChosenShstMatchesLayer = (dataset: gdal.Dataset) => {
+/*
+const addChosenShstMatchesLayer = (
+  targetMapBBDao: TargetMapConflationBlackboardDao,
+  dataset: gdal.Dataset,
+) => {
   // @ts-ignore
   const layer = dataset.layers.create(
     `shst_chosen_matches`,
@@ -701,7 +713,8 @@ const addChosenShstMatchesLayer = (dataset: gdal.Dataset) => {
     addFieldToLayer(layer, name, type);
   }
 
-  const iter = targetMapDao.makeTargetMapEdgesChosenMatchesIterator();
+  // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME
+  const iter = targetMapBBDao.makeTargetMapEdgesChosenMatchesIterator();
 
   for (const { chosenMatchesFeatureCollection } of iter) {
     const shstMatches = chosenMatchesFeatureCollection?.features;
@@ -732,6 +745,7 @@ const addChosenShstMatchesLayer = (dataset: gdal.Dataset) => {
     }
   }
 };
+*/
 
 export default function outputShapefile({
   output_directory,
@@ -740,6 +754,9 @@ export default function outputShapefile({
   output_directory: string;
   clean?: boolean;
 }) {
+  const targetMapDao: NysRisTargetMapDao = new TargetMapDAO(db, SCHEMA);
+  // const targetMapBBDao = new TargetMapConflationBlackboardDao(SCHEMA);
+
   if (!output_directory) {
     console.error('The output_file parameter is required');
     process.exit(1);
@@ -751,9 +768,11 @@ export default function outputShapefile({
 
   const dataset = gdal.open(output_directory, 'w', 'ESRI Shapefile');
 
-  addRawNysRisLayer(dataset);
-  addShstMatchesLayer(dataset);
-  addChosenShstMatchesLayer(dataset);
+  addRawNysRisLayer(targetMapDao, dataset);
+  addShstMatchesLayer(targetMapDao, dataset);
+
+  // Uses deprecated method
+  // addChosenShstMatchesLayer(targetMapBBDao, dataset);
 
   dataset.close();
 }
