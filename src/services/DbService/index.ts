@@ -178,6 +178,7 @@ const makeDatabaseWritable = (databaseSchemaName: string) => {
   detachDatabase(databaseSchemaName);
 
   const databaseFilePath = getDatabaseFilePathForSchemaName(databaseSchemaName);
+  console.log(databaseFilePath);
 
   chmodSync(databaseFilePath, 0o777);
 
@@ -217,4 +218,5 @@ export default {
 
   // @ts-ignore
   unsafeMode: db.unsafeMode.bind(db),
+  close: db.close.bind(db),
 };
