@@ -164,7 +164,6 @@ const prepare = (sql: string) => {
 };
 
 const setOutputDirectory = (outputDir: string) => {
-  console.log('SQLite Databases Dir:', outputDir);
   if (OUTPUT_DIR === '') {
     OUTPUT_DIR = outputDir;
 
@@ -178,7 +177,6 @@ const makeDatabaseWritable = (databaseSchemaName: string) => {
   detachDatabase(databaseSchemaName);
 
   const databaseFilePath = getDatabaseFilePathForSchemaName(databaseSchemaName);
-  console.log(databaseFilePath);
 
   chmodSync(databaseFilePath, 0o777);
 
