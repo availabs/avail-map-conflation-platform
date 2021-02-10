@@ -2,6 +2,15 @@
 
 // Massive violation of single responsibility principle.
 
+/*
+    FIXME:  This modules ASSUMES that the SQLite database file exists
+            and that the database is already attached to it.
+
+            Also, the DB connection management is vastly improved in the
+              TargetMapSubnetConflationBlackboardDao.
+            This module SHOULD implement the solution used there.
+*/
+
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -114,8 +123,12 @@ export default class TargetMapDAO<T extends RawTargetMapFeatureFeature> {
   readonly schema: string | null;
 
   private readonly preparedStatements: {
+    targetMapDatabaseIsInitializedStmt?: Statement;
     queryTargetMapMetadata?: Statement;
+    listDataTablesStmt?: Statement;
     updateTargetMapMetadata?: Statement;
+    truncateTableStatements?: Record<string, Statement>;
+    tableIsCleanStmt?: Record<string, Statement>;
     setTargetMapIsCenterlineStmt?: Statement;
     insertNodeStmt?: Statement;
     insertEdgeStmt?: Statement;
@@ -141,16 +154,45 @@ export default class TargetMapDAO<T extends RawTargetMapFeatureFeature> {
 
     // Initialize the INSERT prepared statements.
     this.preparedStatements = {};
+
+    if (!this.targetMapDatabaseIsInitialized) {
+      this.initializeTargetMapDatabase();
+    }
   }
 
   private get schemaQualifier() {
     return this.schema === null ? '' : `${this.schema}.`;
   }
 
+  private get targetMapDatabaseIsInitializedStmt(): Statement {
+    this.preparedStatements.targetMapDatabaseIsInitializedStmt =
+      this.preparedStatements.targetMapDatabaseIsInitializedStmt ||
+      this.db.prepare(
+        `
+          SELECT EXISTS (
+            SELECT 1
+              FROM ${this.schemaQualifier}sqlite_master
+              WHERE (
+                ( type = 'table' )
+                AND
+                ( name = 'target_map_metadata' )
+              )
+          );
+        `,
+      );
+
+    // @ts-ignore
+    return this.preparedStatements.targetMapDatabaseIsInitializedStmt;
+  }
+
+  get targetMapDatabaseIsInitialized() {
+    return this.targetMapDatabaseIsInitializedStmt.raw().get()[0] === 1;
+  }
+
   /**
    * WARNING: Drops all existing tables in the TargetMapDatabase.
    */
-  initializeTargetMapDatabase() {
+  private initializeTargetMapDatabase() {
     const sql = initializeTargetMapDatabaseTemplateSql.replace(
       /__SCHEMA_QUALIFIER__/g,
       this.schemaQualifier,
@@ -395,6 +437,75 @@ export default class TargetMapDAO<T extends RawTargetMapFeatureFeature> {
     }
   }
 
+  private get listDataTablesStmt(): Statement {
+    this.preparedStatements.listDataTablesStmt =
+      this.preparedStatements.listDataTablesStmt ||
+      this.db.prepare(
+        `
+          SELECT
+              name
+            FROM ${this.schemaQualifier}sqlite_master
+            WHERE (
+              ( type = 'table' )
+              AND
+              ( name LIKE 'target_map%' )
+              AND
+              ( name != 'target_map_metadata' )
+              AND
+              ( name NOT LIKE '%geopoly_idx_node' )
+              AND
+              ( name NOT LIKE '%geopoly_idx_parent' )
+              AND
+              ( name NOT LIKE '%geopoly_idx_rowid' )
+            ) ;
+        `,
+      );
+
+    return this.preparedStatements.listDataTablesStmt;
+  }
+
+  private getTruncateTableStmt(tableName: string) {
+    this.preparedStatements.truncateTableStatements =
+      this.preparedStatements.truncateTableStatements || {};
+
+    this.preparedStatements.truncateTableStatements[tableName] =
+      this.preparedStatements.truncateTableStatements[tableName] ||
+      this.db.prepare(` DELETE FROM ${this.schemaQualifier}${tableName} ;`);
+
+    return this.preparedStatements.truncateTableStatements[tableName];
+  }
+
+  truncateAllDataTables() {
+    const dataTableNames = this.listDataTablesStmt.raw().all();
+
+    console.log(JSON.stringify({ dataTableNames }, null, 4));
+
+    dataTableNames.forEach((tableName) => {
+      this.getTruncateTableStmt(tableName).run();
+    });
+  }
+
+  private getTableIsCleanStmt(tableName: string) {
+    this.preparedStatements.tableIsCleanStmt =
+      this.preparedStatements.tableIsCleanStmt || {};
+
+    this.preparedStatements.tableIsCleanStmt[tableName] =
+      this.preparedStatements.tableIsCleanStmt[tableName] ||
+      this.db.prepare(
+        `SELECT EXISTS (SELECT 1 FROM ${this.schemaQualifier}${tableName});`,
+      );
+
+    return this.preparedStatements.tableIsCleanStmt[tableName];
+  }
+
+  get targetMapDatabaseDataTablesAreClean() {
+    const dataTableNames = this.listDataTablesStmt.raw().all();
+
+    return dataTableNames.every(
+      (tableName) => this.getTableIsCleanStmt(tableName).raw().get()[0] === 0,
+    );
+  }
+
   /**
     Warning: By default this method initializes the database. This allows the TargetMap PathPropertyGraph (TMPPG) tables initialization to happen in the same transaction as the Node and Edges loading.
 
@@ -417,7 +528,7 @@ export default class TargetMapDAO<T extends RawTargetMapFeatureFeature> {
       xdb.exec('BEGIN EXCLUSIVE;');
 
       if (clean) {
-        xTargetMapDao.initializeTargetMapDatabase();
+        xTargetMapDao.truncateAllDataTables();
       }
 
       const edgesIterator = xTargetMapDao.makePreloadedTargetMapEdgesIterator(
