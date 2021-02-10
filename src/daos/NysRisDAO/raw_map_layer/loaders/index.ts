@@ -209,8 +209,6 @@ const loadNysRisGeodatabase = (
 export async function loadNysRis(
   geodatabaseEntriesIterator: NysRoadInventorySystemGeodatabaseEntryIterator,
 ) {
-  db.makeDatabaseWritable(SCHEMA);
-
   const xdb = db.openLoadingConnectionToDb(SCHEMA);
 
   try {
@@ -223,10 +221,11 @@ export async function loadNysRis(
     xdb.exec('COMMIT');
   } catch (err) {
     xdb.exec('ROLLBACK;');
-    throw err;
+    console.error(err);
+    process.exit(1);
   } finally {
     xdb.exec(`VACUUM ${SCHEMA}; `);
     db.closeLoadingConnectionToDb(xdb);
-    db.makeDatabaseReadOnly(SCHEMA);
+    db.close();
   }
 }

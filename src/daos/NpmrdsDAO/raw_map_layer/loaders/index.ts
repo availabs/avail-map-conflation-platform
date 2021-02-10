@@ -310,8 +310,6 @@ export async function load(
   tmcIdentificationAsyncIterator: TmcIdentificationAsyncIterator,
   npmrdsShapefileIterator: NpmrdsShapefileIterator,
 ) {
-  db.makeDatabaseWritable(SCHEMA);
-
   const xdb = db.openLoadingConnectionToDb(SCHEMA);
 
   // @ts-ignore
@@ -335,6 +333,5 @@ export async function load(
     throw err;
   } finally {
     db.closeLoadingConnectionToDb(xdb);
-    db.makeDatabaseReadOnly(SCHEMA);
   }
 }
