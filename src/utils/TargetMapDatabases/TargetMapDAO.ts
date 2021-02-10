@@ -152,6 +152,7 @@ export default class TargetMapDAO<T extends RawTargetMapFeatureFeature> {
     this.db = xdb ?? db;
     this.schema = schema || null;
 
+    db.attachDatabase(schema);
     // Initialize the INSERT prepared statements.
     this.preparedStatements = {};
 
