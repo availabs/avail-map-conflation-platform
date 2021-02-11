@@ -124,6 +124,11 @@ export class TargetMapPathVicinity {
 
     return turf.featureCollection(Object.values(shstIntersections))
   }
+
+  get targetMapPathChosenMatchesFeatureCollection() {
+    return turf.featureCollection(this.targetMapPathChosenMatches)
+  }
+
 }
 
 export default {

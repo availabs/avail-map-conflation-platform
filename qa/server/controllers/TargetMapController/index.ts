@@ -2,6 +2,7 @@
 import {v4 as uuidv4} from 'uuid';
 
 import * as turf from '@turf/turf';
+import _ from 'lodash'
 
 import TargetMapDAO, {
   TargetMapPathId,
@@ -107,6 +108,8 @@ abstract class TargetMapController<T extends RawTargetMapFeature> {
       nearbyTargetMapEdges: vicinity.nearbyTargetMapEdges,
       nearbyTargetMapEdgesShstMatches: vicinity.nearbyTargetMapEdgesShstMatches,
       vicinityShstReferences: vicinity.vicinitySharedStreetsReferences,
+      targetMapPathChosenMatches: _.flattenDeep(vicinity.targetMapPathChosenFeatures),
+      nearbyTargetMapEdgesChosenMatches: _.flattenDeep(vicinity.nearbyTargetMapEdgesChosenFeatures),
     }
   }
 

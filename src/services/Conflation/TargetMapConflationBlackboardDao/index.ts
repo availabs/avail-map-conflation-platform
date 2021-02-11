@@ -20,11 +20,13 @@ import {
   SharedStreetsMatchMetadata,
   TargetMapSchema,
   TargetMapPathId,
+  TargetMapEdgeId,
   RawTargetMapFeature,
   TargetMapEdgeShstMatches,
   TargetMapPathMatchesIterator,
   SharedStreetsReferenceFeature,
   ChosenMatchMetadata,
+  ChosenMatchFeature,
 } from '../domain/types';
 
 export type TargetMapConflationBlackboardDaoConfig = {
@@ -669,6 +671,120 @@ export default class TargetMapConflationBlackboardDao<
         yield chosenMatch;
       }
     }
+  }
+
+  protected get targetMapEdgesChosenMatchesStmt(): Statement {
+    if (!this.preparedReadStatements.targetMapEdgesChosenMatchesStmt) {
+      this.preparedReadStatements.targetMapEdgesChosenMatchesStmt = this.dbReadConnection.prepare(
+        `
+          SELECT
+              json_object(
+                'targetMapId',       target_map_id,
+                'targetMapEdgeId',   edge_id,
+
+                'shstReferenceId',   shst_reference,
+
+                'isForward',         is_forward,
+                'edgeShstMatchIdx',  edge_shst_match_idx,
+
+                'sectionStart',      section_start,
+                'sectionEnd',        section_end
+              ) AS chosen_match_metadata
+            FROM ${this.blkbrdDbSchema}.target_map_edge_chosen_shst_matches
+              INNER JOIN ${this.targetMapSchema}.target_map_ppg_edge_id_to_target_map_id
+                USING (edge_id)
+            WHERE (
+              edge_id IN (
+                SELECT
+                    value AS edge_id
+                  FROM (
+                    SELECT json(?) AS tmap_edge_id_arr
+                  ) AS t, json_each(t.tmap_edge_id_arr)
+              )
+            )
+          ;
+        `,
+      );
+    }
+
+    // @ts-ignore
+    return this.preparedReadStatements.targetMapEdgesChosenMatchesStmt;
+  }
+
+  getChosenShstMatchesForTargetMapEdges(
+    targetMapEdgeIds: TargetMapEdgeId[],
+  ): ChosenMatchFeature[][] {
+    const chosenMatchesMetadata: ChosenMatchMetadata[] = this.targetMapEdgesChosenMatchesStmt
+      .raw()
+      .all([JSON.stringify(targetMapEdgeIds)])
+      .map((d) => JSON.parse(d));
+
+    const shstReferenceIds = _(chosenMatchesMetadata)
+      .map('shstReferenceId')
+      .uniq()
+      .value();
+
+    const shstReferences = SourceMapDAO.getShstReferences(shstReferenceIds);
+
+    const shstReferencesById = shstReferences.reduce((acc, shstReference) => {
+      const { id } = shstReference;
+
+      acc[id] = shstReference;
+
+      return acc;
+    }, {});
+
+    const chosenMatchFeaturesByTargetMapEdgeId: Record<
+      TargetMapEdgeId,
+      ChosenMatchFeature[]
+    > = chosenMatchesMetadata.reduce(
+      (
+        acc: Record<TargetMapEdgeId, ChosenMatchFeature[]>,
+        chosenMatchMetadata: ChosenMatchMetadata,
+      ) => {
+        const {
+          targetMapEdgeId,
+          shstReferenceId,
+          sectionStart,
+          sectionEnd,
+        } = chosenMatchMetadata;
+
+        const shstReference = shstReferencesById[shstReferenceId];
+
+        // @ts-ignore
+        const chosenMatch: ChosenMatchFeature = turf.lineSliceAlong(
+          shstReference,
+          sectionStart,
+          sectionEnd,
+          { units: 'kilometers' },
+        );
+
+        chosenMatch.properties = {
+          shstReferenceId: shstReference.id,
+          chosenMatchMetadata,
+        };
+
+        acc[targetMapEdgeId] = acc[targetMapEdgeId] || [];
+
+        acc[targetMapEdgeId].push(chosenMatch);
+
+        return acc;
+      },
+      {},
+    );
+
+    const toposorter = (a: ChosenMatchFeature, b: ChosenMatchFeature) =>
+      a.properties.chosenMatchMetadata.targetMapEdgeShstMatchIdx -
+      b.properties.chosenMatchMetadata.targetMapEdgeShstMatchIdx;
+
+    const chosenMatchesForTargetMapEdges = targetMapEdgeIds.map(
+      (targetMapEdgeId) =>
+        chosenMatchFeaturesByTargetMapEdgeId[targetMapEdgeId]?.sort(
+          toposorter,
+        ) || [],
+    );
+
+    return chosenMatchesForTargetMapEdges;
   }
 
   vacuumDatabase() {

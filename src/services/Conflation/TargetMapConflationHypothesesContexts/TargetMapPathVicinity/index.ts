@@ -20,6 +20,7 @@ import {
   TargetMapPathMatches,
   TargetMapPathMatchesRecord,
   TargetMapEdgeShstMatches,
+  ChosenMatchFeature,
 } from '../../domain/types';
 
 import getBufferPolygonCoordsForFeatures from './getBufferPolygonCoordsForFeatures';
@@ -135,6 +136,10 @@ export default class TargetMapPathVicinity {
     SharedStreetsReferenceId,
     SharedStreetsMatchFeature[]
   >;
+
+  readonly targetMapPathChosenFeatures: ChosenMatchFeature[][];
+
+  readonly nearbyTargetMapEdgesChosenFeatures: ChosenMatchFeature[][];
 
   readonly vicinityTargetMapEdgesShstMatches: TargetMapEdgeShstMatches[];
 
@@ -280,6 +285,23 @@ export default class TargetMapPathVicinity {
       [],
     );
 
+    const vicinityTargetMapEdgeIds = [
+      ...this.targetMapPathEdges.map(({ id }) => id),
+      ...this.nearbyTargetMapEdges.map(({ id }) => id),
+    ];
+
+    const chosenMatchFeatures = this.bbDao.getChosenShstMatchesForTargetMapEdges(
+      vicinityTargetMapEdgeIds,
+    );
+
+    this.targetMapPathChosenFeatures = this.targetMapPathEdges.map(
+      (_$, i) => chosenMatchFeatures[i],
+    );
+
+    this.nearbyTargetMapEdgesChosenFeatures = this.nearbyTargetMapEdges.map(
+      (_$, i) => chosenMatchFeatures[i + this.targetMapPathEdges.length],
+    );
+
     this.vicinityShstMatches = [
       ...this.targetMapPathShstMatches,
       ...this.nearbyTargetMapEdgesShstMatches,
@@ -315,16 +337,16 @@ export default class TargetMapPathVicinity {
     return this.bbDao.targetMapIsCenterline;
   }
 
+  get targetMapPathMatches(): TargetMapPathMatches | null {
+    return this.targetMapPathMatchesRecord.targetMapPathMatches;
+  }
+
   get targetMapPathsAreEulerian() {
     return this.bbDao.targetMapPathsAreEulerian;
   }
 
   get targetMapPathId(): TargetMapPathId {
     return this.targetMapPathMatchesRecord.targetMapPathId;
-  }
-
-  get targetMapPathMatches(): TargetMapPathMatches | null {
-    return this.targetMapPathMatchesRecord.targetMapPathMatches;
   }
 
   get targetMapPathEdgesFeatureCollection() {
