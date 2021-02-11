@@ -27,7 +27,7 @@ function App() {
               header="Conflation QA"
             />
           </Route>
-          <Route exact path="/target-map-path-vicinity">
+          <Route exact path="/target-map-path-vicinity/:targetMapPathId">
             <TargetMapPathVicinityView />
           </Route>
         </Switch>
