@@ -64,6 +64,16 @@ const getShstMatchesStatsRow = (layer: ShstLayer) => (
         <div style={divStyle}> {((layer.match50 / layer.numEdges) * 100).toFixed(1)}</div>
       </div>
     </div>
+    <div style={{display: 'flex', paddingBottom: 15}}>
+      <div style={{flex: '1', textAlign: 'center', cursor: 'pointer'}} onClick={layer.highlightUnMatched} >
+        <div>Mean Δ</div>
+        <div style={divStyle}> {layer.meanShstMatchLenDiff.toFixed(1)}</div>
+      </div>
+      <div style={{flex: '1', textAlign: 'center'}}>
+        <div>Median Δ</div>
+        <div style={divStyle}> {layer.medianShstMatchLenDiff.toFixed(1)}</div>
+      </div>
+    </div>
   </div>
 )
 
@@ -87,6 +97,17 @@ const getChosenForwardMatchesStatsRow = (layer: ShstLayer) => (
         <div style={divStyle}> {((layer.chosenForward50 / layer.numEdges) * 100).toFixed(1)}</div>
       </div>
     </div>
+
+    <div style={{display: 'flex', paddingBottom: 15}}>
+      <div style={{flex: '1', textAlign: 'center', cursor: 'pointer'}} onClick={layer.highlightUnMatched} >
+        <div>Mean Δ</div>
+        <div style={divStyle}> {layer.meanFChosenMatchLenDiff.toFixed(1)}</div>
+      </div>
+      <div style={{flex: '1', textAlign: 'center'}}>
+        <div>Median Δ</div>
+        <div style={divStyle}> {layer.medianFChosenMatchLenDiff.toFixed(1)}</div>
+      </div>
+    </div>
   </div>
 )
 
@@ -108,6 +129,17 @@ const getChosenBackwardMatchesStatsRow = (layer: ShstLayer) => (
       <div style={{flex: '1', textAlign: 'center'}}>
         <div>50m </div>
         <div style={divStyle}> {((layer.chosenBackward50 / layer.numEdges) * 100).toFixed(1)}</div>
+      </div>
+    </div>
+
+    <div style={{display: 'flex', paddingBottom: 15}}>
+      <div style={{flex: '1', textAlign: 'center', cursor: 'pointer'}} onClick={layer.highlightUnMatched} >
+        <div>Mean Δ</div>
+        <div style={divStyle}> {layer.meanBChosenMatchLenDiff.toFixed(1)}</div>
+      </div>
+      <div style={{flex: '1', textAlign: 'center'}}>
+        <div>Median Δ</div>
+        <div style={divStyle}> {layer.medianBChosenMatchLenDiff.toFixed(1)}</div>
       </div>
     </div>
   </div>

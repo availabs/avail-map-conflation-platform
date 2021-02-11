@@ -1,6 +1,9 @@
 import {Map} from 'mapbox-gl'
 
+import * as ss from 'simple-statistics'
+
 import MapLayer from "AvlMap/MapLayer"
+
 
 import {SharedStreetsReferenceId} from '../../../domain/TargetMapConflationBlackboardDomain/types'
 
@@ -23,11 +26,26 @@ export default class ShstLayer extends MapLayer {
   match10!: number;
   match50!: number;
 
+  meanShstMatchLenDiff!: number;
+  medianShstMatchLenDiff!: number;
+  stddevShstMatchLenDiff!: number;
+  varShstMatchLenDiff!: number;
+
   chosenForward10!: number;
   chosenForward50!: number;
 
+  meanFChosenMatchLenDiff!: number;
+  medianFChosenMatchLenDiff!: number;
+  stddevFChosenMatchLenDiff!: number;
+  varFChosenMatchLenDiff!: number;
+
   chosenBackward10!: number;
   chosenBackward50!: number;
+
+  meanBChosenMatchLenDiff!: number;
+  medianBChosenMatchLenDiff!: number;
+  stddevBChosenMatchLenDiff!: number;
+  varBChosenMatchLenDiff!: number;
 
   numEdges!: number;
   unMatched!: any[]
@@ -97,6 +115,8 @@ export default class ShstLayer extends MapLayer {
     this.match10 = 0
     this.match50 = 0
 
+    const matchLenDiffs: number[] = []
+
     this.rawTargetMapFeatureProperties.forEach((rawTMEdgeProps) => {
       const {featureLengthKm, isUnidirectional} = rawTMEdgeProps
 
@@ -133,11 +153,17 @@ export default class ShstLayer extends MapLayer {
         const shstMatchLenPerDirection = isUnidirectional ? totalShstMatchLengths : totalShstMatchLengths / 2
 
         const matchLenDiff = Math.abs(featureLengthKm * 1000 - shstMatchLenPerDirection)
+        matchLenDiffs.push(matchLenDiff)
 
         this.match10 += matchLenDiff < 10 ? 1 : 0
         this.match50 += matchLenDiff < 50 ? 1 : 0
       }
     })
+
+    this.meanShstMatchLenDiff = ss.mean(matchLenDiffs)
+    this.medianShstMatchLenDiff = ss.median(matchLenDiffs)
+    this.stddevShstMatchLenDiff = ss.standardDeviation(matchLenDiffs)
+    this.varShstMatchLenDiff = ss.variance(matchLenDiffs)
   }
 
   calculateChosenShstMatchStatistics() {
@@ -148,8 +174,11 @@ export default class ShstLayer extends MapLayer {
     this.chosenBackward10 = 0
     this.chosenBackward50 = 0
 
+    const forwardMatchLenDiffs: number[] = []
+    const backwardMatchLenDiffs: number[] = []
+
     this.rawTargetMapFeatureProperties.forEach((rawTMEdgeProps) => {
-      const {featureLengthKm, isUnidirectional} = rawTMEdgeProps
+      const {featureLengthKm} = rawTMEdgeProps
 
       const tmEdgeChosenMatches = this.chosenMatches[rawTMEdgeProps.id]
 
@@ -200,22 +229,11 @@ export default class ShstLayer extends MapLayer {
           this.numChosenBackwardMatched += 1
         }
 
-        // if (totalBackwardChosenMatchLengths && isUnidirectional) {
-        // console.log('UNIDIRECTIONAL HAS BACKWARDS')
-        // console.log({
-        // road_name: rawTMEdgeProps.road_name,
-        // oneway: rawTMEdgeProps.oneway,
-        // divided: rawTMEdgeProps.divided,
-        // primary_dir_lanes: rawTMEdgeProps.primary_dir_lanes,
-        // total_lanes: rawTMEdgeProps.total_lanes,
-        // totalBackwardChosenMatchLengths,
-        // })
-        // }
-
         const forwardMatchLenDiffMeters = Math.abs(featureLengthKm - totalForwardChosenMatchLengths) * 1000
         const backwardMatchLenDiffMeters = Math.abs(featureLengthKm - totalBackwardChosenMatchLengths) * 1000
 
-        // console.log(isUnidirectional, featureLengthKm, chosenMatchLenPerDirection)
+        forwardMatchLenDiffs.push(forwardMatchLenDiffMeters)
+        backwardMatchLenDiffs.push(backwardMatchLenDiffMeters)
 
         this.chosenForward10 += forwardMatchLenDiffMeters < 10 ? 1 : 0
         this.chosenForward50 += forwardMatchLenDiffMeters < 50 ? 1 : 0
@@ -224,6 +242,18 @@ export default class ShstLayer extends MapLayer {
         this.chosenBackward50 += backwardMatchLenDiffMeters < 50 ? 1 : 0
       }
     })
+
+    console.log({forwardMatchLenDiffs, backwardMatchLenDiffs})
+
+    this.meanFChosenMatchLenDiff = ss.mean(forwardMatchLenDiffs)
+    this.medianFChosenMatchLenDiff = ss.median(forwardMatchLenDiffs)
+    this.stddevFChosenMatchLenDiff = ss.standardDeviation(forwardMatchLenDiffs)
+    this.varFChosenMatchLenDiff = ss.variance(forwardMatchLenDiffs)
+
+    this.meanBChosenMatchLenDiff = ss.mean(backwardMatchLenDiffs)
+    this.medianBChosenMatchLenDiff = ss.median(backwardMatchLenDiffs)
+    this.stddevBChosenMatchLenDiff = ss.standardDeviation(backwardMatchLenDiffs)
+    this.varBChosenMatchLenDiff = ss.variance(backwardMatchLenDiffs)
   }
 
   highlightUnJoined() {

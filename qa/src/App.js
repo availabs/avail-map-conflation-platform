@@ -4,7 +4,7 @@ import {BrowserRouter as Router, Switch, Route} from 'react-router-dom';
 
 import qaLayerFactory from 'layer-new/npmrd-qa.layer';
 import AvlMap from './AvlMap';
-import ShstMatchControl from './ShstMatchControl';
+import TargetMapPathVicinityView from './views/TargetMapPathVicinityView'
 
 function App() {
   const qaLayer = qaLayerFactory({active: false});
@@ -27,11 +27,8 @@ function App() {
               header="Conflation QA"
             />
           </Route>
-          <Route exact path="/shst-match">
-            <ShstMatchControl />
-          </Route>
-          <Route exact path="/shst-match/:uuid">
-            <ShstMatchControl />
+          <Route exact path="/target-map-path-vicinity">
+            <TargetMapPathVicinityView />
           </Route>
         </Switch>
       </Router>
