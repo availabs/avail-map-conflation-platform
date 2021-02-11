@@ -19,6 +19,7 @@ const IN_MEMORY = ':memory:';
 
 // const db = new Database(IN_MEMORY, { verbose: console.log });
 const db = new Database(IN_MEMORY);
+db.pragma('foreign_keys=ON');
 
 const envVarOutputDirOverride =
   process.env.AVAIL_MAP_CONFLATION_OUTPUT_DIR || null;
@@ -114,6 +115,7 @@ const openConnectionToDb = (
 ): SqliteDatabase => {
   // const xdb = new Database(IN_MEMORY, { verbose: console.log });
   const xdb = new Database(IN_MEMORY, config);
+  xdb.pragma('foreign_keys=ON');
 
   attachDatabaseToConnection(xdb, databaseSchemaName, databaseDirectory);
 
@@ -135,6 +137,7 @@ const openLoadingConnectionToDb = (
 
   // const xdb = new Database(IN_MEMORY, { verbose: console.log });
   const xdb = new Database(IN_MEMORY);
+  xdb.pragma('foreign_keys=ON');
 
   xdb.exec(`ATTACH DATABASE '${databaseFilePath}' AS ${databaseSchemaName};`);
 

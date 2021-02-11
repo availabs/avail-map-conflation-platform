@@ -5,7 +5,7 @@ import * as TargetMapDaoTypes from '../../../utils/TargetMapDatabases/TargetMapD
 
 import * as ShstSourceMapTypes from '../../../daos/SourceMapDao/domain/types';
 
-export type RawTargetMapFeatureFeature = TargetMapDaoTypes.RawTargetMapFeatureFeature;
+export type RawTargetMapFeature = TargetMapDaoTypes.RawTargetMapFeature;
 export type TargetMapSchema = TargetMapDaoTypes.TargetMapSchema;
 export type TargetMapId = TargetMapDaoTypes.TargetMapId;
 export type TargetMapEdge = TargetMapDaoTypes.TargetMapEdge;
@@ -102,7 +102,7 @@ export type ToposortedShstRefs = {
   backwardPaths: SharedStreetsReferenceFeature[][];
 };
 
-export type ChosenSharedStreetsMatch = {
+export type ChosenMatchMetadata = {
   targetMapId: TargetMapId;
   targetMapEdgeId: TargetMapEdgeId;
   isForward: boolean;
@@ -110,4 +110,8 @@ export type ChosenSharedStreetsMatch = {
   shstReferenceId: SharedStreetsReferenceId;
   sectionStart: number;
   sectionEnd: number;
+};
+
+export type ChosenMatchFeature = SharedStreetsReferenceFeature & {
+  properties: { chosenMatchMetadata: ChosenMatchMetadata };
 };

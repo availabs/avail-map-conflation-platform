@@ -18,41 +18,41 @@ the LDBC Graph Query Language Task Force.” (2018).
 See: https://www.gqlstandards.org/
 */
 
--- NOTE: __SCHEMA_QUALIFIER__ replaced with '<attached database>.' or ''
+-- NOTE: __SCHEMA__. replaced with '<attached database>.' or ''
 
 -- Drop all the tables. Because of FOREIGN KEY REFERENCES, order matters.
-DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_metadata ;
+DROP TABLE IF EXISTS __SCHEMA__.target_map_metadata ;
 
-DROP VIEW IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_path_feature_collections ;
-DROP VIEW IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_edge_line_features ;
-DROP VIEW IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_node_point_features ;
+DROP VIEW IF EXISTS __SCHEMA__.target_map_ppg_path_feature_collections ;
+DROP VIEW IF EXISTS __SCHEMA__.target_map_ppg_edge_line_features ;
+DROP VIEW IF EXISTS __SCHEMA__.target_map_ppg_node_point_features ;
 
-DROP INDEX IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_edges_target_map_id_idx;
-DROP INDEX IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_path_edges_edge_id_idx ;
+DROP INDEX IF EXISTS __SCHEMA__.target_map_ppg_edges_target_map_id_idx;
+DROP INDEX IF EXISTS __SCHEMA__.target_map_ppg_path_edges_edge_id_idx ;
 
-DROP VIEW IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_edge_id_to_target_map_id;
+DROP VIEW IF EXISTS __SCHEMA__.target_map_ppg_edge_id_to_target_map_id;
 
-DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_nodes_geopoly_idx;
-DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_edges_geopoly_idx;
+DROP TABLE IF EXISTS __SCHEMA__.target_map_ppg_nodes_geopoly_idx;
+DROP TABLE IF EXISTS __SCHEMA__.target_map_ppg_edges_geopoly_idx;
 
-DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_node_labels ;
-DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_edge_labels ;
-DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_path_labels ;
+DROP TABLE IF EXISTS __SCHEMA__.target_map_ppg_node_labels ;
+DROP TABLE IF EXISTS __SCHEMA__.target_map_ppg_edge_labels ;
+DROP TABLE IF EXISTS __SCHEMA__.target_map_ppg_path_labels ;
 
-DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_path_edges ;
-DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_paths;
+DROP TABLE IF EXISTS __SCHEMA__.target_map_ppg_path_edges ;
+DROP TABLE IF EXISTS __SCHEMA__.target_map_ppg_paths;
 
-DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_edges;
+DROP TABLE IF EXISTS __SCHEMA__.target_map_ppg_edges;
 
-DROP TABLE IF EXISTS __SCHEMA_QUALIFIER__target_map_ppg_nodes;
+DROP TABLE IF EXISTS __SCHEMA__.target_map_ppg_nodes;
 
 
 -- ========== Target Map Nodes ==========
-CREATE TABLE __SCHEMA_QUALIFIER__target_map_metadata
+CREATE TABLE __SCHEMA__.target_map_metadata
   AS
     SELECT json('{}') AS metadata;
 
-CREATE TABLE __SCHEMA_QUALIFIER__target_map_ppg_nodes (
+CREATE TABLE __SCHEMA__.target_map_ppg_nodes (
     node_id      INTEGER PRIMARY KEY AUTOINCREMENT,
 
     lon          REAL NOT NULL,
@@ -66,7 +66,7 @@ CREATE TABLE __SCHEMA_QUALIFIER__target_map_ppg_nodes (
 
 -- Using JOIN table so we can enforce integrity constraint.
 
-CREATE TABLE __SCHEMA_QUALIFIER__target_map_ppg_node_labels (
+CREATE TABLE __SCHEMA__.target_map_ppg_node_labels (
   node_id   INTEGER NOT NULL,
   label     TEXT NOT NULL,
 
@@ -80,7 +80,7 @@ CREATE TABLE __SCHEMA_QUALIFIER__target_map_ppg_node_labels (
   --   ON DELETE CASCADE
 ) WITHOUT ROWID;
 
-CREATE VIEW __SCHEMA_QUALIFIER__target_map_ppg_node_point_features
+CREATE VIEW __SCHEMA__.target_map_ppg_node_point_features
   AS
     SELECT
         json_set( -- Set $.id
@@ -124,7 +124,7 @@ CREATE VIEW __SCHEMA_QUALIFIER__target_map_ppg_node_point_features
 
 -- Create a spatial index on the nodes
 
-CREATE VIRTUAL TABLE __SCHEMA_QUALIFIER__target_map_ppg_nodes_geopoly_idx
+CREATE VIRTUAL TABLE __SCHEMA__.target_map_ppg_nodes_geopoly_idx
   USING geopoly(node_id) ;
 
 -- ========== Target Map Edges ==========
@@ -133,7 +133,7 @@ CREATE VIRTUAL TABLE __SCHEMA_QUALIFIER__target_map_ppg_nodes_geopoly_idx
 --   we records the from_node and end_node in their own columns.
 --   Internal nodes, of Geospatial interest, are in the feature.geometry.coordinates.
 --   The target_map_ppg_edges_geopoly_idx facilitates Geospatial queries.
-CREATE TABLE __SCHEMA_QUALIFIER__target_map_ppg_edges (
+CREATE TABLE __SCHEMA__.target_map_ppg_edges (
     edge_id        INTEGER PRIMARY KEY AUTOINCREMENT,
     from_node_id   INTEGER NOT NULL,
     to_node_id     INTEGER NOT NULL,
@@ -141,12 +141,13 @@ CREATE TABLE __SCHEMA_QUALIFIER__target_map_ppg_edges (
     properties     TEXT NOT NULL, -- JSON
     coordinates    TEXT NOT NULL, -- GeoJSON LineString or MultiLineString coordinates
 
-    -- We want node deletions to require explicitly deleting edges, so no CASCADEs.
     FOREIGN KEY(from_node_id)
-      REFERENCES target_map_ppg_nodes(node_id),
+      REFERENCES target_map_ppg_nodes(node_id)
+      ON DELETE CASCADE,
 
     FOREIGN KEY(to_node_id)
-      REFERENCES target_map_ppg_nodes(node_id),
+      REFERENCES target_map_ppg_nodes(node_id)
+      ON DELETE CASCADE,
 
     CHECK(json_valid(properties)),
 
@@ -178,12 +179,12 @@ CREATE TABLE __SCHEMA_QUALIFIER__target_map_ppg_edges (
     )
 ) ;
 
-CREATE UNIQUE INDEX __SCHEMA_QUALIFIER__target_map_ppg_edges_target_map_id_idx
+CREATE UNIQUE INDEX __SCHEMA__.target_map_ppg_edges_target_map_id_idx
   ON target_map_ppg_edges (json_extract(properties, '$.targetMapId'));
 
 -- Using JOIN table so we can enforce integrity constraint.
 
-CREATE VIEW __SCHEMA_QUALIFIER__target_map_ppg_edge_id_to_target_map_id
+CREATE VIEW __SCHEMA__.target_map_ppg_edge_id_to_target_map_id
   AS
     SELECT
         edge_id,
@@ -191,7 +192,7 @@ CREATE VIEW __SCHEMA_QUALIFIER__target_map_ppg_edge_id_to_target_map_id
       FROM target_map_ppg_edges ;
 
 
-CREATE TABLE __SCHEMA_QUALIFIER__target_map_ppg_edge_labels (
+CREATE TABLE __SCHEMA__.target_map_ppg_edge_labels (
   edge_id   INTEGER NOT NULL,
   label     TEXT NOT NULL,
 
@@ -202,7 +203,7 @@ CREATE TABLE __SCHEMA_QUALIFIER__target_map_ppg_edge_labels (
     ON DELETE CASCADE
 ) WITHOUT ROWID;
 
-CREATE VIEW __SCHEMA_QUALIFIER__target_map_ppg_edge_line_features
+CREATE VIEW __SCHEMA__.target_map_ppg_edge_line_features
   AS
     SELECT
         a.edge_id,
@@ -251,7 +252,7 @@ CREATE VIEW __SCHEMA_QUALIFIER__target_map_ppg_edge_line_features
 
 -- Create a spatial index on the edges
 
-CREATE VIRTUAL TABLE __SCHEMA_QUALIFIER__target_map_ppg_edges_geopoly_idx
+CREATE VIRTUAL TABLE __SCHEMA__.target_map_ppg_edges_geopoly_idx
   USING geopoly(edge_id) ;
 
 -- ========== Target Map Paths ==========
@@ -259,8 +260,8 @@ CREATE VIRTUAL TABLE __SCHEMA_QUALIFIER__target_map_ppg_edges_geopoly_idx
 -- To facilitate topological queries over the road network,
 --   we records the from_node and end_node in their own columns.
 --   Internal nodes, of Geospatial interest, are in the feature.geometry.coordinates.
---   The __SCHEMA_QUALIFIER__target_map_ppg_paths_geopoly_idx facilitates Geospatial queries.
-CREATE TABLE __SCHEMA_QUALIFIER__target_map_ppg_paths (
+--   The __SCHEMA__.target_map_ppg_paths_geopoly_idx facilitates Geospatial queries.
+CREATE TABLE __SCHEMA__.target_map_ppg_paths (
     path_id        INTEGER PRIMARY KEY AUTOINCREMENT,
     properties     TEXT, -- JSON
 
@@ -269,7 +270,7 @@ CREATE TABLE __SCHEMA_QUALIFIER__target_map_ppg_paths (
 
 -- Using JOIN table so we can enforce integrity constraint.
 
-CREATE TABLE __SCHEMA_QUALIFIER__target_map_ppg_path_labels (
+CREATE TABLE __SCHEMA__.target_map_ppg_path_labels (
   path_id   INTEGER NOT NULL,
   label     TEXT NOT NULL,
 
@@ -280,7 +281,7 @@ CREATE TABLE __SCHEMA_QUALIFIER__target_map_ppg_path_labels (
     ON DELETE CASCADE
 ) WITHOUT ROWID;
 
-CREATE TABLE __SCHEMA_QUALIFIER__target_map_ppg_path_edges (
+CREATE TABLE __SCHEMA__.target_map_ppg_path_edges (
   path_id         INTEGER NOT NULL,
   path_edge_idx   INTEGER NOT NULL,
   edge_id         INTEGER NOT NULL,
@@ -292,14 +293,15 @@ CREATE TABLE __SCHEMA_QUALIFIER__target_map_ppg_path_edges (
     ON DELETE CASCADE,
   FOREIGN KEY(edge_id)
     REFERENCES target_map_ppg_edges(edge_id)
+    ON DELETE CASCADE
 ) WITHOUT ROWID ;
 
-CREATE INDEX __SCHEMA_QUALIFIER__target_map_ppg_path_edges_edge_id_idx
+CREATE INDEX __SCHEMA__.target_map_ppg_path_edges_edge_id_idx
   ON target_map_ppg_path_edges (edge_id) ;
 
 -- See spike/sqlite_ordered_arrays/test.sql for an example of creating an array recursively
 
-CREATE VIEW __SCHEMA_QUALIFIER__target_map_ppg_path_feature_collections
+CREATE VIEW __SCHEMA__.target_map_ppg_path_feature_collections
   AS
     SELECT
       path_id,

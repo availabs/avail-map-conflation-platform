@@ -20,11 +20,11 @@ import {
   SharedStreetsMatchMetadata,
   TargetMapSchema,
   TargetMapPathId,
-  RawTargetMapFeatureFeature,
+  RawTargetMapFeature,
   TargetMapEdgeShstMatches,
   TargetMapPathMatchesIterator,
   SharedStreetsReferenceFeature,
-  ChosenSharedStreetsMatch,
+  ChosenMatchMetadata,
 } from '../domain/types';
 
 export type TargetMapConflationBlackboardDaoConfig = {
@@ -41,10 +41,12 @@ const initializeBlackBoardDatabaseTemplateSql = readFileSync(
   initializeSqlPath,
 ).toString();
 
-export default class TargetMapConflationBlackboardDao {
+export default class TargetMapConflationBlackboardDao<
+  T extends RawTargetMapFeature
+> {
   readonly targetMapSchema: TargetMapSchema;
 
-  protected readonly targetMapDao: TargetMapDAO;
+  protected readonly targetMapDao: TargetMapDAO<T>;
 
   readonly blkbrdDbSchema: DatabaseSchemaName;
 
@@ -72,7 +74,9 @@ export default class TargetMapConflationBlackboardDao {
     insertChosenShstMatchStmt?: Statement;
   };
 
-  makeTargetMapEdgeFeaturesGeoProximityIterator: TargetMapDAO['makeTargetMapEdgesGeoproximityIterator'];
+  makeTargetMapEdgeFeaturesGeoProximityIterator: TargetMapDAO<
+    T
+  >['makeTargetMapEdgesGeoproximityIterator'];
 
   constructor(
     targetMapSchema: TargetMapSchema,
@@ -104,10 +108,7 @@ export default class TargetMapConflationBlackboardDao {
     this.preparedReadStatements = {};
     this.preparedWriteStatements = {};
 
-    this.targetMapDao = new TargetMapDAO(
-      this.dbReadConnection,
-      this.targetMapSchema,
-    );
+    this.targetMapDao = new TargetMapDAO(this.targetMapSchema);
 
     if (!this.databaseHasBeenInitialized) {
       this.beginWriteTransaction();
@@ -323,7 +324,7 @@ export default class TargetMapConflationBlackboardDao {
   }
 
   *makeShstMatchMetadataByTargetMapIdIterator(): Generator<{
-    targetMapId: RawTargetMapFeatureFeature['id'];
+    targetMapId: RawTargetMapFeature['id'];
     shstMatchesMetadata: SharedStreetsMatchMetadata[];
   }> {
     const iter = this.shstMatchMetadataByTargetMapIdStmt.raw().iterate();
@@ -568,7 +569,7 @@ export default class TargetMapConflationBlackboardDao {
   }
 
   protected insertChosenShstMatch(
-    chosenShstMatch: ChosenSharedStreetsMatch,
+    chosenShstMatch: ChosenMatchMetadata,
   ): boolean | null {
     const {
       targetMapEdgeId,
@@ -596,7 +597,7 @@ export default class TargetMapConflationBlackboardDao {
   }
 
   async bulkLoadChosenShstMatches(
-    chosenShstMatchesIter: Generator<ChosenSharedStreetsMatch, void, unknown>,
+    chosenShstMatchesIter: Generator<ChosenMatchMetadata, void, unknown>,
   ) {
     // FIXME: I'd rather load the matching using a loading connection.
     //        However, I was getting a locked database error.
@@ -657,7 +658,7 @@ export default class TargetMapConflationBlackboardDao {
     return this.preparedReadStatements.chosenShstMatchesPathStmt;
   }
 
-  *makeChosenShstMatchesIterator(): Generator<ChosenSharedStreetsMatch> {
+  *makeChosenShstMatchesIterator(): Generator<ChosenMatchMetadata> {
     const iter = this.chosenShstMatchesPathStmt.raw().iterate();
 
     for (const [chosenMatchesStr] of iter) {

@@ -5,7 +5,7 @@ import * as turf from '@turf/turf';
 
 import TargetMapDAO, {
   TargetMapPathId,
-  RawTargetMapFeatureFeature
+  RawTargetMapFeature
 } from '../../../../src/utils/TargetMapDatabases/TargetMapDAO';
 
 import TargetMapConflationBlackboardDao from '../../../../src/services/Conflation/TargetMapConflationBlackboardDao';
@@ -15,7 +15,7 @@ import UIControlledSharedStreetsMatchRunner, {
   UIControlledSharedStreetsMatchRunnerConfig,
 } from '../../services/ShstMatcher/UIControlledSharedStreetsMatchRunner';
 
-abstract class TargetMapController<T extends RawTargetMapFeatureFeature> {
+abstract class TargetMapController<T extends RawTargetMapFeature> {
   private targetMapDao: TargetMapDAO<T>;
 
   private lazy: {
@@ -26,7 +26,7 @@ abstract class TargetMapController<T extends RawTargetMapFeatureFeature> {
 
   constructor(schema: string) {
     this.schema = schema;
-    this.targetMapDao = new TargetMapDAO<T>(null, this.schema);
+    this.targetMapDao = new TargetMapDAO<T>(this.schema);
 
     this.lazy = {};
   }

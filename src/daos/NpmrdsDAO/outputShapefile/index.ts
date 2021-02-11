@@ -10,8 +10,6 @@ import { sync as rimrafSync } from 'rimraf';
 
 import _ from 'lodash';
 
-import db from '../../../services/DbService';
-
 import { NPMRDS as SCHEMA } from '../../../constants/databaseSchemaNames';
 
 import TargetMapDAO from '../../../utils/TargetMapDatabases/TargetMapDAO';
@@ -354,7 +352,7 @@ export default function outputShapefile({
   output_directory: string;
   clean?: boolean;
 }) {
-  const targetMapDao: NpmrdsTargetMapDao = new TargetMapDAO(db, SCHEMA);
+  const targetMapDao: NpmrdsTargetMapDao = new TargetMapDAO(SCHEMA);
 
   if (!output_directory) {
     console.error('The output_file parameter is required');

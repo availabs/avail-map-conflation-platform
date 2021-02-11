@@ -2,8 +2,6 @@
 
 import { strict as assert } from 'assert';
 
-import db from '../../../../services/DbService';
-
 import { NPMRDS as SCHEMA } from '../../../../constants/databaseSchemaNames';
 
 import TargetMapDAO from '../../../../utils/TargetMapDatabases/TargetMapDAO';
@@ -18,15 +16,8 @@ const MESO_LEVEL_PATH = 'MESO_LEVEL_PATH';
 
 // eslint-disable-next-line import/prefer-default-export
 export default async function loadMesoLevelPaths() {
-  const xdb = db.openLoadingConnectionToDb(SCHEMA);
-
-  // @ts-ignore
-  xdb.unsafeMode(true);
-
   try {
-    xdb.exec('BEGIN EXCLUSIVE;');
-
-    const targetMapDao = new TargetMapDAO(xdb, SCHEMA);
+    const targetMapDao = new TargetMapDAO(SCHEMA);
 
     targetMapDao.targetMapPathsAreEulerian = true;
 
@@ -84,13 +75,9 @@ export default async function loadMesoLevelPaths() {
       }
     }
 
-    xdb.exec('COMMIT');
-
     targetMapDao.vacuumDatabase();
   } catch (err) {
-    xdb.exec('ROLLBACK;');
-    throw err;
-  } finally {
-    db.closeLoadingConnectionToDb(xdb);
+    console.error(err);
+    process.exit(1);
   }
 }
