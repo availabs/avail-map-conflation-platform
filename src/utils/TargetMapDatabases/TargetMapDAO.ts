@@ -133,6 +133,7 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
     targetMapIdsForEdgeIdsStmts?: Record<number, Statement>;
     edgeIdsForTargetMapIdsStmts?: Record<number, Statement>;
     allPathsTraversingEdgesStmt?: Record<number, Statement>;
+    prepareTargetMapPathEdgesStmt?: Statement;
     rawEdgeFeaturesStmt?: Statement;
     allRawEdgeFeaturesStmt?: Statement;
     groupedRawEdgeFeaturesStmt?: Record<number, Record<number, Statement>>;
@@ -726,6 +727,43 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
 
     for (const [pathId] of iter) {
       yield pathId;
+    }
+  }
+
+  private get preparedTargetMapPathEdgesStmt(): Statement {
+    this.preparedReadStatements.prepareTargetMapPathEdgesStmt =
+      this.preparedReadStatements.prepareTargetMapPathEdgesStmt ||
+      this.dbReadConnection.prepare(
+        `
+          SELECT
+              path_edge_idx,
+              feature
+            FROM ${this.targetMapSchema}.target_map_ppg_path_edges
+              INNER JOIN ${this.targetMapSchema}.target_map_ppg_edge_line_features
+                USING (edge_id)
+            WHERE ( path_id = ? ) ;`,
+      );
+
+    return this.preparedReadStatements.prepareTargetMapPathEdgesStmt;
+  }
+
+  *makeMergedTargetMapPathIterator(): Generator<turf.Feature<turf.LineString>> {
+    const iter = this.allTargetMapPathIdsStmt.raw().iterate();
+
+    for (const [pathId] of iter) {
+      console.log(pathId);
+      const result = this.preparedTargetMapPathEdgesStmt.all([pathId]);
+
+      const coords = _(result)
+        .sortBy('path_edge_idx')
+        .map((r) => turf.getCoords(JSON.parse(r.feature)))
+        .flattenDeep()
+        .chunk(2)
+        .value();
+
+      const lineString = turf.lineString(coords, {}, { id: pathId });
+
+      yield lineString;
     }
   }
 

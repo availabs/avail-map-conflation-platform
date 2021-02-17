@@ -4,7 +4,7 @@ import TargetMapConflationBlackboardDao from '../TargetMapConflationBlackboardDa
 import SharedStreetsMatcherKnowledgeSource from '../TargetMapConflationKnowlegeSources/SharedStreets';
 import TargetMapPathVicinity from '../TargetMapConflationHypothesesContexts/TargetMapPathVicinity';
 
-import searchAndSort from '../TargetMapConflationKnowlegeSources/toposortTargetMapPathShstMatchedShstReferences/searchAndSort';
+import searchAndSort from '../TargetMapConflationKnowlegeSources/toposortTargetMapPathShstMatchedShstReferences';
 import divvyToposortedTargetMapPathShstReferences from '../TargetMapConflationKnowlegeSources/divvyToposortedHypothesizedTargetMapPathShstReferences';
 
 export function* createChosenMatchesIterator(

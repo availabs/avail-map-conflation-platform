@@ -22,6 +22,12 @@ export interface NamedEdge extends Edge {
   name: SharedStreetsReferenceId;
 }
 
+export type EdgeFilterFunction = (
+  shstIntersectionId: SharedStreetsIntersectionId,
+) => NamedEdge[];
+
+export type EdgeWeightFunction = (e: NamedEdge) => number;
+
 type EdgeKey = string;
 
 export const shstReferencesToShstSubnetEdges = (
@@ -30,15 +36,20 @@ export const shstReferencesToShstSubnetEdges = (
   const vicinityShstSubnetEdges: VicinityShstSubnetEdge[] = [];
 
   for (let i = 0; i < shstReferences.length; ++i) {
-    const {
-      properties: { shstReferenceId, fromIntersectionId, toIntersectionId },
-    } = shstReferences[i];
+    try {
+      const {
+        properties: { shstReferenceId, fromIntersectionId, toIntersectionId },
+      } = shstReferences[i];
 
-    vicinityShstSubnetEdges.push({
-      shstReferenceId,
-      fromIntersectionId,
-      toIntersectionId,
-    });
+      vicinityShstSubnetEdges.push({
+        shstReferenceId,
+        fromIntersectionId,
+        toIntersectionId,
+      });
+    } catch (err) {
+      console.log(JSON.stringify(shstReferences[i], null, 4));
+      throw err;
+    }
   }
 
   return vicinityShstSubnetEdges;
@@ -86,19 +97,27 @@ export default class ShstReferencesSubNet {
 
   private cache: {
     components?: readonly SharedStreetsIntersectionId[][];
+
     sources?: readonly SharedStreetsIntersectionId[];
+
     sinks?: readonly SharedStreetsIntersectionId[];
+
     componentShstIntersectionSets?: Set<SharedStreetsIntersectionId>[];
+
     shstReferenceLengths?: Map<SharedStreetsReferenceFeature, number>;
+
     simpleDirectedSourcesAndSinks?: {
       sources: readonly SharedStreetsIntersectionId[];
       sinks: readonly SharedStreetsIntersectionId[];
     };
+
     simpleTwoWaySourcesAndSinks?: {
       sources: readonly SharedStreetsIntersectionId[];
       sinks: readonly SharedStreetsIntersectionId[];
     };
+
     shstReferenceIdsByEdgeKey?: Record<EdgeKey, SharedStreetsReferenceId[]>;
+
     shstReferencesByEdgeKey?: Record<EdgeKey, SharedStreetsReferenceFeature[]>;
   };
 
@@ -445,7 +464,7 @@ export default class ShstReferencesSubNet {
     edgeFn: (
       shstReferences: SharedStreetsReferenceFeature[],
     ) => SharedStreetsReferenceFeature[],
-  ): (shstIntersectionId: SharedStreetsIntersectionId) => NamedEdge[] {
+  ): EdgeFilterFunction {
     return (shstIntersectionId: SharedStreetsIntersectionId) => {
       const shstRefsFromIntxn = this.getShstReferencesFromIntersection(
         shstIntersectionId,
@@ -477,10 +496,8 @@ export default class ShstReferencesSubNet {
   getShortestShstReferenceChain(
     source: SharedStreetsIntersectionId,
     sink: SharedStreetsIntersectionId,
-    edgeWeight?: (e: Edge) => number,
-    edgeFn?: (
-      shstReferences: SharedStreetsReferenceFeature[],
-    ) => SharedStreetsReferenceFeature[],
+    edgeWeight?: EdgeWeightFunction,
+    edgeFn?: EdgeFilterFunction,
     multiEdgeShstReferencesSelector = this.defaultMultiEdgeShstReferencesSelector.bind(
       this,
     ),

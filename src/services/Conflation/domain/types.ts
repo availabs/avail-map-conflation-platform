@@ -115,3 +115,15 @@ export type ChosenMatchMetadata = {
 export type ChosenMatchFeature = SharedStreetsReferenceFeature & {
   properties: { chosenMatchMetadata: ChosenMatchMetadata };
 };
+
+export type TargetMapPathsSegments = TargetMapPathEdgeFeature[][];
+
+export type TargetMapEdgesShstMatchReferenceIds = Record<
+  TargetMapEdgeId,
+  Set<SharedStreetsReferenceId>
+>;
+
+export type TargetMapEdgesChosenMatchesMetadata = Record<
+  TargetMapEdgeId,
+  SharedStreetsMatchMetadata[]
+>;

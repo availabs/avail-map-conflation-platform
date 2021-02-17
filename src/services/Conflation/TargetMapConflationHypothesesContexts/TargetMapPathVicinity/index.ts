@@ -8,10 +8,12 @@ import * as SourceMapDAO from '../../../../daos/SourceMapDao';
 import TargetMapConflationBlackboardDao from '../../TargetMapConflationBlackboardDao';
 
 import {
+  RawTargetMapFeature,
   SharedStreetsReferenceId,
   SharedStreetsReferenceFeature,
   SharedStreetsGeometryId,
   SharedStreetsRoadClass,
+  SharedStreetsFormOfWay,
   SharedStreetsIntersectionId,
   SharedStreetsMatchFeature,
   TargetMapPathId,
@@ -24,6 +26,8 @@ import {
 } from '../../domain/types';
 
 import getBufferPolygonCoordsForFeatures from './getBufferPolygonCoordsForFeatures';
+
+import { getGeometriesConcaveHull } from '../../../../utils/gis/hulls';
 
 export interface ShstMatchesSummaryStats {
   shstMatches: SharedStreetsMatchFeature[];
@@ -58,9 +62,11 @@ export type SequentialTargetMapPathEdgesSharingShstReferenceEntry = {
 
 export type SequentialTargetMapPathEdgesSharingShstReferences = SequentialTargetMapPathEdgesSharingShstReferenceEntry[];
 
+const SHST_ONEWAY_STREETS_OFFSET = -250 / 1000;
+
 // Comprehensive context for the Blackboard Vocabulary
-export default class TargetMapPathVicinity {
-  private readonly bbDao: TargetMapConflationBlackboardDao;
+export default class TargetMapPathVicinity<T extends RawTargetMapFeature> {
+  private readonly bbDao: TargetMapConflationBlackboardDao<T>;
 
   readonly targetMapPathMatchesRecord: TargetMapPathMatchesRecord;
 
@@ -143,8 +149,10 @@ export default class TargetMapPathVicinity {
 
   readonly vicinityTargetMapEdgesShstMatches: TargetMapEdgeShstMatches[];
 
+  readonly targetMapPathContainsBiDirectionalEdges: boolean;
+
   constructor(
-    bbDao: TargetMapConflationBlackboardDao,
+    bbDao: TargetMapConflationBlackboardDao<T>,
     targetMapPathId: TargetMapPathId,
     // targetMapPathMatchesRecord: TargetMapPathMatchesRecord,
   ) {
@@ -172,6 +180,7 @@ export default class TargetMapPathVicinity {
         targetMapEdgeIdx < this.targetMapPathMatches.length;
         ++targetMapEdgeIdx
       ) {
+        // @ts-ignore
         const { targetMapPathEdge, shstMatches } = this.targetMapPathMatches[
           targetMapEdgeIdx
         ];
@@ -210,6 +219,10 @@ export default class TargetMapPathVicinity {
       }
     }
 
+    this.targetMapPathContainsBiDirectionalEdges = this.targetMapPathEdges.some(
+      (tmpEdge) => !tmpEdge.properties.isUnidirectional,
+    );
+
     const crossMapVicinityFeatures = [
       ...this.targetMapPathEdges,
       ...this.targetMapPathShstMatches,
@@ -223,12 +236,51 @@ export default class TargetMapPathVicinity {
       this.vicinityBoundingPolyCoords[0],
     );
 
+    if (this.targetMapPathContainsBiDirectionalEdges) {
+      const currentVicinityShstRefIds = new Set(
+        this.allVicinitySharedStreetsReferences.map(({ id }) => id),
+      );
+
+      const vicinityOneWays = this.allVicinitySharedStreetsReferences.filter(
+        (shstRef) =>
+          shstRef.properties.formOfWay ===
+            SharedStreetsFormOfWay.MultipleCarriageway ||
+          shstRef.properties.osmMetadataWaySections.some(
+            ({ one_way }) => one_way === 1,
+          ),
+      );
+
+      const vicinityOneWayPairs = _.uniqBy(
+        vicinityOneWays.reduce(
+          (acc: SharedStreetsReferenceFeature[], shstRef) => {
+            // FIXME FIXME FIXME: turf is broken for large offsets. Use gdal.
+            const offset = turf.lineOffset(shstRef, SHST_ONEWAY_STREETS_OFFSET);
+
+            // @ts-ignore
+            const hull = getGeometriesConcaveHull([shstRef, offset]);
+
+            const shstRefsCrossingHull = SourceMapDAO.getShstReferenceFeaturesOverlappingPoly(
+              // @ts-ignore
+              hull.geometry?.coordinates[0],
+            );
+
+            acc.push(...shstRefsCrossingHull);
+
+            return acc;
+          },
+          [],
+        ),
+        'id',
+      ).filter(({ id }) => !currentVicinityShstRefIds.has(id));
+
+      this.allVicinitySharedStreetsReferences.push(...vicinityOneWayPairs);
+    }
+
     this.allVicinitySharedStreetsReferencesById = _.keyBy(
       this.allVicinitySharedStreetsReferences,
       'id',
     );
 
-    // console.log(JSON.stringify(this.shstMatchReferenceIdsPerTMPEdge, null, 4));
     this.targetMapPathEdgeShstMatchedShstReferences = this.shstMatchReferenceIdsPerTMPEdge.map(
       (shstRefIdSet) =>
         [...shstRefIdSet].map(
@@ -267,10 +319,12 @@ export default class TargetMapPathVicinity {
     const excludedTargetMapEdges = this.targetMapPathEdges.map(({ id }) => id);
 
     this.vicinityTargetMapEdgesShstMatches = this.bbDao.getVicinityTargetMapEdgesShstMatches(
+      // @ts-ignore
       this.vicinityBoundingPolyCoords,
       { excludedTargetMapEdges },
     );
 
+    // @ts-ignore
     this.nearbyTargetMapEdges = this.vicinityTargetMapEdgesShstMatches.map(
       ({ targetMapEdge }) => targetMapEdge,
     );

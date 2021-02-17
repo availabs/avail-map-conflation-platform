@@ -54,8 +54,8 @@ export default class ShstIntersectionsGeospatialIndex {
   shstReferencesToAround: ShstIntersectionGeospatialSearchFunction;
 
   constructor(shstReferences: SharedStreetsReferenceFeature[]) {
-    const fromIntxnCoords = [];
-    const toIntxnCoords = [];
+    const fromIntxnCoords: KDBushIntxnRecord[] = [];
+    const toIntxnCoords: KDBushIntxnRecord[] = [];
 
     for (let i = 0; i < shstReferences.length; ++i) {
       const shstReference = shstReferences[i];

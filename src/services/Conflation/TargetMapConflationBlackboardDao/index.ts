@@ -29,6 +29,8 @@ import {
   ChosenMatchFeature,
 } from '../domain/types';
 
+// const MIN_CHOSEN_MATCH_LEN = 0.005; [> km, 5m <]
+
 export type TargetMapConflationBlackboardDaoConfig = {
   databaseDirectory?: DatabaseDirectory | null;
   databaseSchemaName?: DatabaseSchemaName | null;
@@ -582,7 +584,7 @@ export default class TargetMapConflationBlackboardDao<
       sectionEnd,
     } = chosenShstMatch;
 
-    const { changes } = this.insertChosenShstMatchStmt.run([
+    const insertResult = this.insertChosenShstMatchStmt.run([
       targetMapEdgeId,
       +!!isForward,
       targetMapEdgeShstMatchIdx,
@@ -591,34 +593,25 @@ export default class TargetMapConflationBlackboardDao<
       sectionEnd,
     ]);
 
-    if (changes < 1) {
-      console.log('INSERT FAILED.');
+    if (insertResult.changes < 1) {
+      console.log('ChosenMatch INSERT FAILED.');
+      // console.log(JSON.stringify(insertResult, null, 4));
     }
 
-    return changes > 0;
+    return insertResult.changes > 0;
   }
 
   async bulkLoadChosenShstMatches(
     chosenShstMatchesIter: Generator<ChosenMatchMetadata, void, unknown>,
   ) {
-    // FIXME: I'd rather load the matching using a loading connection.
-    //        However, I was getting a locked database error.
-    //        Using the primary DbService doesn't have that problem.
+    this.dbWriteConnection
+      .prepare(
+        `DELETE FROM ${this.blkbrdDbSchema}.target_map_edge_chosen_shst_matches;`,
+      )
+      .run();
 
-    // const dbWriteConnection = this.dbWriteConnection.openLoadingConnectionToDb(this.schema);
-    try {
-      this.dbWriteConnection
-        .prepare(
-          `DELETE FROM ${this.blkbrdDbSchema}.target_map_edge_chosen_shst_matches;`,
-        )
-        .run();
-
-      for await (const chosenShstMatch of chosenShstMatchesIter) {
-        this.insertChosenShstMatch(chosenShstMatch);
-      }
-    } finally {
-      // @ts-ignore
-      this.dbWriteConnection.unsafeMode(false);
+    for await (const chosenShstMatch of chosenShstMatchesIter) {
+      this.insertChosenShstMatch(chosenShstMatch);
     }
   }
 
@@ -748,6 +741,10 @@ export default class TargetMapConflationBlackboardDao<
           sectionStart,
           sectionEnd,
         } = chosenMatchMetadata;
+
+        // if (sectionEnd - sectionStart < MIN_CHOSEN_MATCH_LEN) {
+        // return acc;
+        // }
 
         const shstReference = shstReferencesById[shstReferenceId];
 
