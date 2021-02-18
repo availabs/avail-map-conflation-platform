@@ -11,6 +11,26 @@ type LineStringSegment = turf.Feature<turf.LineString> & {
   };
 };
 
+export type TargetMapPointToSourceLineSegmentSnapStats = {
+  segmentNum: number;
+  pointCoords: turf.Position | null;
+  snappedCoords: turf.Position | null;
+  snappedDistAlongKm: number | null;
+  deviationKm: number;
+};
+
+export type OptimalTargetMapPointToSourceLineSegmentSnapStat = TargetMapPointToSourceLineSegmentSnapStats & {
+  pointCoords: turf.Position;
+  snappedCoords: turf.Position;
+  snappedDistAlongKm: number;
+};
+
+export type OptimalTargetMapPointToSourceLineSegmentSnaps = OptimalTargetMapPointToSourceLineSegmentSnapStat[];
+
+type TargetMapPointToSourceLineSegmentSnapStatsTable = Array<
+  TargetMapPointToSourceLineSegmentSnapStats
+>[];
+
 function segmentSourceLineString(
   sourceLineString: turf.Feature<turf.LineString>,
 ): LineStringSegment[] {
@@ -48,18 +68,6 @@ function segmentSourceLineString(
     [],
   );
 }
-
-type TargetMapPointToSourceLineSegmentSnapStats = {
-  segmentNum: number;
-  pointCoords: turf.Position | null;
-  snappedCoords: turf.Position | null;
-  snappedDistAlongKm: number | null;
-  deviationKm: number;
-};
-
-type TargetMapPointToSourceLineSegmentSnapStatsTable = Array<
-  TargetMapPointToSourceLineSegmentSnapStats
->[];
 
 // O(S*Ps) where S is the number of targetPoints, and Ps is the number of path segments.
 function getTargetMapPointToSourceLineSegmentSnapStatsTable(
@@ -131,7 +139,7 @@ function getTargetMapPointToSourceLineSegmentSnapStatsTable(
 // Additional O(SW) space cost, as the table is replicated.
 function trySimpleMinification(
   theTable: TargetMapPointToSourceLineSegmentSnapStatsTable,
-): TargetMapPointToSourceLineSegmentSnapStats[] | null {
+): OptimalTargetMapPointToSourceLineSegmentSnaps | null {
   // @ts-ignore
   const possibleOptimal: TargetMapPointToSourceLineSegmentSnapStats[] = theTable.map(
     (row) => _(row).sortBy(['deviationKm', 'snappedDistAlongKm']).first(),
@@ -158,6 +166,7 @@ function trySimpleMinification(
     }
   }
 
+  // @ts-ignore
   return possibleOptimal;
 }
 
@@ -174,7 +183,7 @@ function trySimpleMinification(
 //            This feels completely brute force.
 function fitTargetPointsToSourceLineStringUsingLeastSquares(
   theTable: TargetMapPointToSourceLineSegmentSnapStatsTable,
-) {
+): OptimalTargetMapPointToSourceLineSegmentSnaps | null {
   type DynamicProgrammingCell = TargetMapPointToSourceLineSegmentSnapStats & {
     cost: number;
     path: number[] | null;
@@ -274,13 +283,14 @@ function fitTargetPointsToSourceLineStringUsingLeastSquares(
     (segmentNum, targetPointIdx) => theTable[targetPointIdx][segmentNum],
   );
 
+  // @ts-ignore
   return optimalSnappings;
 }
 
 export default function fitStopsToPath(
   sourceLineString: turf.Feature<turf.LineString>,
   targetPoints: turf.Feature<turf.Point>[],
-) {
+): OptimalTargetMapPointToSourceLineSegmentSnaps | null {
   const sourceLineStringSegments = segmentSourceLineString(sourceLineString);
 
   // first build the table

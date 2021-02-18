@@ -4,75 +4,20 @@ import TargetMapPathVicinity from '../../TargetMapConflationHypothesesContexts/T
 
 import reverseTargetMapPathCoordinates from './reverseTargetMapPathCoordinates';
 
-import getOverlaps from './getOverlaps';
+import getOverlaps, { TargetMapPathMatchOverlapSummary } from './getOverlaps';
 
 import {
-  RawTargetMapFeature,
-  TargetMapPathEdgeFeature,
-  ToposortedShstRefs,
-  ChosenMatchFeature,
-} from '../../domain/types';
+  forwardOverlapsToChosenShstMatches,
+  backwardOverlapsToChosenShstMatches,
+} from './overlapsToChosenShstMatches';
 
-const overlapsToChosenShstMatches = (
-  targetMapPathEdges: TargetMapPathEdgeFeature[],
-  overlaps: any,
-  isForward: boolean,
-): ChosenMatchFeature[] => {
-  const chosenShstMatches: any = [];
+import { RawTargetMapFeature, ToposortedShstRefs } from '../../domain/types';
 
-  for (let i = 0; i < targetMapPathEdges.length; ++i) {
-    const { id: targetMapEdgeId } = targetMapPathEdges[i];
-    const tmPathEdgeOverlaps = overlaps[i];
-
-    for (let j = 0; j < tmPathEdgeOverlaps.length; ++j) {
-      const {
-        shstReferenceId,
-        tmpEdgeStartDistAlongShstRefPath,
-        tmpEdgeEndDistAlongShstRefPath,
-        shstFromIntxnDistAlongShstRefChain,
-        shstToIntxnDistAlongShstRefChain,
-      } = tmPathEdgeOverlaps[j];
-
-      const shstRefLength =
-        shstToIntxnDistAlongShstRefChain - shstFromIntxnDistAlongShstRefChain;
-
-      const sectionStart = Math.max(
-        tmpEdgeStartDistAlongShstRefPath - shstFromIntxnDistAlongShstRefChain,
-        0,
-      );
-
-      const sectionEnd = Math.min(
-        shstRefLength -
-          (shstToIntxnDistAlongShstRefChain - tmpEdgeEndDistAlongShstRefPath),
-        shstRefLength,
-      );
-
-      chosenShstMatches.push({
-        targetMapEdgeId,
-        // tmEdgeLength,
-        // shstRefLength,
-        isForward,
-        targetMapEdgeShstMatchIdx: j,
-        shstReferenceId,
-        sectionStart,
-        sectionEnd,
-      });
-    }
-  }
-
-  return chosenShstMatches;
-};
-
-export default function foo(
+export default function divvy(
   vicinity: TargetMapPathVicinity<RawTargetMapFeature>,
   toposortedShstRefs: ToposortedShstRefs,
 ) {
-  const {
-    targetMapPathEdges,
-    // nearbyTargetMapEdges,
-    // targetMapPathShstMatches,
-    // vicinitySharedStreetsReferences,
-  } = vicinity;
+  const { targetMapPathEdges } = vicinity;
 
   const { forwardPaths, backwardPaths } = toposortedShstRefs;
 
@@ -80,34 +25,34 @@ export default function foo(
     targetMapPathEdges,
   );
 
-  const forwardOverlaps = forwardPaths.filter(_.negate(_.isEmpty)).reduce(
-    // @ts-ignore
-    (acc, shstRefPath) => acc || getOverlaps(targetMapPathEdges, shstRefPath),
-    null,
-  );
+  const forwardOverlaps = forwardPaths
+    .filter(_.negate(_.isEmpty))
+    .reduce(
+      (acc: TargetMapPathMatchOverlapSummary | null, shstRefPath) =>
+        acc || getOverlaps(targetMapPathEdges, shstRefPath),
+      null,
+    );
 
-  const backwardOverlaps = backwardPaths.filter(_.negate(_.isEmpty)).reduce(
-    (acc, shstRefPath) =>
-      // @ts-ignore
-      acc || getOverlaps(reversedTargetMapPathEdges, shstRefPath),
-    null,
-  );
+  const backwardOverlaps = backwardPaths
+    .filter(_.negate(_.isEmpty))
+    .reduce(
+      (acc: TargetMapPathMatchOverlapSummary | null, shstRefPath) =>
+        acc || getOverlaps(reversedTargetMapPathEdges, shstRefPath),
+      null,
+    );
 
   const forward =
     forwardOverlaps &&
-    overlapsToChosenShstMatches(
+    forwardOverlapsToChosenShstMatches(
       targetMapPathEdges,
-      // @ts-ignore
       forwardOverlaps.targetMapPathShstReferenceOverlaps,
-      true,
     );
+
   const backward =
     backwardOverlaps &&
-    overlapsToChosenShstMatches(
-      targetMapPathEdges,
-      // @ts-ignore
+    backwardOverlapsToChosenShstMatches(
+      reversedTargetMapPathEdges,
       backwardOverlaps.targetMapPathShstReferenceOverlaps,
-      false,
     );
 
   const chosenShstMatches = {
@@ -115,6 +60,5 @@ export default function foo(
     backward,
   };
 
-  // console.log(JSON.stringify(chosenShstMatches, null, 4));
   return chosenShstMatches;
 }

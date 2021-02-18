@@ -63,7 +63,6 @@ export default function selectOptimalShstReferencesChainForTargetMapPath(
       endSnap?.properties?.dist === undefined ||
       startSnap.properties.location >= endSnap.properties.location
     ) {
-      console.log(startSnap.properties.location, endSnap.properties.location);
       pathScores.set(path, Infinity);
       continue;
     }

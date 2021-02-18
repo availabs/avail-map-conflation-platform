@@ -595,7 +595,7 @@ export default class TargetMapConflationBlackboardDao<
 
     if (insertResult.changes < 1) {
       console.log('ChosenMatch INSERT FAILED.');
-      // console.log(JSON.stringify(insertResult, null, 4));
+      console.log(JSON.stringify({ chosenShstMatch }, null, 4));
     }
 
     return insertResult.changes > 0;

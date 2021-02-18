@@ -127,3 +127,9 @@ export type TargetMapEdgesChosenMatchesMetadata = Record<
   TargetMapEdgeId,
   SharedStreetsMatchMetadata[]
 >;
+
+export type ReversedTargetMapPathEdgeFeature = TargetMapEdgeFeature & {
+  properties: { reversed: true };
+};
+
+export type ReversedTargetMapPathEdgeFeatures = ReversedTargetMapPathEdgeFeature[];

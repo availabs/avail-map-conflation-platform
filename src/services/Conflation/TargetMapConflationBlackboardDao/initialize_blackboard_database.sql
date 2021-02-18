@@ -40,7 +40,8 @@ CREATE TABLE __SCHEMA__.target_map_edge_chosen_shst_matches (
   section_start           REAL NOT NULL,
   section_end             REAL NOT NULL,
 
-  PRIMARY KEY(edge_id, shst_reference),
+  -- Because of circles and cul-de-sacs, is_forward required in PKey
+  PRIMARY KEY(edge_id, shst_reference, is_forward),
 
   CHECK(is_forward BETWEEN 0 AND 1),
   CHECK(edge_shst_match_idx >= 0),

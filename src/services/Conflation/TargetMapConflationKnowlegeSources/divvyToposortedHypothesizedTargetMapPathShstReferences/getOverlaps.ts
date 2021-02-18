@@ -2,14 +2,17 @@ import _ from 'lodash';
 import * as turf from '@turf/turf';
 import * as ss from 'simple-statistics';
 
-import snapPointSequenceToPath from '../../../../utils/gis/snapPointSequenceToPath';
+import snapPointSequenceToPath, {
+  OptimalTargetMapPointToSourceLineSegmentSnapStat,
+} from '../../../../utils/gis/snapPointSequenceToPath';
 
 import mergePathIntoLineString from './mergePathIntoLineString';
 
 import {
   SharedStreetsReferenceId,
   SharedStreetsIntersectionId,
-  TargetMapPathEdgeFeature,
+  TargetMapPathEdgeFeatures,
+  ReversedTargetMapPathEdgeFeatures,
   SharedStreetsReferenceFeature,
 } from '../../domain/types';
 
@@ -34,17 +37,20 @@ export type TargetMapPathShstReferenceOverlap = {
 
 export type TargetMapPathMatchOverlapSummary = {
   tmPathEdgesStartEndSnapped: [
-    turf.Feature<turf.Point>,
-    turf.Feature<turf.Point>,
-  ];
+    OptimalTargetMapPointToSourceLineSegmentSnapStat,
+    OptimalTargetMapPointToSourceLineSegmentSnapStat,
+  ][];
 
-  targetMapPathEdgesSnappedDistancesAlong: [number, number];
+  targetMapPathEdgesSnappedDistancesAlong: {
+    startDistAlong: number;
+    endDistAlong: number;
+  }[];
 
   snappingSummaryStats: SnappingSummaryStats;
 
   shstIntxnDistancesAlongPath: Record<SharedStreetsIntersectionId, number>;
 
-  targetMapPathShstReferenceOverlaps: TargetMapPathShstReferenceOverlap[];
+  targetMapPathShstReferenceOverlaps: TargetMapPathShstReferenceOverlap[][];
 };
 
 const coordSequenceToPoints = (coordSeq: [number, number][]) =>
@@ -68,9 +74,9 @@ const getPathToIntxnCoordsSeq = (
 ];
 
 export default function getOverlaps(
-  tmPath: TargetMapPathEdgeFeature[],
+  tmPath: TargetMapPathEdgeFeatures | ReversedTargetMapPathEdgeFeatures,
   shstRefPath: SharedStreetsReferenceFeature[],
-) {
+): TargetMapPathMatchOverlapSummary | null {
   const shstReferenceChainAsLineString = mergePathIntoLineString(shstRefPath);
 
   const tmPathIntxnPointSeq = coordSequenceToPoints(
@@ -86,7 +92,10 @@ export default function getOverlaps(
     return null;
   }
 
-  const tmPathEdgesStartEndSnapped = tmPath.map((_$, i) => [
+  const tmPathEdgesStartEndSnapped: [
+    OptimalTargetMapPointToSourceLineSegmentSnapStat,
+    OptimalTargetMapPointToSourceLineSegmentSnapStat,
+  ][] = _.range(tmPath.length).map((i) => [
     snappedTMPIntxnsToShstRefPath[i],
     snappedTMPIntxnsToShstRefPath[i + 1],
   ]);
@@ -139,7 +148,7 @@ export default function getOverlaps(
       endDistAlong: tmPathEdgesStartEndSnapped[i + 1].snappedDistAlongKm,
     }));
 
-  const overlaps = {
+  const overlaps: TargetMapPathMatchOverlapSummary = {
     tmPathEdgesStartEndSnapped,
     targetMapPathEdgesSnappedDistancesAlong,
     snappingSummaryStats,
@@ -163,7 +172,7 @@ export default function getOverlaps(
 
     const tmpEdgeEndDistAlongShstRefPath = tmpEdgeEndSnapped.snappedDistAlongKm;
 
-    const shstReferenceOverlaps = [];
+    const shstReferenceOverlaps: TargetMapPathShstReferenceOverlap[] = [];
 
     overlaps.targetMapPathShstReferenceOverlaps.push(shstReferenceOverlaps);
 
