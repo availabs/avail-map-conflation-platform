@@ -20,11 +20,14 @@ export default (db: any, shstGeometry: SharedStreetsGeometry) => {
     id: shstGeometryId,
     fromIntersectionId = null,
     toIntersectionId = null,
-    forwardReferenceId = null,
-    backReferenceId = null,
-    roadClass = null,
+    roadClass,
     lonlats,
   } = shstGeometry;
+
+  let { forwardReferenceId, backReferenceId } = shstGeometry;
+
+  forwardReferenceId = forwardReferenceId ?? null;
+  backReferenceId = backReferenceId ?? null;
 
   const shstGeometryCoords = _.chunk(lonlats, 2);
 
@@ -74,8 +77,8 @@ export default (db: any, shstGeometry: SharedStreetsGeometry) => {
       shstGeometryId,
       fromIntersectionId,
       toIntersectionId,
-      forwardReferenceId,
-      backReferenceId,
+      forwardReferenceId || null,
+      backReferenceId || null,
       roadClass,
       shstGeometryLineString && JSON.stringify(shstGeometryLineString),
     ]);
