@@ -1,5 +1,11 @@
 // https://github.com/sharedstreets/sharedstreets-types/blob/3c1d5822ff4943ae063f920e018dd3e349213c8c/index.ts
 
+// TODO TODO TODO
+//   SharedStreetsGeometry forward/backReference is string.
+//     Within this project it is string | null.
+//     This was done so in the database the column is NULL
+//       where in the SharedStreetsGeometry tile entry is is an empty string.
+
 import * as turf from '@turf/turf';
 
 import {
@@ -49,6 +55,10 @@ export interface SharedStreetsReferenceFeature
     isForward: boolean;
     osmMetadataWaySections: OsmMetadataWaySection[];
     osmHighwayTypes: OsmHighwayType[];
+    minOsmRoadClass: SharedStreetsRoadClass;
+    maxOsmRoadClass: SharedStreetsRoadClass;
+    distinctOsmRoadClasses: SharedStreetsRoadClass[];
+    shstReferenceLength: number;
   };
 }
 

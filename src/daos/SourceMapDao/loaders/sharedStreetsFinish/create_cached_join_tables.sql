@@ -3,6 +3,7 @@ DROP INDEX IF EXISTS __SCHEMA__.shst_reference_features_from_intxn_idx ;
 DROP INDEX IF EXISTS __SCHEMA__.shst_reference_features_to_intxn_idx ;
 DROP INDEX IF EXISTS __SCHEMA__.shst_reference_features_start_pt_idx ;
 DROP INDEX IF EXISTS __SCHEMA__.shst_reference_features_end_pt_idx ;
+DROP INDEX IF EXISTS __SCHEMA__.shst_reference_features_min_road_class_idx ;
 
 DROP TABLE IF EXISTS __SCHEMA__.shst_reference_features_geopoly_idx;
 DROP VIEW IF EXISTS __SCHEMA__._qa_broken_shst_reference_location_references ;
@@ -110,6 +111,9 @@ CREATE INDEX __SCHEMA__.shst_reference_features_from_intxn_idx
 
 CREATE INDEX __SCHEMA__.shst_reference_features_to_intxn_idx
   ON shst_reference_features ( json_extract(feature, '$.properties.toIntersectionId') );
+
+CREATE INDEX __SCHEMA__.shst_reference_features_min_road_class_idx
+  ON shst_reference_features ( json_extract(feature, '$.properties.minOsmRoadClass') );
 
 CREATE INDEX __SCHEMA__.shst_reference_features_start_pt_idx
   ON shst_reference_features ( json_extract(feature, '$.geometry.coordinates[0]') );

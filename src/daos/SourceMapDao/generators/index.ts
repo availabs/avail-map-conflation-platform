@@ -1,6 +1,10 @@
 /* eslint-disable no-restricted-syntax, import/prefer-default-export */
 
+import * as turf from '@turf/turf';
+
 import db from '../../../services/DbService';
+
+import { getGeometriesConcaveHull } from '../../../utils/gis/hulls';
 
 import { SOURCE_MAP } from '../../../constants/databaseSchemaNames';
 
@@ -32,6 +36,37 @@ export function* makeSharedStreetsReferenceFeaturesIterator(): Generator<
   }
 }
 
+export function* makeSharedStreetsReferenceFeaturesOverlappingPolygonIterator(
+  boundaryPolygon: turf.Feature<turf.Polygon>,
+): Generator<SharedStreetsReferenceFeature> {
+  const boundingPolyHull = getGeometriesConcaveHull([boundaryPolygon]);
+  const [boundingPolyCoords] = turf.getCoords(boundingPolyHull);
+
+  const shstReferencesIter = db
+    .prepare(
+      `
+        SELECT
+            feature
+          FROM ${SOURCE_MAP}.shst_reference_features
+            INNER JOIN (
+              SELECT
+                  shst_reference_id
+                FROM ${SOURCE_MAP}.shst_reference_features_geopoly_idx
+                WHERE geopoly_overlap(_shape, ?)
+            ) USING ( shst_reference_id )
+          ORDER BY shst_reference_id
+        ; `,
+    )
+    .raw()
+    .iterate([JSON.stringify(boundingPolyCoords)]);
+
+  for (const [featureStr] of shstReferencesIter) {
+    const feature = JSON.parse(featureStr);
+
+    yield feature;
+  }
+}
+
 export function* makeShstIntersectionsWithMinRoadClassIter(): Generator<
   SharedStreetsIntersectionFeature & { roadClass: SharedStreetsRoadClass }
 > {
@@ -48,16 +83,16 @@ export function* makeShstIntersectionsWithMinRoadClassIter(): Generator<
             INNER JOIN (
               SELECT
                   json_extract(feature, '$.properties.fromIntersectionId') AS id,
-                  CAST( json_extract(feature, '$.properties.roadClass') AS INTEGER ) AS roadClass
+                  CAST( json_extract(feature, '$.properties.minOsmRoadClass') AS INTEGER ) AS roadClass
                 FROM ${SOURCE_MAP}.shst_reference_features
               UNION ALL
               SELECT
                   json_extract(feature, '$.properties.toIntersectionId') AS id,
-                  CAST( json_extract(feature, '$.properties.roadClass') AS INTEGER ) AS roadClass
+                  CAST( json_extract(feature, '$.properties.minOsmRoadClass') AS INTEGER ) AS roadClass
                 FROM ${SOURCE_MAP}.shst_reference_features
             ) USING (id)
           GROUP BY id
-          ORDER BY CAST( json_extract(feature, '$.properties.roadClass') AS INTEGER )
+          ORDER BY CAST( json_extract(feature, '$.properties.minOsmRoadClass') AS INTEGER )
         ;
       `,
     )

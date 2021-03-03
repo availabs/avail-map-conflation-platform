@@ -3,8 +3,10 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
+import * as turf from '@turf/turf';
 import _ from 'lodash';
 
+import { RoadClass } from 'sharedstreets-types';
 import { SOURCE_MAP as SCHEMA } from '../../../../constants/databaseSchemaNames';
 
 import getBufferPolygonCoords from '../../../../utils/getBufferPolygonCoords';
@@ -28,7 +30,12 @@ export function* makeShstReferenceLoaderIterator(
             is_forward,
             location_references,
             geom_feature,
-            osm_metadata_way_sections
+            osm_metadata_way_sections,
+            (
+              geom.forward_reference_id IS NULL
+              OR
+              geom.back_reference_id IS NULL
+            ) is_unidirectional
           FROM (
             SELECT
                 ref.id as shst_reference_id,
@@ -115,8 +122,13 @@ export function* makeShstReferenceLoaderIterator(
     locationReferencesStr,
     geomFeatureStr,
     osmMetadataWaySectionsStr,
+    is_unidirectional,
   ] of iter) {
     const feature = JSON.parse(geomFeatureStr);
+
+    const isUnidirectional = is_unidirectional === 1;
+
+    const shstReferenceLength = turf.length(feature);
 
     const locationReferences: SharedStreetsLocationReference[] = JSON.parse(
       locationReferencesStr,
@@ -147,6 +159,17 @@ export function* makeShstReferenceLoaderIterator(
       .sortedUniq()
       .value();
 
+    const distinctOsmRoadClasses = _(osmMetadataWaySections)
+      .map('road_class')
+      .map((c) => RoadClass[c])
+      .filter(_.negate(_.isNil))
+      .sort()
+      .sortedUniq()
+      .value();
+
+    const minOsmRoadClass = _.first(distinctOsmRoadClasses);
+    const maxOsmRoadClass = _.last(distinctOsmRoadClasses);
+
     feature.id = shstReferenceId;
 
     feature.properties = {
@@ -159,8 +182,13 @@ export function* makeShstReferenceLoaderIterator(
       locationReferences,
       isForward: !!isForward,
       osmMetadataWaySections,
-      // Adding this for convenience and faster queries.
+      // Adding these for convenience and faster queries.
       osmHighwayTypes,
+      minOsmRoadClass,
+      maxOsmRoadClass,
+      distinctOsmRoadClasses,
+      shstReferenceLength,
+      isUnidirectional,
     };
 
     if (!isForward) {
