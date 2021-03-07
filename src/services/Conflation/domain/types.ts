@@ -14,6 +14,7 @@ export type TargetMapEdgeFeature = TargetMapDaoTypes.TargetMapEdgeFeature;
 export type TargetMapPathEdgeFeature = TargetMapDaoTypes.TargetMapPathEdgeFeature;
 export type TargetMapPathEdgeFeatures = TargetMapDaoTypes.TargetMapPathEdgeFeatures;
 export type TargetMapPathId = TargetMapDaoTypes.TargetMapPathId;
+export type TargetMapPathEdgeIdx = TargetMapDaoTypes.TargetMapPathEdgeIdx;
 export type TargetMapEdgesGeoproximityIterator = TargetMapDaoTypes.TargetMapEdgesGeoproximityIterator;
 export type QueryPolygon = TargetMapDaoTypes.QueryPolygon;
 
@@ -104,6 +105,8 @@ export type ToposortedShstRefs = {
 
 export type ChosenMatchMetadata = {
   targetMapId: TargetMapId;
+  targetMapPathId: TargetMapPathId;
+  targetMapPathEdgeIdx: TargetMapPathEdgeIdx;
   targetMapEdgeId: TargetMapEdgeId;
   isForward: boolean;
   targetMapEdgeShstMatchIdx: number;
