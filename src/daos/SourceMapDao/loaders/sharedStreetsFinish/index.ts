@@ -14,11 +14,22 @@ import getBufferPolygonCoords from '../../../../utils/getBufferPolygonCoords';
 import {
   SharedStreetsLocationReference,
   SharedStreetsReferenceFeature,
+  OsmMetadataWaySection,
 } from '../../domain/types';
+
+const handleOsmMetaSection = (osmMetaWaySection: any) => {
+  // eslint-disable-next-line no-param-reassign
+  osmMetaWaySection.nodeIds = osmMetaWaySection.nodeIds
+    .sort((a: any, b: any) => a.way_section_nodes_idx - b.way_section_nodes_idx)
+    .map(({ osm_node_id }) => osm_node_id);
+
+  return _.omit(osmMetaWaySection, 'osm_metadata_way_section_idx');
+};
 
 export function* makeShstReferenceLoaderIterator(
   db: any,
 ): Generator<SharedStreetsReferenceFeature> {
+  // FIXME FIXME FIXME: Figure out why need to use DISTINCT for the osm_metadata_way_sections
   const iter = db
     .prepare(
       `
@@ -32,9 +43,9 @@ export function* makeShstReferenceLoaderIterator(
             geom_feature,
             osm_metadata_way_sections,
             (
-              geom.forward_reference_id IS NULL
+              forward_reference_id IS NULL
               OR
-              geom.back_reference_id IS NULL
+              back_reference_id IS NULL
             ) is_unidirectional
           FROM (
             SELECT
@@ -42,6 +53,8 @@ export function* makeShstReferenceLoaderIterator(
                 geometry_id AS shst_geometry_id,
                 fow.value AS form_of_way,
                 rc.value AS road_class,
+                forward_reference_id,
+                back_reference_id,
                 (geom.forward_reference_id = ref.id) AS is_forward,
                 geom.geojson_linestring as geom_feature
               FROM ${SCHEMA}.shst_references AS ref
@@ -80,7 +93,7 @@ export function* makeShstReferenceLoaderIterator(
             INNER JOIN (
               SELECT
                   geometry_id AS shst_geometry_id,
-                  json_group_array(
+                  json_group_array( DISTINCT -- FIXME FIXME FIXME: Why duplicates? DISTINCT is a hack.
                     json_object(
                       'osm_metadata_way_section_idx',
                       osm_metadata_way_section_idx,
@@ -96,6 +109,8 @@ export function* makeShstReferenceLoaderIterator(
                       roundabout,
                       'link',
                       link,
+                      'nodeIds',
+                      json(osm_way_nodes),
                       'name',
                       name
                     )
@@ -103,6 +118,20 @@ export function* makeShstReferenceLoaderIterator(
                 FROM ${SCHEMA}.shst_metadata AS meta
                   INNER JOIN ${SCHEMA}.shst_metadata_osm_metadata_way_sections AS way_sections
                     ON (meta._id = way_sections.shst_metadata_id)
+                  INNER JOIN (
+                    SELECT
+                        shst_metadata_id,
+                        osm_metadata_way_section_idx,
+                        json_group_array(
+                          json_object(
+                            'way_section_nodes_idx',  way_section_nodes_idx,
+                            'osm_node_id',            osm_node_id
+                          )
+                        ) AS osm_way_nodes
+                      FROM ${SCHEMA}.shst_metadata_osm_metadata_way_section_nodes
+                      GROUP BY shst_metadata_id, osm_metadata_way_section_idx
+                  ) AS way_node_ids
+                    USING (shst_metadata_id, osm_metadata_way_section_idx)
                   INNER JOIN ${SCHEMA}.osm_ways
                     ON (way_sections.way_id = osm_ways.osm_way_id)
                 GROUP BY geometry_id
@@ -150,7 +179,7 @@ export function* makeShstReferenceLoaderIterator(
         (a: any, b: any) =>
           a.osm_metadata_way_section_idx - b.osm_metadata_way_section_idx,
       )
-      .map((meta: any) => _.omit(meta, 'osm_metadata_way_section_idx'));
+      .map(handleOsmMetaSection);
 
     const osmHighwayTypes = _(osmMetadataWaySections)
       .map('osm_way_tags.highway')
@@ -194,6 +223,9 @@ export function* makeShstReferenceLoaderIterator(
     if (!isForward) {
       feature.geometry.coordinates.reverse();
       feature.properties.osmMetadataWaySections.reverse();
+      feature.properties.osmMetadataWaySections.forEach(
+        (osmMeta: OsmMetadataWaySection) => osmMeta.nodeIds.reverse(),
+      );
     }
 
     yield feature;
@@ -248,6 +280,7 @@ export default function finishSharedStreetsLoad(db: any) {
 
     xdb.exec('COMMIT');
   } catch (err) {
+    console.error(err);
     xdb.exec('ROLLBACK;');
     throw err;
   } finally {

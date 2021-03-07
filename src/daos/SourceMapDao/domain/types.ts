@@ -36,6 +36,7 @@ export interface OsmMetadataWaySection {
   one_way: 0 | 1;
   roundabout: 0 | 1;
   link: 0 | 1;
+  nodeIds: number[];
   name: string;
 }
 

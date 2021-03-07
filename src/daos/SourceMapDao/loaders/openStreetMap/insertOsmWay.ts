@@ -2,10 +2,7 @@ import db from '../../../../services/DbService';
 
 import { SOURCE_MAP as SCHEMA } from '../../../../constants/databaseSchemaNames';
 
-export default (
-  xdb: any = db,
-  { osmWayId, osmNodeIds = null, tags = null },
-) => {
+export default (xdb: any = db, { osmWayId, osmNodeIds = null, tags = null }) =>
   xdb
     .prepare(
       `
@@ -20,4 +17,3 @@ export default (
       osmNodeIds && JSON.stringify(osmNodeIds),
       tags && JSON.stringify(tags),
     ]);
-};

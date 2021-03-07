@@ -6,6 +6,7 @@
 import { EventEmitter } from 'events';
 import { createReadStream, existsSync } from 'fs';
 
+// @ts-ignore
 import XmlStream from 'xml-stream';
 import FileType from 'file-type';
 
@@ -67,7 +68,7 @@ const main = async (osm_xml: string) => {
         tag,
       } = d;
 
-      const nodeIds = Array.isArray(nd)
+      const osmNodeIds = Array.isArray(nd)
         ? nd.map(({ $: { ref } }) => +ref)
         : null;
 
@@ -78,7 +79,7 @@ const main = async (osm_xml: string) => {
           }, {})
         : null;
 
-      osmElementEmitter.emit('way', { osmWayId, nodeIds, tags });
+      osmElementEmitter.emit('way', { osmWayId, osmNodeIds, tags });
     });
 
     xml.on('end', () => osmElementEmitter.emit('done'));
