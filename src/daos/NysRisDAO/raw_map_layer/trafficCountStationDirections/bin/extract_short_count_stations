@@ -1,0 +1,14 @@
+#!/bin/bash
+
+set -e
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null
+
+for f in ./highway_data_service_counts_scrape/short_count*; do
+  zcat "$f" |
+    sed 's/"//g; s/[[:space:]]*//g; /^$/d;' |
+    awk -F, 'BEGIN{ OFS="," } NR>1{ print $1, $16, $20 }'
+done |
+  sort -u
+
+popd >/dev/null
