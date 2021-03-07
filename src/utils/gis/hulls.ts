@@ -7,14 +7,12 @@ import _ from 'lodash';
 
 const BATCH_SIZE = 10000;
 
-function getGeometriesHull(
-  convex: boolean,
+export function getGeometriesHull(
+  concavity: number,
   geometries:
     | Generator<turf.Geometries | any[]>
     | Array<turf.Geometries | any[]>,
 ) {
-  const concavity = convex ? Infinity : 1;
-
   let points: turf.Position[] = [];
   let counter = 0;
   for (const geom of geometries) {
@@ -36,6 +34,6 @@ function getGeometriesHull(
   return turf.polygon([hullCoords]);
 }
 
-export const getGeometriesConvexHull = getGeometriesHull.bind(null, true);
+export const getGeometriesConvexHull = getGeometriesHull.bind(null, Infinity);
 
-export const getGeometriesConcaveHull = getGeometriesHull.bind(null, false);
+export const getGeometriesConcaveHull = getGeometriesHull.bind(null, 1);

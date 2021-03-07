@@ -45,6 +45,7 @@ export function getGdalPolygon(polygon: turf.Feature<turf.Polygon>) {
 
   const coords = polygon.geometry?.coordinates[0];
 
+  // @ts-ignore
   coords?.forEach(([lon, lat]) => ring.points.add(lon, lat));
 
   gdalPolygon.rings.add(ring);
@@ -58,10 +59,12 @@ const geometryToGeoJson = (
   removeShortSegments: boolean = false,
 ) => {
   // @ts-ignore
-  const feature = JSON.parse(geometry.toJSON());
+  const geojson = JSON.parse(geometry.toJSON());
 
-  if (turf.getType(feature) === 'LineString') {
+  if (turf.getType(geojson) === 'LineString') {
     try {
+      const feature = turf.lineString(geojson.coordinates);
+
       const coords = turf.getCoords(feature);
 
       if (!_.flatMapDeep(coords).length) {
@@ -78,46 +81,50 @@ const geometryToGeoJson = (
     }
   }
 
-  if (turf.getType(feature) === 'MultiLineString') {
+  if (turf.getType(geojson) === 'MultiLineString') {
     try {
+      const feature = turf.multiLineString(geojson.coordinates);
+
       const coords = turf.getCoords(feature);
       if (!_.flatMapDeep(coords).length) {
         return null;
       }
+
+      // handle linestring[] instead of bare coords
+      let lineStrings = lineMerge(feature);
+
+      if (removeShortSegments) {
+        lineStrings = lineStrings.filter((f) => {
+          const len = turf.length(f);
+          return len > SHORT_SEG_LENGTH_THOLD;
+        });
+      }
+
+      if (lineStrings.length === 0) {
+        return null;
+      }
+
+      return lineStrings.length === 1
+        ? lineStrings[0]
+        : turf.multiLineString(lineStrings.map((f) => turf.getCoords(f)));
     } catch (err) {
-      // console.debug('invalid feature')
+      // console.log(JSON.stringify({ geometry }, null, 4));
+      // console.debug('invalid feature');
       return null;
     }
-    // handle linestring[] instead of bare coords
-    let lineStrings = lineMerge(feature);
-
-    if (removeShortSegments) {
-      lineStrings = lineStrings.filter((f) => {
-        const len = turf.length(f);
-        return len > SHORT_SEG_LENGTH_THOLD;
-      });
-    }
-
-    if (lineStrings.length === 0) {
-      return null;
-    }
-
-    return lineStrings.length === 1
-      ? lineStrings[0]
-      : turf.multiLineString(lineStrings.map((f) => turf.getCoords(f)));
   }
 
   // Other possible geometry types of gdal geometry intersection.
   if (
-    turf.getType(feature) === 'Point' ||
-    turf.getType(feature) === 'MultiPoint' ||
+    turf.getType(geojson) === 'Point' ||
+    turf.getType(geojson) === 'MultiPoint' ||
     // @ts-ignore
-    turf.getType(feature) === 'GeometryCollection'
+    turf.getType(geojson) === 'GeometryCollection'
   ) {
     return null;
   }
 
-  throw new Error(`Unrecognized feature type: ${turf.getType(feature)}`);
+  throw new Error(`Unrecognized feature type: ${turf.getType(geojson)}`);
 };
 
 export default function getBufferedOverlap(
