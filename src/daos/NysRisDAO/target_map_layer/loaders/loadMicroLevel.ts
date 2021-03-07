@@ -18,8 +18,6 @@ export default async function loadMicroLevel() {
       SCHEMA,
     );
 
-    targetMapDao.targetMapIsCenterline = true;
-
     targetMapDao.loadMicroLevel(true, rawEdgeIsUnidirectional);
 
     console.timeEnd(timerId);

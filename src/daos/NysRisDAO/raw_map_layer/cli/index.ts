@@ -8,11 +8,17 @@ import _ from 'lodash';
 import gdal from 'gdal';
 import tar from 'tar';
 
+import TargetMapDAO from '../../../../utils/TargetMapDatabases/TargetMapDAO';
+
+import { NysRoadInventorySystemFeature } from '../domain/types';
+
 import {
   loadNysRis,
   NysRoadInventorySystemGeodatabaseEntry,
   NysRoadInventorySystemGeodatabaseEntryIterator,
 } from '../loaders';
+
+import { NYS_RIS as SCHEMA } from '../../../../constants/databaseSchemaNames';
 
 const timerId = 'load nys ris';
 
@@ -143,7 +149,7 @@ function* makeNysRisGeodatabaseIterator(
   }
 }
 
-export default async ({ nys_ris_geodatabase_tgz, county }) => {
+export default async ({ nys_ris_geodatabase_tgz, county, year }) => {
   console.time(timerId);
 
   try {
@@ -153,6 +159,13 @@ export default async ({ nys_ris_geodatabase_tgz, county }) => {
     );
 
     loadNysRis(nysRisEntryIterator);
+
+    const targetMapDao = new TargetMapDAO<NysRoadInventorySystemFeature>(
+      SCHEMA,
+    );
+
+    targetMapDao.targetMapIsCenterline = true;
+    targetMapDao.mapYear = year;
   } catch (err) {
     console.error(err);
     process.exit(1);

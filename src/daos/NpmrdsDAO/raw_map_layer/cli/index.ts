@@ -12,10 +12,13 @@ import gdal from 'gdal';
 import * as csv from 'fast-csv';
 import tar from 'tar';
 
+import TargetMapDAO from '../../../../utils/TargetMapDatabases/TargetMapDAO';
+
 import {
   TmcIdentificationPropertiesSchema,
   TmcIdentificationProperties,
   NpmrdsShapefileFeature,
+  NpmrdsTmcFeature,
 } from '../domain';
 
 import {
@@ -23,6 +26,8 @@ import {
   TmcIdentificationAsyncIterator,
   NpmrdsShapefileIterator,
 } from '../loaders';
+
+import { NPMRDS as SCHEMA } from '../../../../constants/databaseSchemaNames';
 
 // Because prettier and ts-ignore are not working well together.
 const tmcIdentPropertyDefs =
@@ -195,11 +200,13 @@ async function* makeNpmrdsShapesIterator(
 export default async function loadRawNpmrdsTables({
   npmrds_tmc_identification_gz,
   npmrds_shapefile_tgz,
+  year,
   county = null,
 }: {
-  county: string | null;
   npmrds_tmc_identification_gz: string;
   npmrds_shapefile_tgz: string;
+  year: number;
+  county: string | null;
 }) {
   const selectedCounty = county && county.toUpperCase();
 
@@ -209,6 +216,11 @@ export default async function loadRawNpmrdsTables({
     makeTmcIdentificationIterator(npmrds_tmc_identification_gz, selectedCounty),
     makeNpmrdsShapesIterator(npmrds_shapefile_tgz, selectedCounty),
   );
+
+  const targetMapDao = new TargetMapDAO<NpmrdsTmcFeature>(SCHEMA);
+
+  targetMapDao.targetMapIsCenterline = false;
+  targetMapDao.mapYear = year;
 
   console.timeEnd(timerId);
 }

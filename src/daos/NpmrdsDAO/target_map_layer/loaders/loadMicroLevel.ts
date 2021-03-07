@@ -13,5 +13,4 @@ export default async function loadMicroLevel() {
   const targetMapDao = new TargetMapDAO<NpmrdsTmcFeature>(SCHEMA);
 
   targetMapDao.loadMicroLevel(true, rawEdgeIsUnidirectional);
-  targetMapDao.targetMapIsCenterline = false;
 }

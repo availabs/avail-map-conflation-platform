@@ -97,6 +97,8 @@ export type TargetMapPath = PreloadedTargetMapPath & {
   labels: TargetMapEntityLabel[];
 };
 
+export type TargetMapPathEdgeIdx = number;
+
 export type TargetMapPathEdgeFeature = TargetMapEdgeFeature & {
   properties: {
     targetMapPathId: TargetMapPathId;
@@ -233,6 +235,18 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
       'targetMapIsCenterline',
       JSON.stringify(targetMapIsCenterline),
     ]);
+  }
+
+  get mapYear() {
+    const targetMapMetadata = JSON.parse(
+      this.queryTargetMapMetadata.raw().get()[0],
+    );
+
+    return +targetMapMetadata.year ?? null;
+  }
+
+  set mapYear(year: number) {
+    this.updateTargetMapMetadataStmt.run(['year', JSON.stringify(year)]);
   }
 
   // https://en.wikipedia.org/wiki/Eulerian_path
@@ -572,8 +586,9 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
   }
 
   private get insertPathEdgeStmt(): Statement {
-    if (!this.preparedWriteStatements.insertPathEdgeStmt) {
-      this.preparedWriteStatements.insertPathEdgeStmt = this.dbWriteConnection.prepare(
+    this.preparedWriteStatements.insertPathEdgeStmt =
+      this.preparedWriteStatements.insertPathEdgeStmt ||
+      this.dbWriteConnection.prepare(
         `
           INSERT INTO ${this.targetMapSchema}.target_map_ppg_path_edges (
             path_id,
@@ -581,7 +596,6 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
             edge_id
           ) VALUES (?, ?, ?) ;`,
       );
-    }
 
     // @ts-ignore
     return this.preparedWriteStatements.insertPathEdgeStmt;

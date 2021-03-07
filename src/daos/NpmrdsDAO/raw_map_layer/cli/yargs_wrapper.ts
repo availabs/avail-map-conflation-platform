@@ -16,6 +16,11 @@ const builder = {
     type: 'string',
     demand: true,
   },
+  year: {
+    desc: 'Map year.',
+    type: 'number',
+    demand: true,
+  },
   county: {
     desc: 'For development purposes, only load a specific county.',
     type: 'string',
