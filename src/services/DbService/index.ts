@@ -8,7 +8,7 @@ import Database, {
   Options as SqliteDatabaseConnectionOptions,
 } from 'better-sqlite3';
 
-import memoizeOne from 'memoize-one';
+import tmp from 'tmp';
 
 import { SOURCE_MAP } from '../../constants/databaseSchemaNames';
 
@@ -34,26 +34,23 @@ const defaultOutputDirPath = join(__dirname, '../../../output/');
 
 const OUTPUT_DIR = envVaribleOutputDirPath || defaultOutputDirPath;
 
-// Needs to run after module is loaded so "main" has a chance to set.
-const getSqliteDir = memoizeOne(() => {
-  const sqliteDir = isAbsolute(OUTPUT_DIR)
-    ? join(OUTPUT_DIR, 'sqlite')
-    : join(process.cwd(), OUTPUT_DIR, 'sqlite');
+const sqliteDir = isAbsolute(OUTPUT_DIR)
+  ? join(OUTPUT_DIR, 'sqlite')
+  : join(process.cwd(), OUTPUT_DIR, 'sqlite');
 
-  mkdirpSync(sqliteDir);
+mkdirpSync(sqliteDir);
 
-  return sqliteDir;
-});
+const tmpSqliteDir = join(__dirname, '../../../output/tmp/');
 
 const attachedDatabases = new Set();
 
 const getDatabaseFilePath = (databaseSchemaName: string) =>
-  join(getSqliteDir(), databaseSchemaName);
+  join(sqliteDir, databaseSchemaName);
 
 const databaseFileExists = (
   databaseSchemaName: DatabaseSchemaName,
   databaseDirectory?: DatabaseDirectory | null,
-) => existsSync(join(databaseDirectory || getSqliteDir(), databaseSchemaName));
+) => existsSync(join(databaseDirectory || sqliteDir, databaseSchemaName));
 
 const attachDatabase = (databaseSchemaName: string) => {
   if (attachedDatabases.has(databaseSchemaName)) {
@@ -83,24 +80,27 @@ const detachDatabase = (databaseSchemaName: string) => {
 const getDatabaseFilePathForSchemaName = (
   databaseSchemaName: string,
   databaseDirectory?: DatabaseDirectory | null,
-) => join(databaseDirectory || getSqliteDir(), databaseSchemaName);
+) => join(databaseDirectory || sqliteDir, databaseSchemaName);
 
 const attachDatabaseToConnection = (
   xdb: SqliteDatabase,
   databaseSchemaName: DatabaseSchemaName,
   databaseDirectory: DatabaseDirectory | null = null,
+  alias: string | null = null,
 ) => {
   const databaseFilePath = getDatabaseFilePathForSchemaName(
     databaseSchemaName,
     databaseDirectory,
   );
 
-  xdb.exec(`ATTACH DATABASE '${databaseFilePath}' AS ${databaseSchemaName};`);
+  xdb.exec(
+    `ATTACH DATABASE '${databaseFilePath}' AS ${alias || databaseSchemaName};`,
+  );
 };
 
 const detachDatabaseFromConnection = (
   xdb: SqliteDatabase,
-  databaseSchemaName: DatabaseSchemaName,
+  databaseSchemaName: DatabaseSchemaName | string,
 ) => {
   xdb.exec(`DETACH DATABASE '${databaseSchemaName}';`);
 };
@@ -184,6 +184,37 @@ const makeDatabaseReadOnly = (databaseSchemaName: string) => {
   attachDatabase(databaseSchemaName);
 };
 
+const tmpSqliteRemoveCallbacks: Map<
+  SqliteDatabase,
+  tmp.FileResult['removeCallback']
+> = new Map();
+
+// https://www.npmjs.com/package/tmp#graceful-cleanup
+tmp.setGracefulCleanup();
+
+const createTemporaryDatabase = (): SqliteDatabase => {
+  mkdirpSync(tmpSqliteDir);
+
+  const tmpobj = tmp.fileSync({ tmpdir: tmpSqliteDir });
+  // const tmpobj = tmp.fileSync({ tmpdir: tmpSqliteDir, keep: true });
+
+  const tmpDb = new Database(tmpobj.name);
+
+  tmpSqliteRemoveCallbacks.set(tmpDb, tmpobj.removeCallback);
+
+  return tmpDb;
+};
+
+const destroyTemporaryDatabase = (tmpDb: SqliteDatabase) => {
+  const removeCallback = tmpSqliteRemoveCallbacks.get(tmpDb);
+
+  if (removeCallback) {
+    removeCallback();
+  }
+
+  tmpSqliteRemoveCallbacks.delete(tmpDb);
+};
+
 // Can bind more db methods if they are needed.
 //   https://github.com/JoshuaWise/better-sqlite3/blob/master/docs/api.md
 export default {
@@ -207,4 +238,7 @@ export default {
   // @ts-ignore
   unsafeMode: db.unsafeMode.bind(db),
   close: db.close.bind(db),
+
+  createTemporaryDatabase,
+  destroyTemporaryDatabase,
 };
