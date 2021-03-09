@@ -10,4 +10,5 @@ module.exports = {
   SOURCE_MAP: 'source_map',
   NPMRDS: 'npmrds',
   NYS_RIS: 'nys_ris',
+  CONFLATION_MAP: 'conflation_map',
 };

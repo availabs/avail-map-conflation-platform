@@ -19,6 +19,9 @@ export { SharedStreetsRoadClass };
 
 export type SharedStreetsIntersectionId = SharedStreetsIntersection['id'];
 
+export type OsmNodeId = number;
+export type OsmWayId = number;
+
 export interface SharedStreetsLocationReference {
   sequence: number;
   point: [number, number];
