@@ -17,6 +17,7 @@ import {
   SharedStreetsIntersectionId,
   SharedStreetsMatchFeature,
   TargetMapPathId,
+  TargetMapEdgeId,
   TargetMapEdgeFeature,
   TargetMapPathEdgeFeature,
   TargetMapPathMatches,
@@ -126,7 +127,11 @@ export default class TargetMapPathVicinity<T extends RawTargetMapFeature> {
       SharedStreetsIntersectionId,
       SharedStreetsReferenceFeature[]
     >;
+
+    chosenMatchFeatures?: ChosenMatchFeature[][];
   };
+
+  readonly vicinityTargetMapEdgeIds: TargetMapEdgeId[];
 
   // readonly targetMapPathEdgeShstMatchedShstReferenceChains: DirectionalShstReferenceChains[];
 
@@ -142,10 +147,6 @@ export default class TargetMapPathVicinity<T extends RawTargetMapFeature> {
     SharedStreetsReferenceId,
     SharedStreetsMatchFeature[]
   >;
-
-  readonly targetMapPathChosenFeatures: ChosenMatchFeature[][];
-
-  readonly nearbyTargetMapEdgesChosenFeatures: ChosenMatchFeature[][];
 
   readonly vicinityTargetMapEdgesShstMatches: TargetMapEdgeShstMatches[];
 
@@ -300,7 +301,7 @@ export default class TargetMapPathVicinity<T extends RawTargetMapFeature> {
     // All the ShstReferences intersecting the Vicinity.
     this.vicinitySharedStreetsReferences = this.allVicinitySharedStreetsReferences.filter(
       (shstRef) =>
-        shstRef.properties.roadClass !== SharedStreetsRoadClass.Other,
+        shstRef.properties.minOsmRoadClass !== SharedStreetsRoadClass.Other,
     );
 
     // We keep track of the nonVehicleSharedStreetsReferences so we can identify
@@ -308,7 +309,7 @@ export default class TargetMapPathVicinity<T extends RawTargetMapFeature> {
     //   because of crosswalks.
     this.roadClassOtherSharedStreetsReferences = this.allVicinitySharedStreetsReferences.filter(
       (shstRef) =>
-        shstRef.properties.roadClass === SharedStreetsRoadClass.Other,
+        shstRef.properties.minOsmRoadClass === SharedStreetsRoadClass.Other,
     );
 
     this.sharedStreetsMatchedReferences = this.vicinitySharedStreetsReferences.filter(
@@ -339,22 +340,10 @@ export default class TargetMapPathVicinity<T extends RawTargetMapFeature> {
       [],
     );
 
-    const vicinityTargetMapEdgeIds = [
+    this.vicinityTargetMapEdgeIds = [
       ...this.targetMapPathEdges.map(({ id }) => id),
       ...this.nearbyTargetMapEdges.map(({ id }) => id),
     ];
-
-    const chosenMatchFeatures = this.bbDao.getChosenShstMatchesForTargetMapEdges(
-      vicinityTargetMapEdgeIds,
-    );
-
-    this.targetMapPathChosenFeatures = this.targetMapPathEdges.map(
-      (_$, i) => chosenMatchFeatures[i],
-    );
-
-    this.nearbyTargetMapEdgesChosenFeatures = this.nearbyTargetMapEdges.map(
-      (_$, i) => chosenMatchFeatures[i + this.targetMapPathEdges.length],
-    );
 
     this.vicinityShstMatches = [
       ...this.targetMapPathShstMatches,
@@ -384,6 +373,26 @@ export default class TargetMapPathVicinity<T extends RawTargetMapFeature> {
 
           return aStart - bStart || aEnd - bEnd;
         }),
+    );
+  }
+
+  private get chosenMatchFeatures() {
+    this.cache.chosenMatchFeatures =
+      this.cache.chosenMatchFeatures ||
+      this.bbDao.getChosenShstMatchesForTargetMapEdges(
+        this.vicinityTargetMapEdgeIds,
+      );
+
+    return this.cache.chosenMatchFeatures;
+  }
+
+  get targetMapPathChosenFeatures() {
+    return this.targetMapPathEdges.map((_$, i) => this.chosenMatchFeatures[i]);
+  }
+
+  get nearbyTargetMapEdgesChosenFeatures() {
+    return this.nearbyTargetMapEdges.map(
+      (_$, i) => this.chosenMatchFeatures[i + this.targetMapPathEdges.length],
     );
   }
 

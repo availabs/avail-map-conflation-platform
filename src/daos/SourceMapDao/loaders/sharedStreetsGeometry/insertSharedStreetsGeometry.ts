@@ -18,16 +18,13 @@ import {
 export default (db: any, shstGeometry: SharedStreetsGeometry) => {
   const {
     id: shstGeometryId,
-    fromIntersectionId = null,
-    toIntersectionId = null,
+    fromIntersectionId,
+    toIntersectionId,
+    forwardReferenceId,
+    backReferenceId,
     roadClass,
     lonlats,
   } = shstGeometry;
-
-  let { forwardReferenceId, backReferenceId } = shstGeometry;
-
-  forwardReferenceId = forwardReferenceId ?? null;
-  backReferenceId = backReferenceId ?? null;
 
   const shstGeometryCoords = _.chunk(lonlats, 2);
 
@@ -38,11 +35,6 @@ export default (db: any, shstGeometry: SharedStreetsGeometry) => {
       shstGeometryCoords,
       {
         id: shstGeometryId,
-        // fromIntersectionId,
-        // toIntersectionId,
-        // forwardReferenceId,
-        // backReferenceId,
-        // roadClass,
       },
       { id: shstGeometryId },
     );
@@ -77,14 +69,29 @@ export default (db: any, shstGeometry: SharedStreetsGeometry) => {
       shstGeometryId,
       fromIntersectionId,
       toIntersectionId,
-      forwardReferenceId || null,
-      backReferenceId || null,
+      forwardReferenceId,
+      backReferenceId,
       roadClass,
       shstGeometryLineString && JSON.stringify(shstGeometryLineString),
     ]);
 
   if (!success) {
     handleShstGeometryInsertFailure(db, shstGeometry);
+    // console.log(
+    //  JSON.stringify(
+    //    {
+    //      shstGeometryId,
+    //      fromIntersectionId,
+    //      toIntersectionId,
+    //      forwardReferenceId,
+    //      backReferenceId,
+    //      roadClass,
+    //      shstGeometryLineString,
+    //    },
+    //    null,
+    //    4,
+    //  ),
+    // );
     return false;
   }
 

@@ -60,14 +60,18 @@ export default function searchAndSort(
     true,
   );
 
-  const optimalBackwardPath = selectOptimalShstReferencesChainForTargetMapPath(
-    vicinity,
-    allBackwardPaths,
-    false,
-  );
+  const optimalBackwardPath = vicinity.targetMapIsCenterline
+    ? [
+        selectOptimalShstReferencesChainForTargetMapPath(
+          vicinity,
+          allBackwardPaths,
+          false,
+        ),
+      ]
+    : [];
 
   return {
     forwardPaths: [optimalForwardPath],
-    backwardPaths: [optimalBackwardPath],
+    backwardPaths: optimalBackwardPath,
   };
 }

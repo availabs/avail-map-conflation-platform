@@ -8,7 +8,7 @@ import _ from 'lodash';
 
 import { Database, Statement } from 'better-sqlite3';
 
-import db, { DatabaseSchemaName, DatabaseDirectory } from '../../DbService';
+import db, { DatabaseSchemaName } from '../../DbService';
 
 import * as SourceMapDAO from '../../../daos/SourceMapDao';
 
@@ -31,11 +31,6 @@ import {
 
 // const MIN_CHOSEN_MATCH_LEN = 0.005; [> km, 5m <]
 
-export type TargetMapConflationBlackboardDaoConfig = {
-  databaseDirectory?: DatabaseDirectory | null;
-  databaseSchemaName?: DatabaseSchemaName | null;
-};
-
 const initializeSqlPath = join(
   __dirname,
   './initialize_blackboard_database.sql',
@@ -53,8 +48,6 @@ export default class TargetMapConflationBlackboardDao<
   protected readonly targetMapDao: TargetMapDAO<T>;
 
   readonly blkbrdDbSchema: DatabaseSchemaName;
-
-  readonly databaseDirectory: DatabaseDirectory | null;
 
   // Used for reads
   readonly dbReadConnection: Database;
@@ -82,20 +75,19 @@ export default class TargetMapConflationBlackboardDao<
     T
   >['makeTargetMapEdgesGeoproximityIterator'];
 
-  constructor(
-    targetMapSchema: TargetMapSchema,
-    protected config: TargetMapConflationBlackboardDaoConfig = {},
-  ) {
-    this.targetMapSchema = targetMapSchema;
-    this.blkbrdDbSchema =
-      config.databaseSchemaName ||
-      `${this.targetMapSchema}_conflation_blackboard`;
+  static getBlackboardSchemaName(targetMapSchema: DatabaseSchemaName) {
+    return `${targetMapSchema}_conflation_blackboard`;
+  }
 
-    this.databaseDirectory = config.databaseDirectory || null;
+  constructor(targetMapSchema: TargetMapSchema) {
+    this.targetMapSchema = targetMapSchema;
+    this.blkbrdDbSchema = TargetMapConflationBlackboardDao.getBlackboardSchemaName(
+      this.targetMapSchema,
+    );
 
     this.dbReadConnection = db.openConnectionToDb(
       this.blkbrdDbSchema,
-      this.databaseDirectory,
+      // null,
       // { verbose: console.log.bind(console) },
     );
 
@@ -104,7 +96,7 @@ export default class TargetMapConflationBlackboardDao<
     // Write connection strictly for writes to this DB.
     this.dbWriteConnection = db.openConnectionToDb(
       this.blkbrdDbSchema,
-      this.databaseDirectory,
+      // null,
       // { verbose: console.log.bind(console) },
     );
     db.attachDatabaseToConnection(this.dbWriteConnection, this.targetMapSchema);
@@ -557,14 +549,18 @@ export default class TargetMapConflationBlackboardDao<
         `
           -- INSERT OR IGNORE INTO ${this.blkbrdDbSchema}.target_map_edge_chosen_shst_matches (
           INSERT OR IGNORE INTO ${this.blkbrdDbSchema}.target_map_edge_chosen_shst_matches (
+            path_id,
+            path_edge_idx,
+
             edge_id,
             is_forward,
             edge_shst_match_idx,
+
             shst_reference,
             section_start,
             section_end
           )
-            VALUES(?, ?, ?, ?, ?, ?) ; `,
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?) ; `,
       );
     }
 
@@ -576,6 +572,8 @@ export default class TargetMapConflationBlackboardDao<
     chosenShstMatch: ChosenMatchMetadata,
   ): boolean | null {
     const {
+      targetMapPathId,
+      targetMapPathEdgeIdx,
       targetMapEdgeId,
       isForward,
       targetMapEdgeShstMatchIdx,
@@ -585,6 +583,8 @@ export default class TargetMapConflationBlackboardDao<
     } = chosenShstMatch;
 
     const insertResult = this.insertChosenShstMatchStmt.run([
+      targetMapPathId,
+      targetMapPathEdgeIdx,
       targetMapEdgeId,
       +!!isForward,
       targetMapEdgeShstMatchIdx,
@@ -593,7 +593,7 @@ export default class TargetMapConflationBlackboardDao<
       sectionEnd,
     ]);
 
-    if (insertResult.changes < 1) {
+    if (insertResult.changes < 1 && sectionStart < sectionEnd) {
       console.log('ChosenMatch INSERT FAILED.');
       console.log(JSON.stringify({ chosenShstMatch }, null, 4));
     }
@@ -625,6 +625,8 @@ export default class TargetMapConflationBlackboardDao<
                 json_object(
                   'targetMapId',
                   target_map_id,
+                  'targetMapPathId',
+                  path_id,
                   'targetMapEdgeId',
                   edge_id,
                   'isForward',
@@ -666,13 +668,18 @@ export default class TargetMapConflationBlackboardDao<
     }
   }
 
+  // FIXME: Currently doesn't take into account TargetMapPath
   protected get targetMapEdgesChosenMatchesStmt(): Statement {
     if (!this.preparedReadStatements.targetMapEdgesChosenMatchesStmt) {
       this.preparedReadStatements.targetMapEdgesChosenMatchesStmt = this.dbReadConnection.prepare(
         `
           SELECT
               json_object(
+                -- The ID in the TargetMap
                 'targetMapId',       target_map_id,
+
+                -- TargetMapPPG IDs
+                'targetMapPathId',   path_id,
                 'targetMapEdgeId',   edge_id,
 
                 'shstReferenceId',   shst_reference,
@@ -687,6 +694,7 @@ export default class TargetMapConflationBlackboardDao<
               INNER JOIN ${this.targetMapSchema}.target_map_ppg_edge_id_to_target_map_id
                 USING (edge_id)
             WHERE (
+              -- FIXME: Needs to optionally filter by TargetMapPath
               edge_id IN (
                 SELECT
                     value AS edge_id
@@ -704,6 +712,7 @@ export default class TargetMapConflationBlackboardDao<
     return this.preparedReadStatements.targetMapEdgesChosenMatchesStmt;
   }
 
+  // FIXME: Currently doesn't take into account TargetMapPath
   getChosenShstMatchesForTargetMapEdges(
     targetMapEdgeIds: TargetMapEdgeId[],
   ): ChosenMatchFeature[][] {

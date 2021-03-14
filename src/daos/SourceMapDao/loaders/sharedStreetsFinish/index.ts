@@ -53,9 +53,9 @@ export function* makeShstReferenceLoaderIterator(
                 geometry_id AS shst_geometry_id,
                 fow.value AS form_of_way,
                 rc.value AS road_class,
-                forward_reference_id,
-                back_reference_id,
-                (geom.forward_reference_id = ref.id) AS is_forward,
+                NULLIF(forward_reference_id, '') as forward_reference_id,
+                NULLIF(back_reference_id, '') as back_reference_id,
+                IFNULL(geom.forward_reference_id = ref.id, 0) AS is_forward,
                 geom.geojson_linestring as geom_feature
               FROM ${SCHEMA}.shst_references AS ref
                 INNER JOIN ${SCHEMA}.shst_geometries AS geom

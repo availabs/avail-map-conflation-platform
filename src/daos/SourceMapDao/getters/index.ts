@@ -5,7 +5,7 @@ import * as turf from '@turf/turf';
 import db from '../../../services/DbService';
 
 import { SOURCE_MAP } from '../../../constants/databaseSchemaNames';
-import { SharedStreetsReferenceFeature } from '../domain/types';
+import { SharedStreetsReferenceFeature, OsmNodeId } from '../domain/types';
 
 // The geopoly types copied from the following:
 // https://github.com/Turfjs/turf/blob/3cea4b5f125a11fb4757da59d1222fd837d9783c/packages/turf-invariant/index.ts#L51-L63
@@ -64,4 +64,47 @@ export function getShstReferences(
   );
 
   return shstRefLineStrings;
+}
+
+export function getOsmNodes(
+  osmNodeIds: OsmNodeId[],
+): Record<OsmNodeId, turf.Feature<turf.Point> | null> {
+  const nodesById = db
+    .prepare(
+      `
+        SELECT
+            osm_node_id,
+            coord
+          FROM ${SOURCE_MAP}.osm_nodes
+            INNER JOIN (
+              SELECT
+                  value AS osm_node_id
+                FROM (
+                  SELECT json(?) AS osm_node_ids
+                ) AS t, json_each(t.osm_node_ids)
+            ) USING (osm_node_id)
+      `,
+    )
+    .raw()
+    .all([JSON.stringify(osmNodeIds)])
+    .reduce(
+      (
+        acc: Record<OsmNodeId, turf.Feature<turf.Point>>,
+        [osmNodeId, coordStr],
+      ) => {
+        const coord = JSON.parse(coordStr);
+        const node = turf.point(coord, { osmNodeId }, { id: osmNodeId });
+
+        acc[osmNodeId] = node;
+
+        return acc;
+      },
+      {},
+    );
+
+  osmNodeIds.forEach((osmNodeId) => {
+    nodesById[osmNodeId] = nodesById[osmNodeId] || null;
+  });
+
+  return nodesById;
 }

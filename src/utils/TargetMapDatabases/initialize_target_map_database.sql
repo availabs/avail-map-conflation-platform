@@ -331,3 +331,20 @@ CREATE VIEW __SCHEMA__.target_map_ppg_path_feature_collections
       USING(edge_id)
     GROUP BY path_id
 ;
+
+CREATE VIEW __SCHEMA__.target_map_ppg_path_last_edges
+  AS
+    SELECT
+        path_id,
+        path_edge_idx,
+        edge_id
+      FROM target_map_ppg_path_edges
+        INNER JOIN (
+          SELECT
+              path_id,
+              MAX(path_edge_idx) AS path_edge_idx
+            FROM target_map_ppg_path_edges
+            GROUP BY path_id
+        )
+          USING (path_id, path_edge_idx)
+;

@@ -14,13 +14,17 @@ function overlapsToChosenShstMatches(
 ): ChosenMatchMetadata[] {
   const chosenShstMatches: ChosenMatchMetadata[] = [];
 
-  for (let i = 0; i < targetMapPathEdges.length; ++i) {
+  for (
+    let targetMapPathEdgeIdx = 0;
+    targetMapPathEdgeIdx < targetMapPathEdges.length;
+    ++targetMapPathEdgeIdx
+  ) {
     const {
       id: targetMapEdgeId,
-      properties: { targetMapId },
-    } = targetMapPathEdges[i];
+      properties: { targetMapId, targetMapPathId },
+    } = targetMapPathEdges[targetMapPathEdgeIdx];
 
-    const tmPathEdgeOverlaps = overlaps[i];
+    const tmPathEdgeOverlaps = overlaps[targetMapPathEdgeIdx];
 
     const chosenMatchesByShstRef: Record<
       SharedStreetsReferenceId,
@@ -65,6 +69,8 @@ function overlapsToChosenShstMatches(
       } else {
         chosenMatchesByShstRef[shstReferenceId] = {
           targetMapId,
+          targetMapPathId,
+          targetMapPathEdgeIdx,
           targetMapEdgeId,
           isForward,
           targetMapEdgeShstMatchIdx: targetMapEdgeShstMatchIdx++,
