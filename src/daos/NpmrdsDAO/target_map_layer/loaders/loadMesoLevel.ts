@@ -2,6 +2,8 @@
 
 import { strict as assert } from 'assert';
 
+import DbService from '../../../../services/DbService';
+
 import { NPMRDS as SCHEMA } from '../../../../constants/databaseSchemaNames';
 
 import TargetMapDAO, {
@@ -62,7 +64,11 @@ function* makePreloadedTargetMapEdgesIterator(
 
 // eslint-disable-next-line import/prefer-default-export
 export default async function loadMesoLevelPaths() {
+  const db = DbService.openConnectionToDb(SCHEMA);
+
   try {
+    db.pragma(`${SCHEMA}.journal_mode = WAL`);
+
     const targetMapDao = new TargetMapDAO<NpmrdsTmcFeature>(SCHEMA);
 
     targetMapDao.targetMapPathsAreEulerian = true;
@@ -78,8 +84,11 @@ export default async function loadMesoLevelPaths() {
     );
 
     targetMapDao.vacuumDatabase();
+    targetMapDao.closeConnections();
   } catch (err) {
     console.error();
     process.exit(1);
+  } finally {
+    db.pragma(`${SCHEMA}.journal_mode = DELETE`);
   }
 }

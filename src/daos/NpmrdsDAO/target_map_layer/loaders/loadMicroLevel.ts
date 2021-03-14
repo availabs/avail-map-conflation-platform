@@ -1,5 +1,7 @@
 /* eslint-disable no-restricted-syntax */
 
+import DbService from '../../../../services/DbService';
+
 import { NPMRDS as SCHEMA } from '../../../../constants/databaseSchemaNames';
 
 import TargetMapDAO from '../../../../utils/TargetMapDatabases/TargetMapDAO';
@@ -10,7 +12,17 @@ import { NpmrdsTmcFeature } from '../../raw_map_layer/domain/types';
 
 // eslint-disable-next-line import/prefer-default-export
 export default async function loadMicroLevel() {
-  const targetMapDao = new TargetMapDAO<NpmrdsTmcFeature>(SCHEMA);
+  const db = DbService.openConnectionToDb(SCHEMA);
 
-  targetMapDao.loadMicroLevel(true, rawEdgeIsUnidirectional);
+  try {
+    db.pragma(`${SCHEMA}.journal_mode = WAL`);
+
+    const targetMapDao = new TargetMapDAO<NpmrdsTmcFeature>(SCHEMA);
+
+    targetMapDao.loadMicroLevel(true, rawEdgeIsUnidirectional);
+
+    targetMapDao.closeConnections();
+  } finally {
+    db.pragma(`${SCHEMA}.journal_mode = DELETE`);
+  }
 }

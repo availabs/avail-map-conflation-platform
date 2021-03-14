@@ -170,6 +170,11 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
     }
   }
 
+  closeConnections() {
+    this.dbReadConnection.close();
+    this.dbWriteConnection.close();
+  }
+
   private get targetMapDatabaseIsInitializedStmt(): Statement {
     this.preparedReadStatements.targetMapDatabaseIsInitializedStmt =
       this.preparedReadStatements.targetMapDatabaseIsInitializedStmt ||
@@ -377,39 +382,55 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
     properties,
     coordinates,
   }: PreloadedTargetMapEdge): TargetMapEdgeId | null {
-    const geoproxKey = getGeoProximityKey(coordinates);
+    try {
+      const geoproxKey = getGeoProximityKey(coordinates);
 
-    const { changes, lastInsertRowid } = this.insertEdgeStmt.run([
-      geoproxKey,
-      JSON.stringify(properties),
-      JSON.stringify(coordinates),
-      startLon,
-      startLat,
-      endLon,
-      endLat,
-    ]);
+      const { changes, lastInsertRowid } = this.insertEdgeStmt.run([
+        geoproxKey,
+        JSON.stringify(properties),
+        JSON.stringify(coordinates),
+        startLon,
+        startLat,
+        endLon,
+        endLat,
+      ]);
 
-    if (changes === 0) {
-      return null;
+      if (changes === 0) {
+        return null;
+      }
+
+      const edgeId = +lastInsertRowid;
+
+      // Coordinates of the feature's bounding polygon.
+      // @ts-ignore
+      const feature = Array.isArray(coordinates?.[0]?.[0])
+        ? // @ts-ignore
+          turf.multiLineString(coordinates)
+        : // @ts-ignore
+          turf.lineString(coordinates);
+
+      const polyCoords = getBufferPolygonCoords(feature);
+
+      const geopolyShape = _.first(polyCoords);
+
+      this.insertEdgeGeopolyStmt.run([JSON.stringify(geopolyShape), edgeId]);
+
+      return edgeId;
+    } catch (err) {
+      console.error(
+        JSON.stringify(
+          {
+            startCoord: [startLon, startLat],
+            endCoord: [endLon, endLat],
+            properties,
+            coordinates,
+          },
+          null,
+          4,
+        ),
+      );
+      throw err;
     }
-
-    const edgeId = +lastInsertRowid;
-
-    // Coordinates of the feature's bounding polygon.
-    // @ts-ignore
-    const feature = Array.isArray(coordinates?.[0]?.[0]?.[0])
-      ? // @ts-ignore
-        turf.multiLineString(coordinates)
-      : // @ts-ignore
-        turf.lineString(coordinates);
-
-    const polyCoords = getBufferPolygonCoords(feature);
-
-    const geopolyShape = _.first(polyCoords);
-
-    this.insertEdgeGeopolyStmt.run([JSON.stringify(geopolyShape), edgeId]);
-
-    return edgeId;
   }
 
   // The rawEdgeIsUnidirectional function is called for each RawTargetMapFeature to determine
@@ -544,6 +565,7 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
       );
 
       for (const edge of edgesIterator) {
+        // console.log(edge.properties.targetMapId);
         const {
           startCoord: [startLon, startLat],
           endCoord: [endLon, endLat],
@@ -567,6 +589,7 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
       this.dbWriteConnection.exec('COMMIT');
     } catch (err) {
       this.dbWriteConnection.exec('ROLLBACK;');
+      console.error(err);
       throw err;
     }
   }
