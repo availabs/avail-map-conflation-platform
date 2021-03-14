@@ -129,7 +129,6 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
   private readonly preparedReadStatements: {
     targetMapDatabaseIsInitializedStmt?: Statement;
     queryTargetMapMetadata?: Statement;
-    listDataTablesStmt?: Statement;
     tableIsCleanStmt?: Record<string, Statement>;
     allTargetMapPathIdsStmt?: Statement;
     targetMapIdsForEdgeIdsStmts?: Record<number, Statement>;
@@ -478,75 +477,6 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
     }
   }
 
-  private get listDataTablesStmt(): Statement {
-    this.preparedReadStatements.listDataTablesStmt =
-      this.preparedReadStatements.listDataTablesStmt ||
-      this.dbReadConnection.prepare(
-        `
-          SELECT
-              name
-            FROM ${this.targetMapSchema}.sqlite_master
-            WHERE (
-              ( type = 'table' )
-              AND
-              ( name LIKE 'target_map%' )
-              AND
-              ( name != 'target_map_metadata' )
-              AND
-              ( name NOT LIKE '%geopoly_idx_node' )
-              AND
-              ( name NOT LIKE '%geopoly_idx_parent' )
-              AND
-              ( name NOT LIKE '%geopoly_idx_rowid' )
-            ) ;
-        `,
-      );
-
-    return this.preparedReadStatements.listDataTablesStmt;
-  }
-
-  private getTruncateTableStmt(tableName: string) {
-    this.preparedWriteStatements.truncateTableStatements =
-      this.preparedWriteStatements.truncateTableStatements || {};
-
-    this.preparedWriteStatements.truncateTableStatements[tableName] =
-      this.preparedWriteStatements.truncateTableStatements[tableName] ||
-      this.dbWriteConnection.prepare(
-        ` DELETE FROM ${this.targetMapSchema}.${tableName} ;`,
-      );
-
-    return this.preparedWriteStatements.truncateTableStatements[tableName];
-  }
-
-  truncateAllDataTables() {
-    const dataTableNames = this.listDataTablesStmt.raw().all();
-
-    dataTableNames.forEach((tableName) => {
-      this.getTruncateTableStmt(tableName).run();
-    });
-  }
-
-  private getTableIsCleanStmt(tableName: string) {
-    this.preparedReadStatements.tableIsCleanStmt =
-      this.preparedReadStatements.tableIsCleanStmt || {};
-
-    this.preparedReadStatements.tableIsCleanStmt[tableName] =
-      this.preparedReadStatements.tableIsCleanStmt[tableName] ||
-      this.dbReadConnection.prepare(
-        `SELECT EXISTS (SELECT 1 FROM ${this.targetMapSchema}.${tableName});`,
-      );
-
-    return this.preparedReadStatements.tableIsCleanStmt[tableName];
-  }
-
-  get targetMapDatabaseDataTablesAreClean() {
-    const dataTableNames = this.listDataTablesStmt.raw().all();
-
-    return dataTableNames.every(
-      (tableName) => this.getTableIsCleanStmt(tableName).raw().get()[0] === 0,
-    );
-  }
-
   // The rawEdgeIsUnidirectional function is called for each RawTargetMapFeature to determine
   //   whether the Feature represents a uni-directional or bi-directional segment of road.
   loadMicroLevel(
@@ -557,7 +487,7 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
       this.dbWriteConnection.exec('BEGIN;');
 
       if (clean) {
-        this.truncateAllDataTables();
+        this.initializeTargetMapDatabase();
       }
 
       const edgesIterator = this.makePreloadedTargetMapEdgesIterator(
@@ -565,7 +495,7 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
       );
 
       for (const edge of edgesIterator) {
-        // console.log(edge.properties.targetMapId);
+        console.log(edge.properties.targetMapId);
         const {
           startCoord: [startLon, startLat],
           endCoord: [endLon, endLat],

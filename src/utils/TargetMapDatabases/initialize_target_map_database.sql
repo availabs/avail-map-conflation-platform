@@ -21,8 +21,6 @@ See: https://www.gqlstandards.org/
 -- NOTE: __SCHEMA__. replaced with '<attached database>.' or ''
 
 -- Drop all the tables. Because of FOREIGN KEY REFERENCES, order matters.
-DROP TABLE IF EXISTS __SCHEMA__.target_map_metadata ;
-
 DROP VIEW IF EXISTS __SCHEMA__.target_map_ppg_path_feature_collections ;
 DROP VIEW IF EXISTS __SCHEMA__.target_map_ppg_edge_line_features ;
 DROP VIEW IF EXISTS __SCHEMA__.target_map_ppg_node_point_features ;
@@ -47,11 +45,14 @@ DROP TABLE IF EXISTS __SCHEMA__.target_map_ppg_edges;
 DROP TABLE IF EXISTS __SCHEMA__.target_map_ppg_nodes;
 
 
--- ========== Target Map Nodes ==========
-CREATE TABLE __SCHEMA__.target_map_metadata
+-- NOTE: We do not first drop the target_map_metadata table.
+--       This allows us to first DROP all the PPG tables before (re)loading the MicroLevel.
+--       This vastly improves performance.
+CREATE TABLE IF NOT EXISTS __SCHEMA__.target_map_metadata
   AS
     SELECT json('{}') AS metadata;
 
+-- ========== Target Map Nodes ==========
 CREATE TABLE __SCHEMA__.target_map_ppg_nodes (
     node_id      INTEGER PRIMARY KEY AUTOINCREMENT,
 
@@ -332,7 +333,7 @@ CREATE VIEW __SCHEMA__.target_map_ppg_path_feature_collections
     GROUP BY path_id
 ;
 
-CREATE VIEW __SCHEMA__.target_map_ppg_path_last_edges
+CREATE VIEW IF NOT EXISTS __SCHEMA__.target_map_ppg_path_last_edges
   AS
     SELECT
         path_id,

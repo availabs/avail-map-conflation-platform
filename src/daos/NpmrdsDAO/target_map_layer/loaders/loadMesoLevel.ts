@@ -66,10 +66,10 @@ function* makePreloadedTargetMapEdgesIterator(
 export default async function loadMesoLevelPaths() {
   const db = DbService.openConnectionToDb(SCHEMA);
 
+  const targetMapDao = new TargetMapDAO<NpmrdsTmcFeature>(SCHEMA);
+
   try {
     db.pragma(`${SCHEMA}.journal_mode = WAL`);
-
-    const targetMapDao = new TargetMapDAO<NpmrdsTmcFeature>(SCHEMA);
 
     targetMapDao.targetMapPathsAreEulerian = true;
 
@@ -84,11 +84,11 @@ export default async function loadMesoLevelPaths() {
     );
 
     targetMapDao.vacuumDatabase();
-    targetMapDao.closeConnections();
   } catch (err) {
     console.error();
-    process.exit(1);
+    throw err;
   } finally {
+    targetMapDao.closeConnections();
     db.pragma(`${SCHEMA}.journal_mode = DELETE`);
   }
 }

@@ -2,6 +2,8 @@
 
 import { strict as assert } from 'assert';
 
+import DbService from '../../../../services/DbService';
+
 import { NYS_RIS as SCHEMA } from '../../../../constants/databaseSchemaNames';
 
 import TargetMapDAO, {
@@ -19,12 +21,14 @@ type NysRisTargetMapDao = TargetMapDAO<NysRoadInventorySystemFeature>;
 function* makePreloadedTargetMapEdgesIterator(
   targetMapDao: NysRisTargetMapDao,
 ): Generator<PreloadedTargetMapPath> {
+  console.time('edgeIter');
   const edgesByLinearTmcIterator = targetMapDao.makeGroupedRawEdgeFeaturesIterator(
     {
       groupByRawProperties: ['gis_id', 'county_name'],
     },
   );
 
+  let timer = true;
   // @ts-ignore
   for (const {
     gis_id,
@@ -33,6 +37,10 @@ function* makePreloadedTargetMapEdgesIterator(
   }: {
     features: NysRoadInventorySystemFeature[];
   } of edgesByLinearTmcIterator) {
+    if (timer) {
+      console.timeEnd('edgeIter');
+      timer = false;
+    }
     // All target map features need to have Paths to get chosen matches.
     // if (features.length < 2) {
     // continue;
@@ -57,6 +65,8 @@ function* makePreloadedTargetMapEdgesIterator(
 
       const targetMapMesoId = `${gis_id}:${fipsCode}:${i}`;
 
+      console.log('meso:', targetMapMesoId);
+
       // TODO: Properties should include bearing.
       const properties = {
         targetMapMesoId,
@@ -69,10 +79,12 @@ function* makePreloadedTargetMapEdgesIterator(
 
 // eslint-disable-next-line import/prefer-default-export
 export default async function loadMesoLevelPaths() {
+  const db = DbService.openConnectionToDb(SCHEMA);
+
+  const targetMapDao = new TargetMapDAO<NysRoadInventorySystemFeature>(SCHEMA);
+
   try {
-    const targetMapDao = new TargetMapDAO<NysRoadInventorySystemFeature>(
-      SCHEMA,
-    );
+    db.pragma(`${SCHEMA}.journal_mode = WAL`);
 
     targetMapDao.targetMapPathsAreEulerian = true;
 
@@ -89,6 +101,9 @@ export default async function loadMesoLevelPaths() {
     targetMapDao.vacuumDatabase();
   } catch (err) {
     console.error();
-    process.exit(1);
+    throw err;
+  } finally {
+    targetMapDao.closeConnections();
+    db.pragma(`${SCHEMA}.journal_mode = DELETE`);
   }
 }

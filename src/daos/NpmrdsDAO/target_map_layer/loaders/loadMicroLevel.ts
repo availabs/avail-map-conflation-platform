@@ -14,15 +14,14 @@ import { NpmrdsTmcFeature } from '../../raw_map_layer/domain/types';
 export default async function loadMicroLevel() {
   const db = DbService.openConnectionToDb(SCHEMA);
 
+  const targetMapDao = new TargetMapDAO<NpmrdsTmcFeature>(SCHEMA);
+
   try {
     db.pragma(`${SCHEMA}.journal_mode = WAL`);
 
-    const targetMapDao = new TargetMapDAO<NpmrdsTmcFeature>(SCHEMA);
-
     targetMapDao.loadMicroLevel(true, rawEdgeIsUnidirectional);
-
-    targetMapDao.closeConnections();
   } finally {
+    targetMapDao.closeConnections();
     db.pragma(`${SCHEMA}.journal_mode = DELETE`);
   }
 }
