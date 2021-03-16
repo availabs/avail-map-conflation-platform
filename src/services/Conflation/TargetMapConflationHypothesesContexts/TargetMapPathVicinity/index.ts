@@ -379,7 +379,7 @@ export default class TargetMapPathVicinity<T extends RawTargetMapFeature> {
   private get chosenMatchFeatures() {
     this.cache.chosenMatchFeatures =
       this.cache.chosenMatchFeatures ||
-      this.bbDao.getChosenShstMatchesForTargetMapEdges(
+      this.bbDao.getChosenMatchesForTargetMapEdges(
         this.vicinityTargetMapEdgeIds,
       );
 

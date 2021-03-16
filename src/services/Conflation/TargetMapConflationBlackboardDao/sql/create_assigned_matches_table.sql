@@ -1,6 +1,6 @@
-DROP TABLE IF EXISTS tmp_assigned_matches;
+DROP TABLE IF EXISTS __SCHEMA__.target_map_edge_assigned_matches;
 
-CREATE TABLE tmp_assigned_matches (
+CREATE TABLE __SCHEMA__.target_map_edge_assigned_matches (
   shst_reference_id   INTEGER NOT NULL,
 
   edge_id             INTEGER NOT NULL,
@@ -43,6 +43,3 @@ CREATE TABLE tmp_assigned_matches (
     section_end
   )
 ) WITHOUT ROWID;
-
-CREATE INDEX tmp_assigned_matches_shst_ref_idx
-  ON tmp_assigned_matches(shst_reference_id);

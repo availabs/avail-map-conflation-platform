@@ -5,7 +5,6 @@ import {
 } from '../../../../../daos/SourceMapDao/domain/types';
 
 import {
-  TargetMapEdgeId,
   TargetMapPathId,
   TargetMapPathEdgeIdx,
   TargetMapPathEdgeFeature,
@@ -41,12 +40,4 @@ export type ChosenMatchGeometryDisputes = {
     SharedStreetsReferenceFeature
   >;
   disputes: Dispute[];
-};
-
-export type AssignedMatch = {
-  shstReferenceId: SharedStreetsReferenceId;
-  targetMapEdgeId: TargetMapEdgeId;
-  isForward: boolean;
-  sectionStart: number;
-  sectionEnd: number;
 };

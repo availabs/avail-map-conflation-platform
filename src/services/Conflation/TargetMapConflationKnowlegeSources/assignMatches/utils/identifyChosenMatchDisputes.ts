@@ -87,8 +87,8 @@ export default function identifyChosenMatchDisputes(tmpDb: SqliteDatabase) {
                 ) ||
               ']'
             ) AS shst_ref_seg_claimants
-          FROM target_map_bb.target_map_edge_chosen_shst_matches AS a
-            INNER JOIN target_map_bb.target_map_edge_chosen_shst_matches AS b
+          FROM target_map_bb.target_map_edge_chosen_matches AS a
+            INNER JOIN target_map_bb.target_map_edge_chosen_matches AS b
               USING (shst_reference)
             INNER JOIN source_map.shst_references AS c
               ON ( a.shst_reference = c.id )

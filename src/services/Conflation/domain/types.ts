@@ -94,8 +94,8 @@ export type TargetMapPathMatchesIterator = Generator<
 
 export type TargetMapPathChosenMatches = {
   targetMapPathId: TargetMapPathId;
-  chosenShstMatches: TargetMapPathEdgeChosenMatches[] | null;
-  chosenShstMatchesMetadata: TargetMapPathChosenMatchesMetadata | null;
+  chosenMatches: TargetMapPathEdgeChosenMatches[] | null;
+  chosenMatchesMetadata: TargetMapPathChosenMatchesMetadata | null;
 };
 
 export type ToposortedShstRefs = {
@@ -136,3 +136,11 @@ export type ReversedTargetMapPathEdgeFeature = TargetMapEdgeFeature & {
 };
 
 export type ReversedTargetMapPathEdgeFeatures = ReversedTargetMapPathEdgeFeature[];
+
+export type AssignedMatch = {
+  shstReferenceId: SharedStreetsReferenceId;
+  targetMapEdgeId: TargetMapEdgeId;
+  isForward: boolean;
+  sectionStart: number;
+  sectionEnd: number;
+};

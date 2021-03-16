@@ -74,7 +74,7 @@ INSERT INTO tmp_disputed_chosen_match_trimmability
       edge_shst_match_idx,
       NULL AS start_trimmable,
       NULL AS end_trimmable
-    FROM target_map_bb.target_map_edge_chosen_shst_matches
+    FROM target_map_bb.target_map_edge_chosen_matches
       INNER JOIN tmp_chosen_match_dispute_claimants
         USING (
           path_id,
@@ -106,7 +106,7 @@ INSERT OR IGNORE INTO tmp_disputed_chosen_match_trimmability
           is_forward,
           edge_shst_match_idx,
           row_number() OVER win1 as row_num
-        FROM target_map_bb.target_map_edge_chosen_shst_matches
+        FROM target_map_bb.target_map_edge_chosen_matches
           INNER JOIN tmp_chosen_match_dispute_claimants
             USING (
               path_id,
@@ -142,7 +142,7 @@ INSERT OR IGNORE INTO tmp_disputed_chosen_match_trimmability
       ( edge_shst_match_idx > 0 ) AS start_trimmable,
       -- All but the last ChosenMatch for the TMPathEdge (keep connected to TMPath)
       1 AS end_trimmable
-    FROM target_map_bb.target_map_edge_chosen_shst_matches
+    FROM target_map_bb.target_map_edge_chosen_matches
       INNER JOIN tmp_chosen_match_dispute_claimants
         USING (
           path_id,
@@ -172,7 +172,7 @@ INSERT OR IGNORE INTO tmp_disputed_chosen_match_trimmability
       -- All but the first ChosenMatch for the TMPathEdge (keep connected to TMPath)
       ( edge_shst_match_idx > 0 ) AS start_trimmable,
       1 AS end_trimmable
-    FROM target_map_bb.target_map_edge_chosen_shst_matches
+    FROM target_map_bb.target_map_edge_chosen_matches
       INNER JOIN tmp_chosen_match_dispute_claimants
         USING (
           path_id,
@@ -209,7 +209,7 @@ INSERT OR IGNORE INTO tmp_disputed_chosen_match_trimmability
           is_forward,
           edge_shst_match_idx,
           row_number() OVER win1 as row_num
-        FROM target_map_bb.target_map_edge_chosen_shst_matches
+        FROM target_map_bb.target_map_edge_chosen_matches
           INNER JOIN tmp_chosen_match_dispute_claimants
             USING (
               path_id,
@@ -243,7 +243,7 @@ INSERT OR IGNORE INTO tmp_disputed_chosen_match_trimmability
       edge_shst_match_idx,
       0 AS start_trimmable,
       0 AS end_trimmable
-    FROM target_map_bb.target_map_edge_chosen_shst_matches
+    FROM target_map_bb.target_map_edge_chosen_matches
       INNER JOIN tmp_chosen_match_dispute_claimants
         USING (
           path_id,

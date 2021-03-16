@@ -7,9 +7,9 @@ import reverseTargetMapPathCoordinates from './reverseTargetMapPathCoordinates';
 import getOverlaps, { TargetMapPathMatchOverlapSummary } from './getOverlaps';
 
 import {
-  forwardOverlapsToChosenShstMatches,
-  backwardOverlapsToChosenShstMatches,
-} from './overlapsToChosenShstMatches';
+  forwardOverlapsToChosenMatches,
+  backwardOverlapsToChosenMatches,
+} from './overlapsToChosenMatches';
 
 import { RawTargetMapFeature, ToposortedShstRefs } from '../../domain/types';
 
@@ -43,22 +43,22 @@ export default function divvy(
 
   const forward =
     forwardOverlaps &&
-    forwardOverlapsToChosenShstMatches(
+    forwardOverlapsToChosenMatches(
       targetMapPathEdges,
       forwardOverlaps.targetMapPathShstReferenceOverlaps,
     );
 
   const backward =
     backwardOverlaps &&
-    backwardOverlapsToChosenShstMatches(
+    backwardOverlapsToChosenMatches(
       reversedTargetMapPathEdges,
       backwardOverlaps.targetMapPathShstReferenceOverlaps,
     );
 
-  const chosenShstMatches = {
+  const chosenMatches = {
     forward,
     backward,
   };
 
-  return chosenShstMatches;
+  return chosenMatches;
 }

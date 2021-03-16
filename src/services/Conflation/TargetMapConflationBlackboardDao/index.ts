@@ -27,18 +27,25 @@ import {
   SharedStreetsReferenceFeature,
   ChosenMatchMetadata,
   ChosenMatchFeature,
+  AssignedMatch,
 } from '../domain/types';
 
 // const MIN_CHOSEN_MATCH_LEN = 0.005; [> km, 5m <]
 
-const initializeSqlPath = join(
-  __dirname,
-  './initialize_blackboard_database.sql',
+const createShstMatchesTableSql = readFileSync(
+  join(__dirname, './sql/create_shst_matches_table.sql'),
+  { encoding: 'utf-8' },
 );
 
-const initializeBlackBoardDatabaseTemplateSql = readFileSync(
-  initializeSqlPath,
-).toString();
+const createChosenMatchesTableSql = readFileSync(
+  join(__dirname, './sql/create_chosen_matches_table.sql'),
+  { encoding: 'utf-8' },
+);
+
+const createAssignedMatchesTableSql = readFileSync(
+  join(__dirname, './sql/create_assigned_matches_table.sql'),
+  { encoding: 'utf-8' },
+);
 
 export default class TargetMapConflationBlackboardDao<
   T extends RawTargetMapFeature
@@ -62,13 +69,17 @@ export default class TargetMapConflationBlackboardDao<
     shstMatchMetadataByTargetMapIdStmt?: Statement;
     shstMatchesForPathStmt?: Statement;
     shstMatchesForTargetMapEdgesStmt?: Statement;
-    chosenShstMatchesPathStmt?: Statement;
+    chosenMatchesAreLoadedStmt?: Statement;
+    chosenMatchesPathStmt?: Statement;
+    targetMapEdgesChosenMatchesStmt?: Statement;
+    assignedMatchesAreLoadedStmt?: Statement;
   };
 
   protected readonly preparedWriteStatements: {
     insertShstMatchStmt?: Statement;
     clearShstMatchesStmt?: Statement;
-    insertChosenShstMatchStmt?: Statement;
+    insertChosenMatchStmt?: Statement;
+    insertAssignedMatchStmt?: Statement;
   };
 
   makeTargetMapEdgeFeaturesGeoProximityIterator: TargetMapDAO<
@@ -108,7 +119,9 @@ export default class TargetMapConflationBlackboardDao<
 
     if (!this.databaseHasBeenInitialized) {
       this.beginWriteTransaction();
-      this.initializeTargetMapConflationBlackBoardDatabase();
+      this.initializeShstMatchesTable();
+      this.initializeChosenMatchesTable();
+      this.initializeAssignedMatchesTable();
       this.commitWriteTransaction();
     }
 
@@ -149,18 +162,37 @@ export default class TargetMapConflationBlackboardDao<
     return this.databaseHasBeenInitializedStmt.raw().get()[0] === 1;
   }
 
-  protected get initializeBlackBoardDatabaseSql() {
-    return initializeBlackBoardDatabaseTemplateSql.replace(
+  protected get initializeShstMatchesTableSql() {
+    return createShstMatchesTableSql.replace(
       /__SCHEMA__/g,
       this.blkbrdDbSchema,
     );
   }
 
-  /**
-   * WARNING: Drops all existing tables in the TargetMapDatabase.
-   */
-  initializeTargetMapConflationBlackBoardDatabase() {
-    this.dbWriteConnection.exec(this.initializeBlackBoardDatabaseSql);
+  protected initializeShstMatchesTable() {
+    this.dbWriteConnection.exec(this.initializeShstMatchesTableSql);
+  }
+
+  protected get initializeChosenMatchesTableSql() {
+    return createChosenMatchesTableSql.replace(
+      /__SCHEMA__/g,
+      this.blkbrdDbSchema,
+    );
+  }
+
+  protected initializeChosenMatchesTable() {
+    this.dbWriteConnection.exec(this.initializeChosenMatchesTableSql);
+  }
+
+  protected get initializeAssignedMatchesTableSql() {
+    return createAssignedMatchesTableSql.replace(
+      /__SCHEMA__/g,
+      this.blkbrdDbSchema,
+    );
+  }
+
+  protected initializeAssignedMatchesTable() {
+    this.dbWriteConnection.exec(this.initializeAssignedMatchesTableSql);
   }
 
   get targetMapIsCenterline() {
@@ -248,14 +280,20 @@ export default class TargetMapConflationBlackboardDao<
 
   async bulkLoadShstMatches(
     shstMatchesIter: AsyncGenerator<SharedStreetsMatchResult, void, unknown>,
-    clean = false,
   ) {
-    if (clean) {
-      this.initializeTargetMapConflationBlackBoardDatabase();
-    }
+    try {
+      this.beginWriteTransaction();
 
-    for await (const shstMatch of shstMatchesIter) {
-      this.insertShstMatch(shstMatch);
+      this.initializeShstMatchesTable();
+
+      for await (const shstMatch of shstMatchesIter) {
+        this.insertShstMatch(shstMatch);
+      }
+
+      this.commitWriteTransaction();
+    } catch (err) {
+      this.rollbackWriteTransaction();
+      console.error(err);
     }
   }
 
@@ -518,8 +556,8 @@ export default class TargetMapConflationBlackboardDao<
     return targetMapEdgesShstMatches;
   }
 
-  *makeChosenShstMatchReferencesIterator() {
-    const chosenMatchesIter = this.makeChosenShstMatchesIterator();
+  *makeChosenMatchReferencesIterator() {
+    const chosenMatchesIter = this.makeChosenMatchesIterator();
 
     let shstReference: SharedStreetsReferenceFeature | null = null;
     for (const chosenMatch of chosenMatchesIter) {
@@ -543,12 +581,31 @@ export default class TargetMapConflationBlackboardDao<
     }
   }
 
-  protected get insertChosenShstMatchStmt(): Statement {
-    if (!this.preparedWriteStatements.insertChosenShstMatchStmt) {
-      this.preparedWriteStatements.insertChosenShstMatchStmt = this.dbWriteConnection.prepare(
+  protected get chosenMatchesAreLoadedStmt(): Statement {
+    this.preparedReadStatements.chosenMatchesAreLoadedStmt =
+      this.preparedReadStatements.chosenMatchesAreLoadedStmt ||
+      this.dbReadConnection.prepare(
         `
-          -- INSERT OR IGNORE INTO ${this.blkbrdDbSchema}.target_map_edge_chosen_shst_matches (
-          INSERT OR IGNORE INTO ${this.blkbrdDbSchema}.target_map_edge_chosen_shst_matches (
+          SELECT EXISTS (
+            SELECT
+                1
+              FROM ${this.blkbrdDbSchema}.target_map_edge_chosen_matches
+          ) ;`,
+      );
+
+    return this.preparedReadStatements.chosenMatchesAreLoadedStmt;
+  }
+
+  get chosenMatchesAreLoaded(): boolean {
+    return this.chosenMatchesAreLoadedStmt.raw().get()[0] === 1;
+  }
+
+  protected get insertChosenMatchStmt(): Statement {
+    if (!this.preparedWriteStatements.insertChosenMatchStmt) {
+      this.preparedWriteStatements.insertChosenMatchStmt = this.dbWriteConnection.prepare(
+        `
+          -- INSERT OR IGNORE INTO ${this.blkbrdDbSchema}.target_map_edge_chosen_matches (
+          INSERT OR IGNORE INTO ${this.blkbrdDbSchema}.target_map_edge_chosen_matches (
             path_id,
             path_edge_idx,
 
@@ -565,11 +622,11 @@ export default class TargetMapConflationBlackboardDao<
     }
 
     // @ts-ignore
-    return this.preparedWriteStatements.insertChosenShstMatchStmt;
+    return this.preparedWriteStatements.insertChosenMatchStmt;
   }
 
-  protected insertChosenShstMatch(
-    chosenShstMatch: ChosenMatchMetadata,
+  protected insertChosenMatch(
+    chosenMatch: ChosenMatchMetadata,
   ): boolean | null {
     const {
       targetMapPathId,
@@ -580,9 +637,9 @@ export default class TargetMapConflationBlackboardDao<
       shstReferenceId,
       sectionStart,
       sectionEnd,
-    } = chosenShstMatch;
+    } = chosenMatch;
 
-    const insertResult = this.insertChosenShstMatchStmt.run([
+    const insertResult = this.insertChosenMatchStmt.run([
       targetMapPathId,
       targetMapPathEdgeIdx,
       targetMapEdgeId,
@@ -595,30 +652,35 @@ export default class TargetMapConflationBlackboardDao<
 
     if (insertResult.changes < 1 && sectionStart < sectionEnd) {
       console.log('ChosenMatch INSERT FAILED.');
-      console.log(JSON.stringify({ chosenShstMatch }, null, 4));
+      console.log(JSON.stringify({ chosenMatch }, null, 4));
     }
 
     return insertResult.changes > 0;
   }
 
-  async bulkLoadChosenShstMatches(
-    chosenShstMatchesIter: Generator<ChosenMatchMetadata, void, unknown>,
+  async bulkLoadChosenMatches(
+    chosenMatchesIter: Generator<ChosenMatchMetadata, void, unknown>,
   ) {
-    this.dbWriteConnection
-      .prepare(
-        `DELETE FROM ${this.blkbrdDbSchema}.target_map_edge_chosen_shst_matches;`,
-      )
-      .run();
+    try {
+      this.beginWriteTransaction();
 
-    for await (const chosenShstMatch of chosenShstMatchesIter) {
-      this.insertChosenShstMatch(chosenShstMatch);
+      this.initializeChosenMatchesTable();
+
+      for await (const chosenMatch of chosenMatchesIter) {
+        this.insertChosenMatch(chosenMatch);
+      }
+
+      this.commitWriteTransaction();
+    } catch (err) {
+      this.rollbackWriteTransaction();
+      console.error(err);
     }
   }
 
-  protected get chosenShstMatchesPathStmt(): Statement {
-    if (!this.preparedReadStatements.chosenShstMatchesPathStmt) {
+  protected get chosenMatchesPathStmt(): Statement {
+    if (!this.preparedReadStatements.chosenMatchesPathStmt) {
       // TODO TODO TODO This belongs in a VIEW
-      this.preparedReadStatements.chosenShstMatchesPathStmt = this.dbReadConnection.prepare(
+      this.preparedReadStatements.chosenMatchesPathStmt = this.dbReadConnection.prepare(
         `
           SELECT
               json_group_array(
@@ -641,7 +703,7 @@ export default class TargetMapConflationBlackboardDao<
                   section_end
                 )
               )
-            FROM ${this.blkbrdDbSchema}.target_map_edge_chosen_shst_matches
+            FROM ${this.blkbrdDbSchema}.target_map_edge_chosen_matches
               INNER JOIN ${this.targetMapSchema}.target_map_ppg_edge_id_to_target_map_id
               USING (edge_id)
             GROUP BY shst_reference
@@ -652,11 +714,11 @@ export default class TargetMapConflationBlackboardDao<
     }
 
     // @ts-ignore
-    return this.preparedReadStatements.chosenShstMatchesPathStmt;
+    return this.preparedReadStatements.chosenMatchesPathStmt;
   }
 
-  *makeChosenShstMatchesIterator(): Generator<ChosenMatchMetadata> {
-    const iter = this.chosenShstMatchesPathStmt.raw().iterate();
+  *makeChosenMatchesIterator(): Generator<ChosenMatchMetadata> {
+    const iter = this.chosenMatchesPathStmt.raw().iterate();
 
     for (const [chosenMatchesStr] of iter) {
       const chosenMatches = JSON.parse(chosenMatchesStr);
@@ -690,7 +752,7 @@ export default class TargetMapConflationBlackboardDao<
                 'sectionStart',      section_start,
                 'sectionEnd',        section_end
               ) AS chosen_match_metadata
-            FROM ${this.blkbrdDbSchema}.target_map_edge_chosen_shst_matches
+            FROM ${this.blkbrdDbSchema}.target_map_edge_chosen_matches
               INNER JOIN ${this.targetMapSchema}.target_map_ppg_edge_id_to_target_map_id
                 USING (edge_id)
             WHERE (
@@ -713,7 +775,7 @@ export default class TargetMapConflationBlackboardDao<
   }
 
   // FIXME: Currently doesn't take into account TargetMapPath
-  getChosenShstMatchesForTargetMapEdges(
+  getChosenMatchesForTargetMapEdges(
     targetMapEdgeIds: TargetMapEdgeId[],
   ): ChosenMatchFeature[][] {
     const chosenMatchesMetadata: ChosenMatchMetadata[] = this.targetMapEdgesChosenMatchesStmt
@@ -791,6 +853,85 @@ export default class TargetMapConflationBlackboardDao<
     );
 
     return chosenMatchesForTargetMapEdges;
+  }
+
+  protected get assignedMatchesAreLoadedStmt(): Statement {
+    this.preparedReadStatements.assignedMatchesAreLoadedStmt =
+      this.preparedReadStatements.assignedMatchesAreLoadedStmt ||
+      this.dbReadConnection.prepare(
+        `
+          SELECT EXISTS (
+            SELECT
+                1
+              FROM ${this.blkbrdDbSchema}.target_map_edge_assigned_matches
+          ) ;`,
+      );
+
+    return this.preparedReadStatements.assignedMatchesAreLoadedStmt;
+  }
+
+  get assignedMatchesAreLoaded(): boolean {
+    return this.assignedMatchesAreLoadedStmt.raw().get()[0] === 1;
+  }
+
+  protected get insertAssignedMatchStmt(): Statement {
+    this.preparedWriteStatements.insertAssignedMatchStmt =
+      this.preparedWriteStatements.insertAssignedMatchStmt ||
+      this.dbWriteConnection.prepare(
+        `
+          INSERT OR IGNORE INTO ${this.blkbrdDbSchema}.target_map_edge_assigned_matches (
+            shst_reference_id,
+            edge_id,
+            is_forward,
+            section_start,
+            section_end
+          )
+            VALUES(?, ?, ?, ?, ?) ; `,
+      );
+
+    return this.preparedWriteStatements.insertAssignedMatchStmt;
+  }
+
+  protected insertAssignedMatch(assignedMatch: AssignedMatch): boolean | null {
+    const {
+      shstReferenceId,
+      targetMapEdgeId,
+      isForward,
+      sectionStart,
+      sectionEnd,
+    } = assignedMatch;
+
+    const insertResult = this.insertAssignedMatchStmt.run([
+      shstReferenceId,
+      targetMapEdgeId,
+      isForward,
+      sectionStart,
+      sectionEnd,
+    ]);
+
+    if (insertResult.changes < 1 && sectionStart < sectionEnd) {
+      console.log('AssignedMatch INSERT FAILED.');
+      console.log(JSON.stringify({ assignedMatch }, null, 4));
+    }
+
+    return insertResult.changes > 0;
+  }
+
+  bulkLoadAssignedMatches(assignedMatchesIter: Generator<AssignedMatch>) {
+    try {
+      this.beginWriteTransaction();
+
+      this.initializeAssignedMatchesTable();
+
+      for (const assignedMatch of assignedMatchesIter) {
+        this.insertAssignedMatch(assignedMatch);
+      }
+
+      this.commitWriteTransaction();
+    } catch (err) {
+      this.rollbackWriteTransaction();
+      console.error(err);
+    }
   }
 
   vacuumDatabase() {

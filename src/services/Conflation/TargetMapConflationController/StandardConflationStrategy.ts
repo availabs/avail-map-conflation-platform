@@ -6,6 +6,7 @@ import TargetMapPathVicinity from '../TargetMapConflationHypothesesContexts/Targ
 
 import searchAndSort from '../TargetMapConflationKnowlegeSources/toposortTargetMapPathShstMatchedShstReferences';
 import divvyToposortedTargetMapPathShstReferences from '../TargetMapConflationKnowlegeSources/divvyToposortedHypothesizedTargetMapPathShstReferences';
+import Assigner from '../TargetMapConflationKnowlegeSources/assignMatches/Assigner';
 
 export function* createChosenMatchesIterator(
   blkbrdDao: TargetMapConflationBlackboardDao,
@@ -19,23 +20,31 @@ export function* createChosenMatchesIterator(
 
     const sortedPaths = searchAndSort(vicinity);
 
-    const chosenShstMatches = divvyToposortedTargetMapPathShstReferences(
+    const chosenMatches = divvyToposortedTargetMapPathShstReferences(
       vicinity,
       sortedPaths,
     );
 
-    if (chosenShstMatches.forward) {
-      for (let i = 0; i < chosenShstMatches.forward.length; ++i) {
-        yield chosenShstMatches.forward[i];
+    if (chosenMatches.forward) {
+      for (let i = 0; i < chosenMatches.forward.length; ++i) {
+        yield chosenMatches.forward[i];
       }
     }
 
-    if (chosenShstMatches.backward) {
-      for (let i = 0; i < chosenShstMatches.backward.length; ++i) {
-        yield chosenShstMatches.backward[i];
+    if (chosenMatches.backward) {
+      for (let i = 0; i < chosenMatches.backward.length; ++i) {
+        yield chosenMatches.backward[i];
       }
     }
   }
+}
+
+export function createAssignedMatchesIterator(
+  blkbrdDao: TargetMapConflationBlackboardDao,
+) {
+  const assigner = new Assigner(blkbrdDao);
+
+  return assigner.makeAssignedMatchesIterator();
 }
 
 export default class StandardConflationStrategy {
@@ -53,10 +62,16 @@ export default class StandardConflationStrategy {
       await shstMatcherKnwlSrc.matchEntireTargetMap();
     }
 
-    const chosenShstMatchesIter = createChosenMatchesIterator(this.blkbrdDao);
+    if (!this.blkbrdDao.chosenMatchesAreLoaded) {
+      const chosenMatchesIter = createChosenMatchesIterator(this.blkbrdDao);
 
-    this.blkbrdDao.beginWriteTransaction();
-    await this.blkbrdDao.bulkLoadChosenShstMatches(chosenShstMatchesIter);
-    this.blkbrdDao.commitWriteTransaction();
+      await this.blkbrdDao.bulkLoadChosenMatches(chosenMatchesIter);
+    }
+
+    if (!this.blkbrdDao.assignedMatchesAreLoaded) {
+      const assignedMatchesIter = createAssignedMatchesIterator(this.blkbrdDao);
+
+      await this.blkbrdDao.bulkLoadAssignedMatches(assignedMatchesIter);
+    }
   }
 }

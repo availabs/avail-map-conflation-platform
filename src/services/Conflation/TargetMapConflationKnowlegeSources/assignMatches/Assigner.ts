@@ -14,9 +14,7 @@ import outputDisputes from './utils/outputDisputes';
 import outputChosenMatches from './utils/outputChosenMatches';
 import outputAssignedMatches from './utils/outputAssignedMatches';
 
-import { RawTargetMapFeature } from '../../domain/types';
-
-import { AssignedMatch } from './domain/types';
+import { RawTargetMapFeature, AssignedMatch } from '../../domain/types';
 
 export default class ChosenMatchesConflictArbitrator {
   private tmpDb: SqliteDatabase;
@@ -72,7 +70,7 @@ export default class ChosenMatchesConflictArbitrator {
     this.outputChosenMatches = outputChosenMatches.bind(null, this.tmpDb);
   }
 
-  makeMatchAssignmentsIterator(): Generator<AssignedMatch> {
+  makeAssignedMatchesIterator(): Generator<AssignedMatch> {
     assignTargetMapEdgeMatches(this.tmpDb);
 
     // @ts-ignore
@@ -82,7 +80,7 @@ export default class ChosenMatchesConflictArbitrator {
           SELECT
               shst_reference_id AS shstReferenceId,
 
-              target_map_edge_id AS targetMapEdgeId,
+              edge_id AS targetMapEdgeId,
 
               is_forward AS isForward,
 
@@ -100,7 +98,7 @@ export default class ChosenMatchesConflictArbitrator {
   outputAssignedMatches() {
     // NOTE: Async function
     return outputAssignedMatches(
-      this.makeMatchAssignmentsIterator(),
+      this.makeAssignedMatchesIterator(),
       this.tmpDb,
     );
   }

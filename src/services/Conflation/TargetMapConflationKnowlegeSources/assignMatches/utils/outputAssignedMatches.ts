@@ -6,7 +6,7 @@ import { join } from 'path';
 import * as turf from '@turf/turf';
 
 import { Database as SqliteDatabase } from 'better-sqlite3';
-import { AssignedMatch } from '../domain/types';
+import { AssignedMatch } from '../../../domain/types';
 
 export default async function outputAssignedMatches(
   assignedMatchIter: Generator<AssignedMatch>,

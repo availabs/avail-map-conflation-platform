@@ -20,7 +20,7 @@ export default function assignTargetMapEdgeMatches(tmpDb: SqliteDatabase) {
       SELECT
           shst_reference_id,
 
-          edge_id AS target_map_edge_id,
+          edge_id,
 
           is_forward,
 
@@ -36,13 +36,13 @@ export default function assignTargetMapEdgeMatches(tmpDb: SqliteDatabase) {
       SELECT
           shst_reference AS shst_reference_id,
 
-          edge_id AS target_map_edge_id,
+          edge_id,
 
           is_forward,
 
           section_start,
           section_end
-        FROM target_map_bb.target_map_edge_chosen_shst_matches
+        FROM target_map_bb.target_map_edge_chosen_matches
         ORDER BY
           shst_reference,
           edge_id,

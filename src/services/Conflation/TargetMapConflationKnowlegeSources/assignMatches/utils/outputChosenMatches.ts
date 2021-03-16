@@ -19,7 +19,7 @@ export default function outputChosenMatches(tmpDb: SqliteDatabase) {
             section_end,
             feature
           FROM source_map.shst_reference_features AS a
-            INNER JOIN target_map_bb.target_map_edge_chosen_shst_matches AS b
+            INNER JOIN target_map_bb.target_map_edge_chosen_matches AS b
               ON (a.shst_reference_id = b.shst_reference) ;
       `,
     )
