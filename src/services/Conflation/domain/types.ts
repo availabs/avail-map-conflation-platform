@@ -141,6 +141,14 @@ export type AssignedMatch = {
   shstReferenceId: SharedStreetsReferenceId;
   targetMapEdgeId: TargetMapEdgeId;
   isForward: boolean;
+  sectionStart: number | null;
+  sectionEnd: number | null;
+};
+
+export type TargetMapAssignedMatch = {
+  shstReferenceId: SharedStreetsReferenceId;
+  targetMapId: TargetMapId;
+  isForward: boolean;
   sectionStart: number;
   sectionEnd: number;
 };

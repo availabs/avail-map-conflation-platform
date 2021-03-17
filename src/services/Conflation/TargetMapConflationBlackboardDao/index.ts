@@ -28,6 +28,7 @@ import {
   ChosenMatchMetadata,
   ChosenMatchFeature,
   AssignedMatch,
+  TargetMapAssignedMatch,
 } from '../domain/types';
 
 // const MIN_CHOSEN_MATCH_LEN = 0.005; [> km, 5m <]
@@ -72,7 +73,9 @@ export default class TargetMapConflationBlackboardDao<
     chosenMatchesAreLoadedStmt?: Statement;
     chosenMatchesPathStmt?: Statement;
     targetMapEdgesChosenMatchesStmt?: Statement;
+    targetMapAssignedMatchesTableExistsStmt?: Statement;
     assignedMatchesAreLoadedStmt?: Statement;
+    allTargetMapAssignedMatchesStmt?: Statement;
   };
 
   protected readonly preparedWriteStatements: {
@@ -827,6 +830,7 @@ export default class TargetMapConflationBlackboardDao<
           { units: 'kilometers' },
         );
 
+        // @ts-ignore
         chosenMatch.properties = {
           shstReferenceId: shstReference.id,
           chosenMatchMetadata,
@@ -855,6 +859,26 @@ export default class TargetMapConflationBlackboardDao<
     return chosenMatchesForTargetMapEdges;
   }
 
+  get targetMapAssignedMatchesTableExistsStmt(): Statement {
+    this.preparedReadStatements.targetMapAssignedMatchesTableExistsStmt =
+      this.preparedReadStatements.targetMapAssignedMatchesTableExistsStmt ||
+      this.dbReadConnection.prepare(
+        `
+          SELECT EXISTS (
+              SELECT 1
+                FROM ${this.blkbrdDbSchema}.sqlite_master
+                WHERE (
+                  ( type = 'table' )
+                  AND
+                  ( name = 'target_map_edge_assigned_matches' )
+                )
+            ) ;
+        `,
+      );
+
+    return this.preparedReadStatements.targetMapAssignedMatchesTableExistsStmt;
+  }
+
   protected get assignedMatchesAreLoadedStmt(): Statement {
     this.preparedReadStatements.assignedMatchesAreLoadedStmt =
       this.preparedReadStatements.assignedMatchesAreLoadedStmt ||
@@ -871,7 +895,10 @@ export default class TargetMapConflationBlackboardDao<
   }
 
   get assignedMatchesAreLoaded(): boolean {
-    return this.assignedMatchesAreLoadedStmt.raw().get()[0] === 1;
+    return (
+      this.targetMapAssignedMatchesTableExistsStmt.pluck().get() === 1 &&
+      this.assignedMatchesAreLoadedStmt.pluck().get() === 1
+    );
   }
 
   protected get insertAssignedMatchStmt(): Statement {
@@ -909,6 +936,7 @@ export default class TargetMapConflationBlackboardDao<
       sectionEnd,
     ]);
 
+    // @ts-ignore
     if (insertResult.changes < 1 && sectionStart < sectionEnd) {
       console.log('AssignedMatch INSERT FAILED.');
       console.log(JSON.stringify({ assignedMatch }, null, 4));
@@ -932,6 +960,37 @@ export default class TargetMapConflationBlackboardDao<
       this.rollbackWriteTransaction();
       console.error(err);
     }
+  }
+
+  protected get allTargetMapAssignedMatchesStmt(): Statement {
+    this.preparedReadStatements.allTargetMapAssignedMatchesStmt =
+      this.preparedReadStatements.allTargetMapAssignedMatchesStmt ||
+      this.dbReadConnection.prepare(
+        `
+          SELECT
+              shst_reference_id AS shstReferenceId,
+              target_map_id AS targetMapId,
+              is_forward AS isForward,
+              section_start AS sectionStart,
+              section_end AS sectionEnd
+            FROM ${this.blkbrdDbSchema}.target_map_edge_assigned_matches
+              INNER JOIN ${this.targetMapSchema}.target_map_ppg_edge_id_to_target_map_id
+                USING (edge_id)
+            WHERE (
+              ( section_start IS NOT NULL )
+              AND
+              ( section_end IS NOT NULL )
+            )
+            ORDER BY 1,2,3
+        `,
+      );
+
+    return this.preparedReadStatements.allTargetMapAssignedMatchesStmt;
+  }
+
+  makeAssignedMatchesIterator(): Generator<TargetMapAssignedMatch> {
+    // @ts-ignore
+    return this.allTargetMapAssignedMatchesStmt.iterate();
   }
 
   vacuumDatabase() {

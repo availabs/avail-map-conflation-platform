@@ -3,9 +3,9 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-// import * as turf from '@turf/turf';
+import * as turf from '@turf/turf';
 
-import { Database, Statement } from 'better-sqlite3';
+import { Database as SQLiteDatbase, Statement } from 'better-sqlite3';
 
 import db, {
   DatabaseSchemaName,
@@ -14,7 +14,7 @@ import db, {
 
 import TargetMapConflationBlackboardDao from '../../services/Conflation/TargetMapConflationBlackboardDao';
 
-// import { getGeometriesConcaveHull } from '../../utils/gis/hulls';
+import { getGeometriesConcaveHull } from '../../utils/gis/hulls';
 
 import getChosenShstReferenceSegmentsForOsmWay from './getChosenShstReferenceSegmentsForOsmWay';
 
@@ -32,92 +32,110 @@ import {
   SharedStreetsReferenceFeature,
 } from '../SourceMapDao/domain/types';
 
-// const albanyCounty: turf.Feature<turf.Polygon> = JSON.parse(
-//   readFileSync(join(__dirname, './albanyCounty.geojson'), { encoding: 'utf8' }),
-// );
-
-const NPMRDS_CONFLATION_SCHEMA = TargetMapConflationBlackboardDao.getBlackboardSchemaName(
-  NPMRDS,
-);
-
-const NYS_RIS_CONFLATION_SCHEMA = TargetMapConflationBlackboardDao.getBlackboardSchemaName(
-  NYS_RIS,
-);
+import { NysRoadInventorySystemFeature } from '../NysRisDAO/raw_map_layer/domain/types';
+import { NpmrdsTmcFeature } from '../NpmrdsDAO/raw_map_layer/domain/types';
 
 export type TargetMapConflationBlackboardDaoConfig = {
   databaseDirectory?: DatabaseDirectory | null;
   databaseSchemaName?: DatabaseSchemaName | null;
 };
 
-const initializeSqlPath = join(__dirname, './initialize_database.sql');
+export enum TargetMaps {
+  OSM = 'OSM',
+  // eslint-disable-next-line @typescript-eslint/no-shadow
+  NYS_RIS = 'NYS_RIS',
+  // eslint-disable-next-line @typescript-eslint/no-shadow
+  NPMRDS = 'NPMRDS',
+}
 
-const initializeDatabaseSql = readFileSync(initializeSqlPath)
-  .toString()
-  .replace(/__SCHEMA__/g, SCHEMA);
+const albanyCounty: turf.Feature<turf.Polygon> = JSON.parse(
+  readFileSync(join(__dirname, './albanyCounty.geojson'), { encoding: 'utf8' }),
+);
+
+function createDbReadConnection(): SQLiteDatbase {
+  const dbReadConnection = db.openConnectionToDb(SCHEMA);
+
+  db.attachDatabaseToConnection(dbReadConnection, SOURCE_MAP);
+
+  return dbReadConnection;
+}
+
+function createDbWriteConnection(): SQLiteDatbase {
+  const dbWriteConnection = db.openConnectionToDb(SCHEMA);
+
+  return dbWriteConnection;
+}
 
 export default class ConflationMapDAO {
+  nysRisBBDao: TargetMapConflationBlackboardDao<NysRoadInventorySystemFeature>;
+
+  npmrdsBBDao: TargetMapConflationBlackboardDao<NpmrdsTmcFeature>;
+
   // Used for reads
-  readonly dbReadConnection: Database;
+  readonly dbReadConnection: SQLiteDatbase;
 
   // Used for writes
-  readonly dbWriteConnection: Database;
+  readonly dbWriteConnection: SQLiteDatbase;
 
   protected readonly preparedReadStatements: {
-    databaseHasBeenInitializedStmt?: Statement;
+    nysRisAssignedMatchesTableExistsStmt?: Statement;
+    npmrdsAssignedMatchesTableExistsStmt?: Statement;
+    nysRisAssignedMatchesAreLoadedStmt?: Statement;
+    npmrdsAssignedMatchesAreLoadedStmt?: Statement;
+    osmWayChosenMatchesTableExistsStmt?: Statement;
     osmWayChosenMatchesAreLoadedStmt?: Statement;
+    targetMapAssignedMatchesTableExistsStmt?: Statement;
+    targetMapAssignedMatchesAreLoadedStmt?: Statement;
     getOsmNodesStmt?: Statement;
     allOsmWaysWithShstReferencesStmt?: Statement;
   };
 
   protected readonly preparedWriteStatements: {
-    truncateChosenShstReferenceSegmentsForOsmWaysStmt?: Statement;
     insertChosenShstReferenceSegmentForOsmWayStmt?: Statement;
+    loadOsmWayAssignedMatchesTableStmt?: Statement;
+    insertTargetMapAssignedMatchStmt?: Statement;
   };
 
   constructor() {
-    this.dbReadConnection = db.openConnectionToDb(SCHEMA);
+    this.nysRisBBDao = new TargetMapConflationBlackboardDao(NYS_RIS);
+    this.npmrdsBBDao = new TargetMapConflationBlackboardDao(NPMRDS);
 
-    db.attachDatabaseToConnection(this.dbReadConnection, SOURCE_MAP);
-    db.attachDatabaseToConnection(this.dbReadConnection, NPMRDS);
-    db.attachDatabaseToConnection(
-      this.dbReadConnection,
-      NPMRDS_CONFLATION_SCHEMA,
-    );
-    db.attachDatabaseToConnection(this.dbReadConnection, NYS_RIS);
-    db.attachDatabaseToConnection(
-      this.dbReadConnection,
-      NYS_RIS_CONFLATION_SCHEMA,
-    );
+    this.verifyTargetMapsConflationComplete();
 
-    // Write connection strictly for writes to this DB.
-    this.dbWriteConnection = db.openConnectionToDb(
-      SCHEMA,
-      // null,
-      // { verbose: console.log.bind(console) },
-    );
-
-    db.attachDatabaseToConnection(this.dbWriteConnection, SOURCE_MAP);
+    this.dbReadConnection = createDbReadConnection();
+    this.dbWriteConnection = createDbWriteConnection();
 
     this.preparedReadStatements = {};
     this.preparedWriteStatements = {};
 
-    if (!this.databaseHasBeenInitialized) {
-      this.beginWriteTransaction();
+    if (!this.osmWayChosenMatchesAreLoaded) {
       try {
-        this.initializeTheDatabase();
-
-        console.time('loadChosenShstReferenceSegmentsForOsmWays');
-        this.loadChosenShstReferenceSegmentsForOsmWays();
-        console.timeEnd('loadChosenShstReferenceSegmentsForOsmWays');
-
-        this.commitWriteTransaction();
+        console.log('loadOsmWayChosenMatchesTable');
+        console.time('loadOsmWayChosenMatchesTable');
+        this.loadOsmWayChosenMatchesTable();
+        console.timeEnd('loadOsmWayChosenMatchesTable');
       } catch (err) {
-        this.rollbackWriteTransaction();
         console.error(err);
         process.exit(1);
       }
-      this.vacuumDatabase();
     }
+
+    if (!this.targetMapAssignedMatchesAreLoaded) {
+      try {
+        console.log('loadTargetMapsAssignedMatches');
+        console.time('loadTargetMapsAssignedMatches');
+        this.loadTargetMapsAssignedMatches();
+        console.timeEnd('loadTargetMapsAssignedMatches');
+      } catch (err) {
+        console.error(err);
+        process.exit(1);
+      }
+    }
+  }
+
+  close() {
+    this.dbReadConnection.close();
+    this.dbWriteConnection.close();
   }
 
   beginWriteTransaction() {
@@ -132,61 +150,70 @@ export default class ConflationMapDAO {
     this.dbWriteConnection.exec('ROLLBACK');
   }
 
-  protected get databaseHasBeenInitializedStmt(): Statement {
-    if (!this.preparedReadStatements.databaseHasBeenInitializedStmt) {
-      this.preparedReadStatements.databaseHasBeenInitializedStmt = this.dbReadConnection.prepare(
-        `
-          SELECT EXISTS (
-            SELECT
-                name
-              FROM ${SCHEMA}.sqlite_master WHERE type = 'table'
-          ) ;`,
-      );
+  verifyTargetMapsConflationComplete(): void | never {
+    const incompleteTargetMapConflations: String[] = [];
+
+    if (!this.nysRisBBDao.assignedMatchesAreLoaded) {
+      incompleteTargetMapConflations.push('NYS RIS');
     }
 
-    // @ts-ignore
-    return this.preparedReadStatements.databaseHasBeenInitializedStmt;
+    if (!this.npmrdsBBDao.assignedMatchesAreLoaded) {
+      incompleteTargetMapConflations.push('NPMRDS');
+    }
+
+    if (incompleteTargetMapConflations.length) {
+      const plural = incompleteTargetMapConflations.length > 1;
+
+      const maps = `${incompleteTargetMapConflations.join(' and ')}`;
+      const conjugation = plural ? 's are' : ' is';
+
+      const errorMessage = `Error: The ${maps} conflation${conjugation} not complete`;
+
+      throw new Error(errorMessage);
+    }
   }
 
-  protected get databaseHasBeenInitialized(): boolean {
-    return this.databaseHasBeenInitializedStmt.pluck().get() === 1;
-  }
-
-  /**
-   * WARNING: Drops all existing tables in the TargetMapDatabase.
-   */
-  initializeTheDatabase() {
-    this.dbWriteConnection.exec(initializeDatabaseSql);
-  }
-
-  protected loadOsmWaysToShstReferencesTable() {
-    this.dbWriteConnection
-      .prepare(
+  protected get osmWayChosenMatchesTableExistsStmt(): Statement {
+    this.preparedReadStatements.osmWayChosenMatchesTableExistsStmt =
+      this.preparedReadStatements.osmWayChosenMatchesTableExistsStmt ||
+      this.dbReadConnection.prepare(
         `
-          INSERT INTO ${SCHEMA}.osm_ways_to_shst_references
+          SELECT EXISTS(
+            SELECT 1
+                  FROM ${SCHEMA}.sqlite_master
+                  WHERE(
+              (type = 'table')
+                    AND
+                (name = 'osm_way_chosen_matches')
+            )
+          ) ;
         `,
-      )
-      .run();
+      );
+
+    return this.preparedReadStatements.osmWayChosenMatchesTableExistsStmt;
   }
 
   protected get osmWayChosenMatchesAreLoadedStmt(): Statement {
-    if (!this.preparedReadStatements.osmWayChosenMatchesAreLoadedStmt) {
-      this.preparedReadStatements.osmWayChosenMatchesAreLoadedStmt = this.dbReadConnection.prepare(
+    this.preparedReadStatements.osmWayChosenMatchesAreLoadedStmt =
+      this.preparedReadStatements.osmWayChosenMatchesAreLoadedStmt ||
+      this.dbReadConnection.prepare(
         `
-          SELECT EXISTS (
+          SELECT EXISTS(
             SELECT
-                1
-              FROM ${SCHEMA}.osm_way_chosen_shst_matches
-          ) ;`,
+                    1
+                  FROM ${SCHEMA}.osm_way_chosen_matches
+          );
+        `,
       );
-    }
 
-    // @ts-ignore
     return this.preparedReadStatements.osmWayChosenMatchesAreLoadedStmt;
   }
 
   get osmWayChosenMatchesAreLoaded(): boolean {
-    return this.osmWayChosenMatchesAreLoadedStmt.pluck().get() === 1;
+    return (
+      this.osmWayChosenMatchesTableExistsStmt.pluck().get() === 1 &&
+      this.osmWayChosenMatchesAreLoadedStmt.pluck().get() === 1
+    );
   }
 
   protected get allOsmWaysWithShstReferencesStmt(): Statement {
@@ -200,33 +227,42 @@ export default class ConflationMapDAO {
               json_group_array(
                 json(c.feature)
               ) AS shst_refs
-            FROM ${SOURCE_MAP}.osm_ways AS a
-              INNER JOIN (
-                SELECT DISTINCT
-                    json_extract(t.value, '$.way_id') AS osm_way_id,
-                    shst_reference_id
-                  FROM ${SOURCE_MAP}.shst_reference_features,
-                    json_each(
-                      json_extract(feature, '$.properties.osmMetadataWaySections')
-                    ) AS t
-                  WHERE (
-                    json_extract(feature, '$.properties.minOsmRoadClass') < ${SharedStreetsRoadClass.Other}
-                  )
-              ) AS b USING (osm_way_id)
-              INNER JOIN ${SOURCE_MAP}.shst_reference_features AS c
-                USING (shst_reference_id)
-              -- INNER JOIN (
-              --   SELECT
-              --       shst_reference_id
-              --     FROM ${SOURCE_MAP}.shst_reference_features_geopoly_idx
-              --     WHERE geopoly_overlap(_shape, ?)
-              -- ) USING ( shst_reference_id )
-            WHERE (
-              json_extract(feature, '$.properties.minOsmRoadClass') < ${SharedStreetsRoadClass.Other}
+
+          FROM ${SOURCE_MAP}.osm_ways AS a
+            INNER JOIN(
+              SELECT DISTINCT
+                  json_extract(t.value, '$.way_id') AS osm_way_id,
+                  shst_reference_id
+
+                FROM ${SOURCE_MAP}.shst_reference_features,
+                  json_each(
+                    json_extract(feature, '$.properties.osmMetadataWaySections')
+                  ) AS t
+                WHERE(
+                  json_extract(feature, '$.properties.minOsmRoadClass') < ${SharedStreetsRoadClass.Other}
+                )
+              ) AS b
+                USING(osm_way_id)
+
+            INNER JOIN ${SOURCE_MAP}.shst_reference_features AS c
+              USING(shst_reference_id)
+
+            INNER JOIN(
+              SELECT
+                  shst_reference_id
+                FROM ${SOURCE_MAP}.shst_reference_features_geopoly_idx
+                WHERE geopoly_overlap(_shape, ?)
             )
-            GROUP BY osm_way_id
-            ORDER BY osm_way_id ;
-        `,
+              USING(shst_reference_id)
+
+          WHERE(
+            json_extract(feature, '$.properties.minOsmRoadClass') < ${SharedStreetsRoadClass.Other}
+          )
+
+          GROUP BY osm_way_id
+
+          ORDER BY osm_way_id;
+      `,
       );
 
     return this.preparedReadStatements.allOsmWaysWithShstReferencesStmt;
@@ -237,11 +273,12 @@ export default class ConflationMapDAO {
     osmNodeIds: OsmNodeId[];
     shstReferences: SharedStreetsReferenceFeature[];
   }> {
-    // const boundingPolyHull = getGeometriesConcaveHull([albanyCounty]);
-    // const [boundingPolyCoords] = turf.getCoords(boundingPolyHull);
+    const boundingPolyHull = getGeometriesConcaveHull([albanyCounty]);
+    const [boundingPolyCoords] = turf.getCoords(boundingPolyHull);
 
-    const iter = this.allOsmWaysWithShstReferencesStmt.raw().iterate();
-    // .iterate([JSON.stringify(boundingPolyCoords)]);
+    const iter = this.allOsmWaysWithShstReferencesStmt
+      .raw()
+      .iterate([JSON.stringify(boundingPolyCoords)]);
 
     for (const [osmWayId, osmNodeIdsStr, shstRefsStr] of iter) {
       const osmNodeIds = JSON.parse(osmNodeIdsStr);
@@ -251,26 +288,13 @@ export default class ConflationMapDAO {
     }
   }
 
-  protected get truncateChosenShstReferenceSegmentsForOsmWaysStmt(): Statement {
-    this.preparedWriteStatements.truncateChosenShstReferenceSegmentsForOsmWaysStmt =
-      this.preparedWriteStatements
-        .truncateChosenShstReferenceSegmentsForOsmWaysStmt ||
-      this.dbWriteConnection.prepare(
-        `DELETE FROM ${SCHEMA}.osm_way_chosen_shst_matches;`,
-      );
-
-    // @ts-ignore
-    return this.preparedWriteStatements
-      .truncateChosenShstReferenceSegmentsForOsmWaysStmt;
-  }
-
   protected get insertChosenShstReferenceSegmentForOsmWayStmt(): Statement {
     this.preparedWriteStatements.insertChosenShstReferenceSegmentForOsmWayStmt =
       this.preparedWriteStatements
         .insertChosenShstReferenceSegmentForOsmWayStmt ||
       this.dbWriteConnection.prepare(
         `
-          INSERT INTO ${SCHEMA}.osm_way_chosen_shst_matches(
+          INSERT INTO ${SCHEMA}.osm_way_chosen_matches(
             osm_way_id,
             is_forward,
 
@@ -281,8 +305,8 @@ export default class ConflationMapDAO {
 
             section_start,
             section_end
-          ) VALUES(?, ?, ?, ?, ?, ?, ?) ;
-        `,
+          ) VALUES(?, ?, ?, ?, ?, ?, ?);
+      `,
       );
 
     // @ts-ignore
@@ -290,74 +314,243 @@ export default class ConflationMapDAO {
       .insertChosenShstReferenceSegmentForOsmWayStmt;
   }
 
-  loadChosenShstReferenceSegmentsForOsmWays() {
-    this.truncateChosenShstReferenceSegmentsForOsmWaysStmt.run();
+  protected createOsmChosenMatchesTable() {
+    const createOsmWayChosenMatchesTableSQL = readFileSync(
+      join(__dirname, './sql/create_osm_way_chosen_matches_table.sql'),
+      { encoding: 'utf-8' },
+    ).replace(/__SCHEMA__/g, SCHEMA);
 
-    const iter = this.makeOsmWaysWithShstReferencesIterator();
+    this.dbWriteConnection.exec(createOsmWayChosenMatchesTableSQL);
+  }
 
-    for (const { osmWayId, osmNodeIds, shstReferences } of iter) {
-      const {
-        chosenForward,
-        chosenBackward,
-      } = getChosenShstReferenceSegmentsForOsmWay({
-        osmWayId,
-        osmNodeIds,
-        shstReferences,
-      });
+  loadOsmWayChosenMatchesTable() {
+    try {
+      this.dbWriteConnection.exec('BEGIN;');
 
-      for (let i = 0; i < chosenForward.length; ++i) {
+      this.createOsmChosenMatchesTable();
+
+      const iter = this.makeOsmWaysWithShstReferencesIterator();
+
+      for (const { osmWayId, osmNodeIds, shstReferences } of iter) {
         const {
-          shstReferenceId,
-          osmNodesStartIdx,
-          osmNodesEndIdx,
-          sectionStart,
-          sectionEnd,
-        } = chosenForward[i];
+          chosenForward,
+          chosenBackward,
+        } = getChosenShstReferenceSegmentsForOsmWay({
+          osmWayId,
+          osmNodeIds,
+          shstReferences,
+        });
 
-        try {
-          this.insertChosenShstReferenceSegmentForOsmWayStmt.run([
-            osmWayId,
-            1,
+        for (let i = 0; i < chosenForward.length; ++i) {
+          const {
             shstReferenceId,
             osmNodesStartIdx,
             osmNodesEndIdx,
             sectionStart,
             sectionEnd,
-          ]);
-        } catch (err) {
-          console.log(JSON.stringify(chosenForward[i], null, 4));
-          throw err;
+          } = chosenForward[i];
+
+          try {
+            this.insertChosenShstReferenceSegmentForOsmWayStmt.run([
+              osmWayId,
+              1,
+              shstReferenceId,
+              osmNodesStartIdx,
+              osmNodesEndIdx,
+              sectionStart,
+              sectionEnd,
+            ]);
+          } catch (err) {
+            console.log(JSON.stringify(chosenForward[i], null, 4));
+            throw err;
+          }
         }
-      }
 
-      for (let i = 0; i < chosenBackward.length; ++i) {
-        const {
-          shstReferenceId,
-          osmNodesStartIdx,
-          osmNodesEndIdx,
-          sectionStart,
-          sectionEnd,
-        } = chosenBackward[i];
-
-        try {
-          this.insertChosenShstReferenceSegmentForOsmWayStmt.run([
-            osmWayId,
-            0,
+        for (let i = 0; i < chosenBackward.length; ++i) {
+          const {
             shstReferenceId,
             osmNodesStartIdx,
             osmNodesEndIdx,
             sectionStart,
             sectionEnd,
-          ]);
-        } catch (err) {
-          console.log(JSON.stringify(chosenBackward[i], null, 4));
-          throw err;
+          } = chosenBackward[i];
+
+          try {
+            this.insertChosenShstReferenceSegmentForOsmWayStmt.run([
+              osmWayId,
+              0,
+              shstReferenceId,
+              osmNodesStartIdx,
+              osmNodesEndIdx,
+              sectionStart,
+              sectionEnd,
+            ]);
+          } catch (err) {
+            console.log(JSON.stringify(chosenBackward[i], null, 4));
+            throw err;
+          }
         }
       }
+
+      this.dbWriteConnection.exec('COMMIT;');
+    } catch (err) {
+      this.dbWriteConnection.exec('ROLLBACK');
+    }
+  }
+
+  protected createTargetMapsAssignedMatchesTable() {
+    const sql = readFileSync(
+      join(__dirname, './sql/create_target_map_assigned_matches_table.sql'),
+      { encoding: 'utf-8' },
+    ).replace(/__SCHEMA__/g, SCHEMA);
+
+    this.dbWriteConnection.exec(sql);
+  }
+
+  protected get targetMapAssignedMatchesTableExistsStmt(): Statement {
+    this.preparedReadStatements.targetMapAssignedMatchesTableExistsStmt =
+      this.preparedReadStatements.targetMapAssignedMatchesTableExistsStmt ||
+      this.dbReadConnection.prepare(
+        `
+          SELECT EXISTS(
+            SELECT 1
+                  FROM ${SCHEMA}.sqlite_master
+                  WHERE(
+              (type = 'table')
+                    AND
+                (name = 'target_maps_assigned_matches')
+            )
+          ) ;
+        `,
+      );
+
+    return this.preparedReadStatements.targetMapAssignedMatchesTableExistsStmt;
+  }
+
+  protected get targetMapAssignedMatchesAreLoadedStmt(): Statement {
+    this.preparedReadStatements.targetMapAssignedMatchesAreLoadedStmt =
+      this.preparedReadStatements.targetMapAssignedMatchesAreLoadedStmt ||
+      this.dbReadConnection.prepare(
+        `
+          SELECT EXISTS(
+            SELECT
+                    1
+                  FROM ${SCHEMA}.target_maps_assigned_matches
+          );
+        `,
+      );
+
+    return this.preparedReadStatements.targetMapAssignedMatchesAreLoadedStmt;
+  }
+
+  get targetMapAssignedMatchesAreLoaded(): boolean {
+    return (
+      this.targetMapAssignedMatchesTableExistsStmt.pluck().get() === 1 &&
+      this.targetMapAssignedMatchesAreLoadedStmt.pluck().get() === 1
+    );
+  }
+
+  protected get loadOsmWayAssignedMatchesTableStmt(): Statement {
+    this.preparedWriteStatements.loadOsmWayAssignedMatchesTableStmt =
+      this.preparedWriteStatements.loadOsmWayAssignedMatchesTableStmt ||
+      this.dbWriteConnection.prepare(
+        `
+          INSERT INTO ${SCHEMA}.target_maps_assigned_matches (
+            shst_reference_id,
+            target_map,
+            target_map_id,
+            is_forward,
+            section_start,
+            section_end
+          )
+            SELECT
+                shst_reference_id,
+                '${TargetMaps.OSM}' AS target_map,
+                osm_way_id,
+                is_forward,
+                section_start,
+                section_end
+
+              FROM ${SCHEMA}.osm_way_chosen_matches ;
+        `,
+      );
+
+    return this.preparedWriteStatements.loadOsmWayAssignedMatchesTableStmt;
+  }
+
+  protected loadOsmWayAssignedMatchesTable() {
+    this.loadOsmWayAssignedMatchesTableStmt.run();
+  }
+
+  protected get insertTargetMapAssignedMatchStmt(): Statement {
+    this.preparedWriteStatements.insertTargetMapAssignedMatchStmt =
+      this.preparedWriteStatements.insertTargetMapAssignedMatchStmt ||
+      this.dbWriteConnection.prepare(
+        `
+          INSERT INTO ${SCHEMA}.target_maps_assigned_matches (
+            shst_reference_id,
+            target_map,
+            target_map_id,
+            is_forward,
+            section_start,
+            section_end
+          ) VALUES (?, ?, ?, ?, ?, ?) ;
+        `,
+      );
+
+    return this.preparedWriteStatements.insertTargetMapAssignedMatchStmt;
+  }
+
+  loadTargetMapsAssignedMatches() {
+    try {
+      this.beginWriteTransaction();
+
+      this.createTargetMapsAssignedMatchesTable();
+
+      this.loadOsmWayAssignedMatchesTable();
+
+      for (const {
+        shstReferenceId,
+        targetMapId,
+        isForward,
+        sectionStart,
+        sectionEnd,
+      } of this.nysRisBBDao.makeAssignedMatchesIterator()) {
+        this.insertTargetMapAssignedMatchStmt.run([
+          shstReferenceId,
+          TargetMaps.NYS_RIS,
+          targetMapId,
+          isForward,
+          sectionStart,
+          sectionEnd,
+        ]);
+      }
+
+      for (const {
+        shstReferenceId,
+        targetMapId,
+        isForward,
+        sectionStart,
+        sectionEnd,
+      } of this.npmrdsBBDao.makeAssignedMatchesIterator()) {
+        this.insertTargetMapAssignedMatchStmt.run([
+          shstReferenceId,
+          TargetMaps.NPMRDS,
+          targetMapId,
+          isForward,
+          sectionStart,
+          sectionEnd,
+        ]);
+      }
+
+      this.commitWriteTransaction();
+    } catch (err) {
+      this.rollbackWriteTransaction();
+      throw err;
     }
   }
 
   vacuumDatabase() {
-    this.dbWriteConnection.exec(`VACUUM ${SCHEMA}; `);
+    this.dbWriteConnection.exec(`VACUUM ${SCHEMA};`);
   }
 }
