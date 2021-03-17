@@ -65,15 +65,17 @@ export default class TargetMapConflationBlackboardDao<
 
   protected readonly preparedReadStatements: {
     databaseHasBeenInitializedStmt?: Statement;
+    shstMatchesTableExistsStmt?: Statement;
     shstMatchesAreLoadedStmt?: Statement;
     allShstMatchFeaturesStmt?: Statement;
     shstMatchMetadataByTargetMapIdStmt?: Statement;
     shstMatchesForPathStmt?: Statement;
     shstMatchesForTargetMapEdgesStmt?: Statement;
+    chosenMatchesTableExistsStmt?: Statement;
     chosenMatchesAreLoadedStmt?: Statement;
     chosenMatchesPathStmt?: Statement;
     targetMapEdgesChosenMatchesStmt?: Statement;
-    targetMapAssignedMatchesTableExistsStmt?: Statement;
+    assignedMatchesTableExistsStmt?: Statement;
     assignedMatchesAreLoadedStmt?: Statement;
     allTargetMapAssignedMatchesStmt?: Statement;
   };
@@ -206,24 +208,46 @@ export default class TargetMapConflationBlackboardDao<
     return this.targetMapDao.targetMapPathsAreEulerian;
   }
 
+  get shstMatchesTableExistsStmt(): Statement {
+    this.preparedReadStatements.shstMatchesTableExistsStmt =
+      this.preparedReadStatements.shstMatchesTableExistsStmt ||
+      this.dbReadConnection.prepare(
+        `
+          SELECT EXISTS (
+              SELECT 1
+                FROM ${this.blkbrdDbSchema}.sqlite_master
+                WHERE (
+                  ( type = 'table' )
+                  AND
+                  ( name = 'target_map_edge_shst_matches' )
+                )
+            ) ;
+        `,
+      );
+
+    return this.preparedReadStatements.shstMatchesTableExistsStmt;
+  }
+
   protected get shstMatchesAreLoadedStmt(): Statement {
-    if (!this.preparedReadStatements.shstMatchesAreLoadedStmt) {
-      this.preparedReadStatements.shstMatchesAreLoadedStmt = this.dbReadConnection.prepare(
+    this.preparedReadStatements.shstMatchesAreLoadedStmt =
+      this.preparedReadStatements.shstMatchesAreLoadedStmt ||
+      this.dbReadConnection.prepare(
         `
           SELECT EXISTS (
             SELECT
                 1
-              FROM ${this.blkbrdDbSchema}.target_map_edges_shst_matches
+              FROM ${this.blkbrdDbSchema}.target_map_edge_shst_matches
           ) ;`,
       );
-    }
 
-    // @ts-ignore
     return this.preparedReadStatements.shstMatchesAreLoadedStmt;
   }
 
   get shstMatchesAreLoaded(): boolean {
-    return this.shstMatchesAreLoadedStmt.raw().get()[0] === 1;
+    return (
+      this.assignedMatchesTableExistsStmt.pluck().get() === 1 &&
+      this.shstMatchesAreLoadedStmt.pluck().get() === 1
+    );
   }
 
   protected get insertMatchSql() {
@@ -584,6 +608,25 @@ export default class TargetMapConflationBlackboardDao<
     }
   }
 
+  protected get chosenMatchesTableExistsStmt(): Statement {
+    this.preparedReadStatements.chosenMatchesTableExistsStmt =
+      this.preparedReadStatements.chosenMatchesTableExistsStmt ||
+      this.dbReadConnection.prepare(
+        `
+          SELECT EXISTS (
+            SELECT 1
+              FROM ${this.blkbrdDbSchema}.sqlite_master
+              WHERE (
+                ( type = 'table' )
+                AND
+                ( name = 'target_map_edge_chosen_matches'
+              )
+          ) ;`,
+      );
+
+    return this.preparedReadStatements.chosenMatchesTableExistsStmt;
+  }
+
   protected get chosenMatchesAreLoadedStmt(): Statement {
     this.preparedReadStatements.chosenMatchesAreLoadedStmt =
       this.preparedReadStatements.chosenMatchesAreLoadedStmt ||
@@ -600,7 +643,10 @@ export default class TargetMapConflationBlackboardDao<
   }
 
   get chosenMatchesAreLoaded(): boolean {
-    return this.chosenMatchesAreLoadedStmt.raw().get()[0] === 1;
+    return (
+      this.chosenMatchesTableExistsStmt.pluck().get() === 1 &&
+      this.chosenMatchesAreLoadedStmt.pluck().get() === 1
+    );
   }
 
   protected get insertChosenMatchStmt(): Statement {
@@ -859,9 +905,9 @@ export default class TargetMapConflationBlackboardDao<
     return chosenMatchesForTargetMapEdges;
   }
 
-  get targetMapAssignedMatchesTableExistsStmt(): Statement {
-    this.preparedReadStatements.targetMapAssignedMatchesTableExistsStmt =
-      this.preparedReadStatements.targetMapAssignedMatchesTableExistsStmt ||
+  get assignedMatchesTableExistsStmt(): Statement {
+    this.preparedReadStatements.assignedMatchesTableExistsStmt =
+      this.preparedReadStatements.assignedMatchesTableExistsStmt ||
       this.dbReadConnection.prepare(
         `
           SELECT EXISTS (
@@ -876,7 +922,7 @@ export default class TargetMapConflationBlackboardDao<
         `,
       );
 
-    return this.preparedReadStatements.targetMapAssignedMatchesTableExistsStmt;
+    return this.preparedReadStatements.assignedMatchesTableExistsStmt;
   }
 
   protected get assignedMatchesAreLoadedStmt(): Statement {
@@ -896,7 +942,7 @@ export default class TargetMapConflationBlackboardDao<
 
   get assignedMatchesAreLoaded(): boolean {
     return (
-      this.targetMapAssignedMatchesTableExistsStmt.pluck().get() === 1 &&
+      this.assignedMatchesTableExistsStmt.pluck().get() === 1 &&
       this.assignedMatchesAreLoadedStmt.pluck().get() === 1
     );
   }
