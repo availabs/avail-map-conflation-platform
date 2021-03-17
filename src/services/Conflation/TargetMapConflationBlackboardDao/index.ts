@@ -245,7 +245,7 @@ export default class TargetMapConflationBlackboardDao<
 
   get shstMatchesAreLoaded(): boolean {
     return (
-      this.assignedMatchesTableExistsStmt.pluck().get() === 1 &&
+      this.shstMatchesTableExistsStmt.pluck().get() === 1 &&
       this.shstMatchesAreLoadedStmt.pluck().get() === 1
     );
   }
