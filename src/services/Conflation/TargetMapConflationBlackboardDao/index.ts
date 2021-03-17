@@ -619,7 +619,7 @@ export default class TargetMapConflationBlackboardDao<
               WHERE (
                 ( type = 'table' )
                 AND
-                ( name = 'target_map_edge_chosen_matches'
+                ( name = 'target_map_edge_chosen_matches' )
               )
           ) ;`,
       );
