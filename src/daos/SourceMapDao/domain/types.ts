@@ -45,6 +45,8 @@ export interface OsmMetadataWaySection {
 
 export type OsmHighwayType = string;
 
+export type SharedStreetsReferenceLength = number;
+
 export interface SharedStreetsReferenceFeature
   extends turf.Feature<turf.LineString> {
   id: string;
@@ -62,7 +64,7 @@ export interface SharedStreetsReferenceFeature
     minOsmRoadClass: SharedStreetsRoadClass;
     maxOsmRoadClass: SharedStreetsRoadClass;
     distinctOsmRoadClasses: SharedStreetsRoadClass[];
-    shstReferenceLength: number;
+    shstReferenceLength: SharedStreetsReferenceLength;
   };
 }
 
