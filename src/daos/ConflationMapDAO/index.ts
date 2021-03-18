@@ -25,6 +25,7 @@ import { getGeometriesConcaveHull } from '../../utils/gis/hulls';
 
 import getChosenShstReferenceSegmentsForOsmWay from './utils/getChosenShstReferenceSegmentsForOsmWay';
 import partitionShstReference from './utils/partitionShstReference';
+import createMBTiles from './utils/createMBTiles';
 
 import {
   CONFLATION_MAP as SCHEMA,
@@ -47,6 +48,7 @@ import {
   TargetMap,
   ShstReferenceTargetMapEdgesAssignment,
   ShstReferenceTargetMapsAssignments,
+  ConflationMapSegment,
 } from './domain/types';
 
 export type TargetMapConflationBlackboardDaoConfig = {
@@ -316,8 +318,6 @@ export default class ConflationMapDAO {
         console.time('  iter start');
         logIterTime = false;
       }
-
-      // console.log('osmWayId:', osmWayId);
 
       const osmNodeIds = JSON.parse(osmNodeIdsStr);
       const shstReferences = JSON.parse(shstRefsStr);
@@ -687,7 +687,6 @@ export default class ConflationMapDAO {
 
   *makePartitionedShstReferencesIterator() {
     const iter = this.makeShstReferenceAssignedMatchesIterator();
-    console.log('makePartitionedShstReferencesIterator');
 
     for (const { shstReference, assignments } of iter) {
       const partitions = partitionShstReference(shstReference, assignments);
@@ -842,7 +841,7 @@ export default class ConflationMapDAO {
     return this.preparedReadStatements.conflationMapSegmentsStmt;
   }
 
-  *makeConflationMapSegmentsIterator() {
+  *makeConflationMapSegmentsIterator(): Generator<ConflationMapSegment> {
     const iter = this.conflationMapSegmentsStmt.raw().iterate();
 
     for (const [segmentsStr, shstRefsStr] of iter) {
@@ -865,9 +864,14 @@ export default class ConflationMapDAO {
         feature.id = segment.id;
         feature.properties = segment;
 
+        // @ts-ignore
         yield feature;
       }
     }
+  }
+
+  createMBTiles() {
+    return createMBTiles(this.makeConflationMapSegmentsIterator());
   }
 
   vacuumDatabase() {
