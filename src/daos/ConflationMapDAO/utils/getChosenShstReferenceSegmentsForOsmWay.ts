@@ -8,14 +8,14 @@ import { strict as assert } from 'assert';
 import * as turf from '@turf/turf';
 import _ from 'lodash';
 
-import { longestCommonSubstring } from '../../utils/stringAlgorithms';
+import { longestCommonSubstring } from '../../../utils/stringAlgorithms';
 
 import {
   SharedStreetsReferenceId,
   SharedStreetsReferenceFeature,
   OsmNodeId,
   OsmWayId,
-} from '../SourceMapDao/domain/types';
+} from '../../SourceMapDao/domain/types';
 
 const getShstReferenceOsmNodeIds = (shstRef: SharedStreetsReferenceFeature) => {
   const {
