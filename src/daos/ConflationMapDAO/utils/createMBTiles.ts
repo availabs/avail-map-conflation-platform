@@ -6,6 +6,8 @@ import { join } from 'path';
 
 import tmp from 'tmp';
 
+import getTerseConflationMapSegment from './getTerseConflationMapSegment';
+
 import { ConflationMapSegment } from '../domain/types';
 
 const tmpDir = join(__dirname, '../../../../output/conflation_map/tmp');
@@ -39,22 +41,21 @@ const outputSegmentsAsNDJSON = async (
     emitClose: true,
   });
 
-  for (const partition of conflationMapSegmentIter) {
-    const { id } = partition;
-    const { shstReferenceId: shst } = partition.properties;
-    const osm = partition.properties.osm.targetMapId;
-    const ris = partition.properties?.nys_ris?.targetMapId || undefined;
-    const tmc = partition.properties?.npmrds?.targetMapId || undefined;
+  for (const conflationMapSegment of conflationMapSegmentIter) {
+    const terseConflationMapSegment = getTerseConflationMapSegment(
+      conflationMapSegment,
+    );
 
-    const netlev = partition.properties.roadClass;
+    const {
+      properties: { netlev },
+    } = terseConflationMapSegment;
 
-    const feature = {
-      ...partition,
-      properties: { id, shst, osm, ris, tmc, netlev },
-      tippecanoe: tippecanoeDetails[netlev],
-    };
+    // @ts-ignore
+    terseConflationMapSegment.tippecanoe = tippecanoeDetails[netlev];
 
-    const good = writeStream.write(`${JSON.stringify(feature)}\n`);
+    const good = writeStream.write(
+      `${JSON.stringify(terseConflationMapSegment)}\n`,
+    );
 
     if (!good) {
       await new Promise((res) => writeStream.once('drain', res));
@@ -87,7 +88,7 @@ export default async function createMBTiles(
   conflationMapSegmentIter: Generator<ConflationMapSegment>,
 ) {
   try {
-    const tmpobj = tmp.fileSync({ tmpdir: tmpDir });
+    const tmpobj = tmp.fileSync({ tmpdir: tmpDir, keep: true });
 
     const tmpFilePath = tmpobj.name;
 

@@ -45,3 +45,15 @@ export type ConflationMapSegment = turf.Feature<turf.LineString> & {
 };
 
 export type ProtoConflationMapSegment = Omit<ConflationMapSegment, 'id'>;
+
+export type TerseConflationMapSegment = turf.Feature<turf.LineString> & {
+  id: number;
+  properties: {
+    id: number;
+    shst: SharedStreetsReferenceId;
+    osm: number;
+    ris?: number;
+    tmc?: string;
+    netlev: SharedStreetsRoadClass;
+  };
+};

@@ -26,6 +26,7 @@ import { getGeometriesConcaveHull } from '../../utils/gis/hulls';
 import getChosenShstReferenceSegmentsForOsmWay from './utils/getChosenShstReferenceSegmentsForOsmWay';
 import partitionShstReference from './utils/partitionShstReference';
 import createMBTiles from './utils/createMBTiles';
+import outputShapefile from './utils/outputShapefile';
 
 import {
   CONFLATION_MAP as SCHEMA,
@@ -872,6 +873,10 @@ export default class ConflationMapDAO {
 
   createMBTiles() {
     return createMBTiles(this.makeConflationMapSegmentsIterator());
+  }
+
+  outputShapefile() {
+    return outputShapefile(this.makeConflationMapSegmentsIterator());
   }
 
   vacuumDatabase() {
