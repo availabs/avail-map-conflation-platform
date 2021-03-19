@@ -87,9 +87,7 @@ export default class TargetMapConflationBlackboardDao<
     insertAssignedMatchStmt?: Statement;
   };
 
-  makeTargetMapEdgeFeaturesGeoProximityIterator: TargetMapDAO<
-    T
-  >['makeTargetMapEdgesGeoproximityIterator'];
+  makeTargetMapEdgeFeaturesGeoProximityIterator: TargetMapDAO<T>['makeTargetMapEdgesGeoproximityIterator'];
 
   static getBlackboardSchemaName(targetMapSchema: DatabaseSchemaName) {
     return `${targetMapSchema}_conflation_blackboard`;
@@ -219,7 +217,7 @@ export default class TargetMapConflationBlackboardDao<
                 WHERE (
                   ( type = 'table' )
                   AND
-                  ( name = 'target_map_edge_shst_matches' )
+                  ( name = 'target_map_edges_shst_matches' )
                 )
             ) ;
         `,
@@ -236,7 +234,7 @@ export default class TargetMapConflationBlackboardDao<
           SELECT EXISTS (
             SELECT
                 1
-              FROM ${this.blkbrdDbSchema}.target_map_edge_shst_matches
+              FROM ${this.blkbrdDbSchema}.target_map_edges_shst_matches
           ) ;`,
       );
 
@@ -316,6 +314,9 @@ export default class TargetMapConflationBlackboardDao<
       for await (const shstMatch of shstMatchesIter) {
         this.insertShstMatch(shstMatch);
       }
+
+      this.initializeChosenMatchesTable();
+      this.initializeAssignedMatchesTable();
 
       this.commitWriteTransaction();
     } catch (err) {
@@ -718,6 +719,8 @@ export default class TargetMapConflationBlackboardDao<
       for await (const chosenMatch of chosenMatchesIter) {
         this.insertChosenMatch(chosenMatch);
       }
+
+      this.initializeAssignedMatchesTable();
 
       this.commitWriteTransaction();
     } catch (err) {

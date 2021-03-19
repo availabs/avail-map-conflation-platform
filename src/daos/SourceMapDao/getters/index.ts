@@ -7,6 +7,51 @@ import db from '../../../services/DbService';
 import { SOURCE_MAP } from '../../../constants/databaseSchemaNames';
 import { SharedStreetsReferenceFeature, OsmNodeId } from '../domain/types';
 
+const getShstReferenceFeaturesOverlappingPolyStmt = db.prepare(
+  `
+    SELECT
+        feature
+      FROM ${SOURCE_MAP}.shst_reference_features
+        INNER JOIN (
+          SELECT
+              shst_reference_id
+            FROM ${SOURCE_MAP}.shst_reference_features_geopoly_idx
+            WHERE geopoly_overlap(_shape, ?)
+        ) USING ( shst_reference_id ) ;
+  `,
+);
+
+const getShstReferenceRoadsOverlappingPolyStmt = db.prepare(
+  `
+    SELECT
+        feature
+      FROM ${SOURCE_MAP}.shst_reference_features
+        INNER JOIN (
+          SELECT
+              shst_reference_id
+            FROM ${SOURCE_MAP}.shst_reference_features_geopoly_idx
+            WHERE geopoly_overlap(_shape, ?)
+        ) USING ( shst_reference_id )
+      WHERE ( json_extract(feature, '$.properties.minOsmRoadClass') < 8 )
+  `,
+);
+
+const getShstReferencesStmt = db.prepare(
+  `
+    SELECT
+        feature
+      FROM ${SOURCE_MAP}.shst_reference_features
+      WHERE shst_reference_id IN (
+        SELECT
+            value
+          FROM (
+              SELECT json(?) AS shst_ref_ids_arr
+            ) AS t, json_each(t.shst_ref_ids_arr)
+      )
+      ORDER BY shst_reference_id ;
+  `,
+);
+
 // The geopoly types copied from the following:
 // https://github.com/Turfjs/turf/blob/3cea4b5f125a11fb4757da59d1222fd837d9783c/packages/turf-invariant/index.ts#L51-L63
 export function getShstReferenceFeaturesOverlappingPoly(
@@ -14,20 +59,23 @@ export function getShstReferenceFeaturesOverlappingPoly(
 ): SharedStreetsReferenceFeature[] {
   const geopolyCoords = turf.getCoords(geopoly);
 
-  const result = db
-    .prepare(
-      `
-        SELECT
-            feature
-          FROM ${SOURCE_MAP}.shst_reference_features
-            INNER JOIN (
-              SELECT
-                  shst_reference_id
-                FROM ${SOURCE_MAP}.shst_reference_features_geopoly_idx
-                WHERE geopoly_overlap(_shape, ?)
-            ) USING ( shst_reference_id )
-      `,
-    )
+  const result = getShstReferenceFeaturesOverlappingPolyStmt
+    .raw()
+    .all([JSON.stringify(geopolyCoords)]);
+
+  const shstRefLineStrings = result.map(([featureStr]) =>
+    JSON.parse(featureStr),
+  );
+
+  return shstRefLineStrings;
+}
+
+export function getShstReferenceRoadsOverlappingPoly(
+  geopoly: any[] | turf.Feature | turf.GeometryObject,
+): SharedStreetsReferenceFeature[] {
+  const geopolyCoords = turf.getCoords(geopoly);
+
+  const result = getShstReferenceRoadsOverlappingPolyStmt
     .raw()
     .all([JSON.stringify(geopolyCoords)]);
 
@@ -41,21 +89,7 @@ export function getShstReferenceFeaturesOverlappingPoly(
 export function getShstReferences(
   shstReferenceIds: SharedStreetsReferenceFeature['id'][],
 ): SharedStreetsReferenceFeature[] {
-  const result = db
-    .prepare(
-      `
-        SELECT
-            feature
-          FROM ${SOURCE_MAP}.shst_reference_features
-          WHERE shst_reference_id IN (
-            SELECT
-                value
-              FROM (
-                  SELECT json(?) AS shst_ref_ids_arr
-                ) AS t, json_each(t.shst_ref_ids_arr)
-          )
-          ORDER BY shst_reference_id ; `,
-    )
+  const result = getShstReferencesStmt
     .raw()
     .all([JSON.stringify(shstReferenceIds)]);
 

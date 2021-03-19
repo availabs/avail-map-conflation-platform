@@ -211,44 +211,32 @@ CREATE VIEW __SCHEMA__.target_map_ppg_edge_line_features
         json_extract(a.properties, '$.targetMapId') as target_map_id,
         a.geoprox_key,
         json_set( -- Set $.id
-          json_set( -- Set $.properties.labels
-            json_set( -- Set $.properties
+          json_set( -- Set $.properties
+            json_object(
+              'type',
+              'Feature',
+              -- properties set by outer json_set
+              'geometry',
               json_object(
                 'type',
-                'Feature',
-                -- properties set by outer json_set
-                'geometry',
-                json_object(
-                  'type',
-                  CASE json_type(coordinates, '$[0][0]')
-                    WHEN 'real'  THEN 'LineString'
-                    WHEN 'array' THEN 'MultiLineString'
-                  END,
-                  'coordinates',
-                  json(coordinates)
-                )
-              ),
-              '$.properties',
-              IFNULL(
-                json(properties),
-                json('{}')
+                CASE json_type(coordinates, '$[0][0]')
+                  WHEN 'real'  THEN 'LineString'
+                  WHEN 'array' THEN 'MultiLineString'
+                END,
+                'coordinates',
+                json(coordinates)
               )
-            ), -- End Set $.properties
-            '$.properties.labels',
+            ),
+            '$.properties',
             IFNULL(
-              json_group_array(
-                label
-              ),
-              json('[]')
+              json(properties),
+              json('{}')
             )
-          ), -- End Set $.properties.labels
+          ), -- End Set $.properties
           '$.id',
           edge_id
         ) as feature -- End Set $.is
     FROM target_map_ppg_edges as a
-      LEFT OUTER JOIN target_map_ppg_edge_labels as b
-      USING(edge_id)
-      GROUP BY a.edge_id
 ;
 
 -- Create a spatial index on the edges

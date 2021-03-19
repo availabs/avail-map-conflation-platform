@@ -233,7 +233,7 @@ export default class TargetMapPathVicinity<T extends RawTargetMapFeature> {
       crossMapVicinityFeatures,
     );
 
-    this.allVicinitySharedStreetsReferences = SourceMapDAO.getShstReferenceFeaturesOverlappingPoly(
+    this.allVicinitySharedStreetsReferences = SourceMapDAO.getShstReferenceRoadsOverlappingPoly(
       this.vicinityBoundingPolyCoords[0],
     );
 
@@ -260,7 +260,7 @@ export default class TargetMapPathVicinity<T extends RawTargetMapFeature> {
             // @ts-ignore
             const hull = getGeometriesConcaveHull([shstRef, offset]);
 
-            const shstRefsCrossingHull = SourceMapDAO.getShstReferenceFeaturesOverlappingPoly(
+            const shstRefsCrossingHull = SourceMapDAO.getShstReferenceRoadsOverlappingPoly(
               // @ts-ignore
               hull.geometry?.coordinates[0],
             );
