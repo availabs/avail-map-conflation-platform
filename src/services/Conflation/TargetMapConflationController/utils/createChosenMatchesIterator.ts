@@ -105,16 +105,20 @@ export default async function* createChosenMatchesIterator(
       ++outstanding;
     }
 
-    if (chosenMatches.forward) {
-      for (let i = 0; i < chosenMatches.forward.length; ++i) {
-        yield chosenMatches.forward[i];
+    try {
+      if (chosenMatches.forward) {
+        for (let i = 0; i < chosenMatches.forward.length; ++i) {
+          yield chosenMatches.forward[i];
+        }
       }
-    }
 
-    if (chosenMatches.backward) {
-      for (let i = 0; i < chosenMatches.backward.length; ++i) {
-        yield chosenMatches.backward[i];
+      if (chosenMatches.backward) {
+        for (let i = 0; i < chosenMatches.backward.length; ++i) {
+          yield chosenMatches.backward[i];
+        }
       }
+    } catch (err) {
+      console.error(err);
     }
 
     if (outstanding === 0) {

@@ -44,6 +44,9 @@ module.exports = function chooseMatches(
     cb(null, { targetMapPathId, chosenMatches });
   } catch (err) {
     console.error(err);
-    cb(null, { targetMapPathId, chosenMatches: null });
+    cb(null, {
+      targetMapPathId,
+      chosenMatches: { forward: null, backward: null },
+    });
   }
 };
