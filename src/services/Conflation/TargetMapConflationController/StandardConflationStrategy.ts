@@ -2,44 +2,12 @@
 
 import TargetMapConflationBlackboardDao from '../TargetMapConflationBlackboardDao';
 import SharedStreetsMatcherKnowledgeSource from '../TargetMapConflationKnowlegeSources/SharedStreets';
-import TargetMapPathVicinity from '../TargetMapConflationHypothesesContexts/TargetMapPathVicinity';
 
-import searchAndSort from '../TargetMapConflationKnowlegeSources/toposortTargetMapPathShstMatchedShstReferences';
-import divvyToposortedTargetMapPathShstReferences from '../TargetMapConflationKnowlegeSources/divvyToposortedHypothesizedTargetMapPathShstReferences';
+import createChosenMatchesIterator from './utils/createChosenMatchesIterator';
 import Assigner from '../TargetMapConflationKnowlegeSources/assignMatches/Assigner';
 
-export function* createChosenMatchesIterator(
-  blkbrdDao: TargetMapConflationBlackboardDao,
-) {
-  const targetMapPathIdsIter = blkbrdDao.makeTargetMapPathIdsIterator();
-
-  for (const targetMapPathId of targetMapPathIdsIter) {
-    const vicinity = new TargetMapPathVicinity(blkbrdDao, targetMapPathId);
-
-    console.log('targetMapPath:', vicinity.targetMapPathId);
-
-    const sortedPaths = searchAndSort(vicinity);
-
-    const chosenMatches = divvyToposortedTargetMapPathShstReferences(
-      vicinity,
-      sortedPaths,
-    );
-
-    if (chosenMatches.forward) {
-      for (let i = 0; i < chosenMatches.forward.length; ++i) {
-        yield chosenMatches.forward[i];
-      }
-    }
-
-    if (chosenMatches.backward) {
-      for (let i = 0; i < chosenMatches.backward.length; ++i) {
-        yield chosenMatches.backward[i];
-      }
-    }
-  }
-}
-
 export function createAssignedMatchesIterator(
+  // @ts-ignore
   blkbrdDao: TargetMapConflationBlackboardDao,
 ) {
   const assigner = new Assigner(blkbrdDao);
@@ -48,8 +16,10 @@ export function createAssignedMatchesIterator(
 }
 
 export default class StandardConflationStrategy {
+  // @ts-ignore
   private readonly blkbrdDao: TargetMapConflationBlackboardDao;
 
+  // @ts-ignore
   constructor(blkbrdDao: TargetMapConflationBlackboardDao) {
     this.blkbrdDao = blkbrdDao;
   }
