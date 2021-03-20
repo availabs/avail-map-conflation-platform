@@ -57,13 +57,16 @@ export default class TargetMapConflationBlackboardDao<
 
   readonly blkbrdDbSchema: DatabaseSchemaName;
 
-  // Used for reads
-  readonly dbReadConnection: Database;
+  // Connections are automatically closed if garbage collected.
+  //   https://github.com/JoshuaWise/better-sqlite3/issues/356#issuecomment-592748653
+  private connections: {
+    // Used for reads
+    dbReadConnection: Database | null;
+    // Used for writes
+    dbWriteConnection: Database | null;
+  };
 
-  // Used for writes
-  readonly dbWriteConnection: Database;
-
-  protected readonly preparedReadStatements: {
+  protected readonly preparedReadStatements!: {
     databaseHasBeenInitializedStmt?: Statement;
     shstMatchesTableExistsStmt?: Statement;
     shstMatchesAreLoadedStmt?: Statement;
@@ -80,7 +83,7 @@ export default class TargetMapConflationBlackboardDao<
     allTargetMapAssignedMatchesStmt?: Statement;
   };
 
-  protected readonly preparedWriteStatements: {
+  protected readonly preparedWriteStatements!: {
     insertShstMatchStmt?: Statement;
     clearShstMatchesStmt?: Statement;
     insertChosenMatchStmt?: Statement;
@@ -99,21 +102,7 @@ export default class TargetMapConflationBlackboardDao<
       this.targetMapSchema,
     );
 
-    this.dbReadConnection = db.openConnectionToDb(
-      this.blkbrdDbSchema,
-      // null,
-      // { verbose: console.log.bind(console) },
-    );
-
-    db.attachDatabaseToConnection(this.dbReadConnection, this.targetMapSchema);
-
-    // Write connection strictly for writes to this DB.
-    this.dbWriteConnection = db.openConnectionToDb(
-      this.blkbrdDbSchema,
-      // null,
-      // { verbose: console.log.bind(console) },
-    );
-    db.attachDatabaseToConnection(this.dbWriteConnection, this.targetMapSchema);
+    this.connections = { dbReadConnection: null, dbWriteConnection: null };
 
     this.preparedReadStatements = {};
     this.preparedWriteStatements = {};
@@ -131,6 +120,40 @@ export default class TargetMapConflationBlackboardDao<
     this.makeTargetMapEdgeFeaturesGeoProximityIterator = this.targetMapDao.makeTargetMapEdgesGeoproximityIterator.bind(
       this.targetMapDao,
     );
+  }
+
+  get dbReadConnection(): Database {
+    if (!this.connections.dbReadConnection) {
+      this.connections.dbReadConnection = db.openConnectionToDb(
+        this.blkbrdDbSchema,
+        // null,
+        // { verbose: console.log.bind(console) },
+      );
+
+      db.attachDatabaseToConnection(
+        this.dbReadConnection,
+        this.targetMapSchema,
+      );
+    }
+
+    return this.connections.dbReadConnection;
+  }
+
+  get dbWriteConnection(): Database {
+    if (!this.connections.dbWriteConnection) {
+      this.connections.dbWriteConnection = db.openConnectionToDb(
+        this.blkbrdDbSchema,
+        // null,
+        // { verbose: console.log.bind(console) },
+      );
+
+      db.attachDatabaseToConnection(
+        this.dbWriteConnection,
+        this.targetMapSchema,
+      );
+    }
+
+    return this.connections.dbWriteConnection;
   }
 
   beginWriteTransaction() {
@@ -511,6 +534,10 @@ export default class TargetMapConflationBlackboardDao<
 
   makeTargetMapPathIdsIterator() {
     return this.targetMapDao.makeTargetMapPathIdsIterator();
+  }
+
+  makeRandomizedTargetMapPathIdsIterator() {
+    return this.targetMapDao.makeRandomizedTargetMapPathIdsIterator();
   }
 
   *makeTargetMapPathMatchesIterator(queryParams?: {

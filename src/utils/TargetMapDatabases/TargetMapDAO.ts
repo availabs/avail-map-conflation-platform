@@ -80,9 +80,7 @@ export type TargetMapEdge = {
   labels: TargetMapEntityLabel[];
 };
 
-export type TargetMapEdgesGeoproximityIterator = Generator<
-  TargetMapEdgeFeature
->;
+export type TargetMapEdgesGeoproximityIterator = Generator<TargetMapEdgeFeature>;
 
 export type PreloadedTargetMapPath = {
   properties?: Record<string, any>;
@@ -691,6 +689,29 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
 
   *makeTargetMapPathIdsIterator(): Generator<TargetMapPathId> {
     const iter = this.allTargetMapPathIdsStmt.raw().iterate();
+
+    for (const [pathId] of iter) {
+      yield pathId;
+    }
+  }
+
+  private get randomizedAllTargetMapPathIdsStmt(): Statement {
+    if (!this.preparedReadStatements.randomizedAllTargetMapPathIdsStmt) {
+      this.preparedReadStatements.randomizedAllTargetMapPathIdsStmt = this.dbReadConnection.prepare(
+        `
+          SELECT
+              path_id
+            FROM ${this.targetMapSchema}.target_map_ppg_paths
+            ORDER BY random() ;`,
+      );
+    }
+
+    // @ts-ignore
+    return this.preparedReadStatements.randomizedAllTargetMapPathIdsStmt;
+  }
+
+  *makeRandomizedTargetMapPathIdsIterator(): Generator<TargetMapPathId> {
+    const iter = this.randomizedAllTargetMapPathIdsStmt.raw().iterate();
 
     for (const [pathId] of iter) {
       yield pathId;
