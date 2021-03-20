@@ -102,7 +102,6 @@ export default async function* createChosenMatchesIterator(
 
     if (Number.isInteger(targetMapPathId)) {
       choose(targetMapPathId);
-      ++outstanding;
     }
 
     try {
