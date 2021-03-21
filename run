@@ -18,10 +18,10 @@ require('ts-node').register()
 const source_map_load = require('./src/pipeline_transforms/source_map_load/yargs_wrapper')
 const {outputSourceMapShapefile} = require('./src/daos/SourceMapDao/outputShapefile/yargs_wrapper')
 
-const conflation_map = require("./src/pipeline_transforms/conflation_map/yargs_wrapper");
 
 const NpmrdsCommands = require("./src/daos/NpmrdsDAO/cli/yarg_wrapper")
 const NysRisCommands = require('./src/daos/NysRisDAO/cli/yargs_wrapper');
+const ConflationMapCommands = require("./src/daos/ConflationMapDAO/cli")
 
 // GTFS
 const raw_gtfs_into_sqlite = require("./src/pipeline_transforms/raw_gtfs_into_sqlite/yargs_wrapper");
@@ -56,7 +56,6 @@ const taskCommands = yargs
   .command(gtfs_network)
   .command(gtfs_osm_network)
   .command(scheduled_bus_traffic)
-  .command(conflation_map)
   .command(gtfs_conflation_map_join)
   .command(gtfs_conflation_schedule_join)
   .command(output);
@@ -67,6 +66,10 @@ Object.keys(NpmrdsCommands).forEach(cmd => {
 
 Object.keys(NysRisCommands).forEach(cmd => {
   taskCommands.command(NysRisCommands[cmd])
+})
+
+Object.keys(ConflationMapCommands).forEach(cmd => {
+  taskCommands.command(ConflationMapCommands[cmd])
 })
 
 taskCommands
