@@ -21,7 +21,7 @@ import db, {
 
 import TargetMapConflationBlackboardDao from '../../services/Conflation/TargetMapConflationBlackboardDao';
 
-import { getGeometriesConcaveHull } from '../../utils/gis/hulls';
+// import { getGeometriesConcaveHull } from '../../utils/gis/hulls';
 
 import getChosenShstReferenceSegmentsForOsmWay from './utils/getChosenShstReferenceSegmentsForOsmWay';
 import partitionShstReference from './utils/partitionShstReference';
@@ -57,11 +57,11 @@ export type TargetMapConflationBlackboardDaoConfig = {
   databaseSchemaName?: DatabaseSchemaName | null;
 };
 
-const albanyCounty: turf.Feature<turf.Polygon> = JSON.parse(
-  readFileSync(join(__dirname, './geojson/albanyCounty.geojson'), {
-    encoding: 'utf8',
-  }),
-);
+// const albanyCounty: turf.Feature<turf.Polygon> = JSON.parse(
+// readFileSync(join(__dirname, './geojson/albanyCounty.geojson'), {
+// encoding: 'utf8',
+// }),
+// );
 
 function createDbReadConnection(): SQLiteDatbase {
   const dbReadConnection = db.openConnectionToDb(SCHEMA);
@@ -278,12 +278,12 @@ export default class ConflationMapDAO {
             INNER JOIN ${SOURCE_MAP}.shst_reference_features AS c
               USING(shst_reference_id)
 
-            INNER JOIN(
-              SELECT
-                  shst_reference_id
-                FROM ${SOURCE_MAP}.shst_reference_features_geopoly_idx
-                WHERE geopoly_overlap(_shape, ?)
-            ) USING(shst_reference_id)
+            -- INNER JOIN(
+            --   SELECT
+            --       shst_reference_id
+            --     FROM ${SOURCE_MAP}.shst_reference_features_geopoly_idx
+            --     WHERE geopoly_overlap(_shape, ?)
+            -- ) USING(shst_reference_id)
 
           WHERE(
             json_extract(feature, '$.properties.minOsmRoadClass') < ${SharedStreetsRoadClass.Other}
@@ -305,12 +305,11 @@ export default class ConflationMapDAO {
   }> {
     console.log('makeOsmWaysWithShstReferencesIterator');
     // @ts-ignore
-    const boundingPolyHull = getGeometriesConcaveHull([albanyCounty]);
-    const [boundingPolyCoords] = turf.getCoords(boundingPolyHull);
+    // const boundingPolyHull = getGeometriesConcaveHull([albanyCounty]);
+    // const [boundingPolyCoords] = turf.getCoords(boundingPolyHull);
 
-    const iter = this.allOsmWaysWithShstReferencesStmt
-      .raw()
-      .iterate([JSON.stringify(boundingPolyCoords)]);
+    const iter = this.allOsmWaysWithShstReferencesStmt.raw().iterate();
+    // .iterate([JSON.stringify(boundingPolyCoords)]);
 
     let logIterTime = true;
     console.time('  iter start');
