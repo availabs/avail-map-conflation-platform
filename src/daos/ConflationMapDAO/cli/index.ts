@@ -14,3 +14,10 @@ export const outputConflationMapMBTiles = {
   builder: {},
   handler: () => new ConflationMapDAO().createMBTiles(),
 };
+
+export const outputConflationShapefile = {
+  command: 'output_conflation_map_shapefile',
+  desc: 'Output the Conflation Shapefile',
+  builder: {},
+  handler: () => new ConflationMapDAO().outputShapefile(),
+};
