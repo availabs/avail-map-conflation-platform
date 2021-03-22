@@ -83,7 +83,10 @@ export type TargetMapEdge = {
 export type TargetMapEdgesGeoproximityIterator = Generator<TargetMapEdgeFeature>;
 
 export type PreloadedTargetMapPath = {
-  properties?: Record<string, any>;
+  properties?: Record<string, any> & {
+    targetMapMesoId: string;
+    targetMapPathBearing: number | null;
+  };
   edgeIdSequence: TargetMapEdgeId[];
 };
 
@@ -91,8 +94,7 @@ export type TargetMapPathId = number;
 
 export type TargetMapPath = PreloadedTargetMapPath & {
   id: TargetMapPathId;
-  properties: Record<string, any>;
-  labels: TargetMapEntityLabel[];
+  // labels: TargetMapEntityLabel[];
 };
 
 export type TargetMapPathEdgeIdx = number;
@@ -150,6 +152,7 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
     insertPathStmt?: Statement;
     insertPathEdgeStmt?: Statement;
     insertPathLabelStmt?: Statement;
+    updatePathPropertiesStmt?: Statement;
     deleteAllPathsWithLabelStmt?: Statement;
   };
 
@@ -613,6 +616,25 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
     this.insertPathLabelStmt.run([pathId, label]);
   }
 
+  private get updatePathPropertiesStmt(): Statement {
+    this.preparedWriteStatements.updatePathPropertiesStmt =
+      this.preparedWriteStatements.updatePathPropertiesStmt ||
+      this.dbWriteConnection.prepare(
+        `
+          UPDATE ${this.targetMapSchema}.target_map_ppg_paths
+            SET properties = json_set(properties, '$.' || ?, json(?))
+            WHERE ( path_id = ? )
+        `,
+      );
+
+    // @ts-ignore
+    return this.preparedWriteStatements.updatePathPropertiesStmt;
+  }
+
+  updatePathProperties(pathId: number, key: string, value: any) {
+    this.updatePathPropertiesStmt.run([key, JSON.stringify(value), pathId]);
+  }
+
   truncatePathTables() {
     this.dbWriteConnection.exec(`
       DELETE FROM ${this.targetMapSchema}.target_map_ppg_path_labels ;
@@ -749,7 +771,11 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
         .chunk(2)
         .value();
 
-      const lineString = turf.lineString(coords, {}, { id: pathId });
+      const lineString = turf.lineString(
+        coords,
+        { targetMapPathId: pathId },
+        { id: pathId },
+      );
 
       yield lineString;
     }

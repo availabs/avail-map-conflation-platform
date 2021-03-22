@@ -2,6 +2,8 @@
 
 import { strict as assert } from 'assert';
 
+import _ from 'lodash';
+
 import DbService from '../../../../services/DbService';
 
 import { NYS_RIS as SCHEMA } from '../../../../constants/databaseSchemaNames';
@@ -11,6 +13,8 @@ import TargetMapDAO, {
 } from '../../../../utils/TargetMapDatabases/TargetMapDAO';
 
 import { NysRoadInventorySystemFeature } from '../../raw_map_layer/domain';
+
+import getBearing from '../../../../utils/gis/getBearing';
 
 import nysFipsCodes from '../../../../constants/nysFipsCodes';
 
@@ -41,6 +45,12 @@ function* makePreloadedTargetMapEdgesIterator(
       console.timeEnd('edgeIter');
       timer = false;
     }
+
+    const featuresById = features.reduce((acc, feature) => {
+      acc[feature.id] = feature;
+      return acc;
+    }, {});
+
     // All target map features need to have Paths to get chosen matches.
     // if (features.length < 2) {
     // continue;
@@ -63,13 +73,17 @@ function* makePreloadedTargetMapEdgesIterator(
         targetMapIdsSequence,
       );
 
-      const targetMapMesoId = `${gis_id}:${fipsCode}:${i}`;
+      const targetMapPath = targetMapIdsSequence.map((id) => featuresById[id]);
 
-      console.log('meso:', targetMapMesoId);
+      const targetMapPathBearing = getBearing(targetMapPath);
+
+      const targetMapMesoId = `${gis_id}:${fipsCode}:${i}`;
 
       // TODO: Properties should include bearing.
       const properties = {
         targetMapMesoId,
+        targetMapPathBearing:
+          targetMapPathBearing && _.round(targetMapPathBearing, 5),
       };
 
       yield { properties, edgeIdSequence };

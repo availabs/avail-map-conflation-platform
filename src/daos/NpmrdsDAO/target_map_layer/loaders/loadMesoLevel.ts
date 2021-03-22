@@ -12,6 +12,8 @@ import TargetMapDAO, {
 
 import { NpmrdsTmcFeature } from '../../raw_map_layer/domain';
 
+import getBearing from '../../../../utils/gis/getBearing';
+
 import nysFipsCodes from '../../constants/nysFipsCodes';
 
 import findMesoLevelPaths from './findMesoLevelPaths';
@@ -35,6 +37,11 @@ function* makePreloadedTargetMapEdgesIterator(
   }: {
     features: NpmrdsTmcFeature[];
   } of edgesByLinearTmcIterator) {
+    const featuresById = features.reduce((acc, feature) => {
+      acc[feature.id] = feature;
+      return acc;
+    }, {});
+
     const countyName = county.replace(/ /g, '_').toLowerCase();
     const fipsCode = nysFipsCodes[countyName];
 
@@ -50,11 +57,16 @@ function* makePreloadedTargetMapEdgesIterator(
         tmcsSequence,
       );
 
+      const targetMapPath = tmcsSequence.map((id) => featuresById[id]);
+
+      const targetMapPathBearing = getBearing(targetMapPath);
+
       const targetMapMesoId = `${lineartmc}:${fipsCode}:${i}`;
 
       // TODO: Properties should include bearing.
       const properties = {
         targetMapMesoId,
+        targetMapPathBearing,
       };
 
       yield { properties, edgeIdSequence };
