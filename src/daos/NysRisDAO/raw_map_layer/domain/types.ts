@@ -480,3 +480,9 @@ export interface NysRoadInventorySystemFeature
   id: number;
   properties: NysRoadInventorySystemProperties;
 }
+
+export type TrafficCountStationYearDirection = {
+  rcStation: string;
+  year: number;
+  federalDirection: number;
+};

@@ -8,6 +8,11 @@ import _ from 'lodash';
 import gdal from 'gdal';
 import tar from 'tar';
 
+import { createReadStream } from 'fs';
+import { createGunzip } from 'zlib';
+import { pipeline } from 'stream';
+import * as csv from 'fast-csv';
+
 import TargetMapDAO from '../../../../utils/TargetMapDatabases/TargetMapDAO';
 
 import { NysRoadInventorySystemFeature } from '../domain/types';
@@ -16,6 +21,7 @@ import {
   loadNysRis,
   NysRoadInventorySystemGeodatabaseEntry,
   NysRoadInventorySystemGeodatabaseEntryIterator,
+  TrafficCountStationYearDirectionAsyncIterator,
 } from '../loaders';
 
 import { NYS_RIS as SCHEMA } from '../../../../constants/databaseSchemaNames';
@@ -149,7 +155,43 @@ function* makeNysRisGeodatabaseIterator(
   }
 }
 
-export default async ({ nys_ris_geodatabase_tgz, county, year }) => {
+async function* makeTrafficCountStationYearDirectionAsyncIterator(
+  traffic_count_station_year_direction_gz: string,
+): TrafficCountStationYearDirectionAsyncIterator {
+  const stream = csv.parseStream(
+    pipeline(
+      createReadStream(traffic_count_station_year_direction_gz),
+      createGunzip(),
+      (err) => {
+        if (err) {
+          throw err;
+        }
+      },
+    ),
+    { headers: true, trim: true },
+  );
+
+  for await (const {
+    rc_station: rcStation,
+    year,
+    federal_direction,
+  } of stream) {
+    const federalDirection = +federal_direction;
+
+    if (federalDirection !== 0) {
+      continue;
+    }
+
+    yield { rcStation, year: +year, federalDirection };
+  }
+}
+
+export default async ({
+  nys_ris_geodatabase_tgz,
+  traffic_count_station_year_direction_gz,
+  county,
+  year,
+}) => {
   console.time(timerId);
 
   try {
@@ -158,7 +200,14 @@ export default async ({ nys_ris_geodatabase_tgz, county, year }) => {
       county?.toUpperCase(),
     );
 
-    loadNysRis(nysRisEntryIterator);
+    const trafficCountStationYearDirectionAsyncIterator = makeTrafficCountStationYearDirectionAsyncIterator(
+      traffic_count_station_year_direction_gz,
+    );
+
+    await loadNysRis(
+      nysRisEntryIterator,
+      trafficCountStationYearDirectionAsyncIterator,
+    );
 
     const targetMapDao = new TargetMapDAO<NysRoadInventorySystemFeature>(
       SCHEMA,

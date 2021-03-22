@@ -1,3 +1,5 @@
+/* eslint-disable no-restricted-syntax */
+
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -19,6 +21,7 @@ import {
 
 import {
   NysRoadInventorySystemProperties,
+  TrafficCountStationYearDirection,
   validateNysRoadInventorySystemProperties,
 } from '../domain';
 
@@ -29,6 +32,8 @@ export type NysRoadInventorySystemGeodatabaseEntry = {
 
 export interface NysRoadInventorySystemGeodatabaseEntryIterator
   extends Generator<NysRoadInventorySystemGeodatabaseEntry, void, unknown> {}
+
+export type TrafficCountStationYearDirectionAsyncIterator = AsyncGenerator<TrafficCountStationYearDirection>;
 
 const createNysRisTables = (xdb: any) => {
   const sql = readFileSync(join(__dirname, './create_nys_ris_tables.sql'))
@@ -205,11 +210,33 @@ const loadNysRisGeodatabase = (
   }
 };
 
+async function loadTrafficCountStationYearDirectionsTable(
+  xdb: Database,
+  trafficCountStationYearDirectionAsyncIterator: TrafficCountStationYearDirectionAsyncIterator,
+) {
+  const insertStmt = xdb.prepare(`
+    INSERT INTO ${SCHEMA}.nys_traffic_counts_station_year_directions(
+      rc_station,
+      year,
+      federal_direction
+    ) VALUES(?, ?, ?) ;
+  `);
+
+  for await (const {
+    rcStation,
+    year,
+    federalDirection,
+  } of trafficCountStationYearDirectionAsyncIterator) {
+    insertStmt.run([rcStation, year, federalDirection]);
+  }
+}
+
 // eslint-disable-next-line import/prefer-default-export
 export async function loadNysRis(
   geodatabaseEntriesIterator: NysRoadInventorySystemGeodatabaseEntryIterator,
+  trafficCountStationYearDirectionAsyncIterator: TrafficCountStationYearDirectionAsyncIterator,
 ) {
-  const xdb = db.openLoadingConnectionToDb(SCHEMA);
+  const xdb = db.openConnectionToDb(SCHEMA);
 
   try {
     xdb.exec('BEGIN EXCLUSIVE;');
@@ -217,6 +244,10 @@ export async function loadNysRis(
     createNysRisTables(xdb);
 
     loadNysRisGeodatabase(xdb, geodatabaseEntriesIterator);
+    await loadTrafficCountStationYearDirectionsTable(
+      xdb,
+      trafficCountStationYearDirectionAsyncIterator,
+    );
 
     xdb.exec('COMMIT');
   } catch (err) {

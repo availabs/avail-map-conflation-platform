@@ -355,3 +355,39 @@ CREATE VIEW __SCHEMA__.raw_target_map_features
     FROM nys_ris
     WHERE ( feature IS NOT NULL )
 ;
+
+DROP TABLE IF EXISTS __SCHEMA__.fhwa_direction_of_travel_code_descriptions ;
+
+CREATE TABLE __SCHEMA__.fhwa_direction_of_travel_code_descriptions (
+  federal_direction  INTEGER PRIMARY KEY,
+  description        TEXT NOT NULL
+) WITHOUT ROWID;
+
+INSERT INTO __SCHEMA__.fhwa_direction_of_travel_code_descriptions (
+  federal_direction,
+  description
+) VALUES
+  ( 1 , 'North'),
+  ( 2 , 'Northeast'),
+  ( 3 , 'East'),
+  ( 4 , 'Southeast'),
+  ( 5 , 'South'),
+  ( 6 , 'Southwest'),
+  ( 7 , 'West'),
+  ( 8 , 'Northwest'),
+  ( 9 , 'North-South or Northeast-Southwest combined (volume stations only)'),
+  ( 0 , 'East-West or Southeast-Northwest combined (volume stations only)')
+;
+
+DROP TABLE IF EXISTS __SCHEMA__.nys_traffic_counts_station_year_directions;
+
+CREATE TABLE __SCHEMA__.nys_traffic_counts_station_year_directions (
+  rc_station         TEXT,
+  year               INTEGER,
+  federal_direction  INTEGER,
+
+  PRIMARY KEY (rc_station, year),
+
+  FOREIGN KEY(federal_direction)
+    REFERENCES fhwa_direction_of_travel_code_descriptions(federal_direction)
+) WITHOUT ROWID ;

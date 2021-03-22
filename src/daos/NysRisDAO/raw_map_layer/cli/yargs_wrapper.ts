@@ -12,6 +12,12 @@ const builder = {
     type: 'string',
     demand: true,
   },
+  traffic_count_station_year_direction_gz: {
+    desc:
+      'Path to the gzipped CSV of NYS TrafficDataServices count stations directions.',
+    type: 'string',
+    demand: true,
+  },
   year: {
     desc: 'Map year.',
     type: 'number',
