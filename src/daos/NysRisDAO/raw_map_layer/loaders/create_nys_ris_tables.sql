@@ -183,7 +183,52 @@ CREATE TABLE __SCHEMA__._qa_nys_ris_entries_without_geometries (
   CHECK (json_valid(properties))
 ) WITHOUT ROWID;
 
-DROP VIEW IF EXISTS raw_target_map_features ;
+DROP TABLE IF EXISTS __SCHEMA__.nys_traffic_counts_station_year_directions;
+DROP TABLE IF EXISTS __SCHEMA__.fhwa_direction_of_travel_code_descriptions ;
+
+CREATE TABLE __SCHEMA__.fhwa_direction_of_travel_code_descriptions (
+  federal_direction  INTEGER PRIMARY KEY,
+  description        TEXT NOT NULL
+) WITHOUT ROWID;
+
+INSERT INTO __SCHEMA__.fhwa_direction_of_travel_code_descriptions (
+  federal_direction,
+  description
+) VALUES
+  ( 1 , 'North'),
+  ( 2 , 'Northeast'),
+  ( 3 , 'East'),
+  ( 4 , 'Southeast'),
+  ( 5 , 'South'),
+  ( 6 , 'Southwest'),
+  ( 7 , 'West'),
+  ( 8 , 'Northwest')
+;
+
+CREATE TABLE __SCHEMA__.nys_traffic_counts_station_year_directions (
+  rc_station         TEXT,
+  year               INTEGER,
+  federal_direction  INTEGER,
+
+  PRIMARY KEY (rc_station, year, federal_direction),
+
+  FOREIGN KEY(federal_direction)
+    REFERENCES fhwa_direction_of_travel_code_descriptions(federal_direction)
+) WITHOUT ROWID ;
+
+DROP TABLE IF EXISTS __SCHEMA__.ris_segment_federal_directions ;
+
+CREATE TABLE __SCHEMA__.ris_segment_federal_directions (
+  fid                 INTEGER PRIMARY KEY,
+  rc_station          TEXT,
+  traffic_count_year  INTEGER,
+  federal_directions  TEXT, -- JSON
+
+  FOREIGN KEY(fid) REFERENCES nys_ris(fid)
+) WITHOUT ROWID;
+
+
+DROP VIEW IF EXISTS __SCHEMA__.raw_target_map_features ;
 
 CREATE VIEW __SCHEMA__.raw_target_map_features
   AS
@@ -344,7 +389,10 @@ CREATE VIEW __SCHEMA__.raw_target_map_features
                   'aadt_single_unit',              aadt_single_unit,
                   'aadt_combo',                    aadt_combo,
                   'pavement_layer',                pavement_layer,
-                  'shape_length',                  shape_length
+                  'shape_length',                  shape_length,
+                  'tds_rc_station',                tds.rc_station,
+                  'tds_traffic_count_year',        tds.traffic_count_year,
+                  'tds_federal_directions',        json(tds.federal_directions)
                 )
               )
             )
@@ -353,41 +401,7 @@ CREATE VIEW __SCHEMA__.raw_target_map_features
           fid
         ) as feature
     FROM nys_ris
+      INNER JOIN ris_segment_federal_directions AS tds
+        USING (fid)
     WHERE ( feature IS NOT NULL )
 ;
-
-DROP TABLE IF EXISTS __SCHEMA__.fhwa_direction_of_travel_code_descriptions ;
-
-CREATE TABLE __SCHEMA__.fhwa_direction_of_travel_code_descriptions (
-  federal_direction  INTEGER PRIMARY KEY,
-  description        TEXT NOT NULL
-) WITHOUT ROWID;
-
-INSERT INTO __SCHEMA__.fhwa_direction_of_travel_code_descriptions (
-  federal_direction,
-  description
-) VALUES
-  ( 1 , 'North'),
-  ( 2 , 'Northeast'),
-  ( 3 , 'East'),
-  ( 4 , 'Southeast'),
-  ( 5 , 'South'),
-  ( 6 , 'Southwest'),
-  ( 7 , 'West'),
-  ( 8 , 'Northwest'),
-  ( 9 , 'North-South or Northeast-Southwest combined (volume stations only)'),
-  ( 0 , 'East-West or Southeast-Northwest combined (volume stations only)')
-;
-
-DROP TABLE IF EXISTS __SCHEMA__.nys_traffic_counts_station_year_directions;
-
-CREATE TABLE __SCHEMA__.nys_traffic_counts_station_year_directions (
-  rc_station         TEXT,
-  year               INTEGER,
-  federal_direction  INTEGER,
-
-  PRIMARY KEY (rc_station, year),
-
-  FOREIGN KEY(federal_direction)
-    REFERENCES fhwa_direction_of_travel_code_descriptions(federal_direction)
-) WITHOUT ROWID ;

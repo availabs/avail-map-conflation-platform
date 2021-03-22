@@ -178,7 +178,7 @@ async function* makeTrafficCountStationYearDirectionAsyncIterator(
   } of stream) {
     const federalDirection = +federal_direction;
 
-    if (federalDirection !== 0) {
+    if (federalDirection === 0 || federalDirection === 9) {
       continue;
     }
 
@@ -207,6 +207,7 @@ export default async ({
     await loadNysRis(
       nysRisEntryIterator,
       trafficCountStationYearDirectionAsyncIterator,
+      year,
     );
 
     const targetMapDao = new TargetMapDAO<NysRoadInventorySystemFeature>(

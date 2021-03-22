@@ -231,15 +231,59 @@ async function loadTrafficCountStationYearDirectionsTable(
   }
 }
 
+function loadRisSegmentFederalDirections(xdb: Database, year: number) {
+  xdb
+    .prepare(
+      `
+        INSERT INTO ${SCHEMA}.ris_segment_federal_directions (
+          fid,
+          rc_station,
+          traffic_count_year,
+          federal_directions
+        )
+          SELECT
+              fid,
+              rc_station,
+              traffic_count_year,
+              NULLIF(
+                json_group_array(federal_direction),
+                '[null]'
+              ) AS federal_directions
+            FROM (
+              SELECT
+                  a.fid,
+                  b.rc_station,
+                  b.year AS traffic_count_year,
+                  b.federal_direction,
+                  rank() OVER (PARTITION BY rc_station ORDER BY year DESC) AS antecendency
+                FROM ${SCHEMA}.nys_ris AS a
+                  LEFT OUTER JOIN ${SCHEMA}.nys_traffic_counts_station_year_directions AS b
+                    ON (
+                      ( substr(printf('0%d', a.region_co), -2)
+                          || '_'
+                          || substr(printf('0000%d', a.station_num), -4)
+                      ) = b.rc_station
+                    )
+                WHERE ( b.year <= ? )
+                ORDER BY 1,2,3,4
+            )
+            WHERE ( antecendency = 1 )
+            GROUP BY fid ;
+      `,
+    )
+    .run([year]);
+}
+
 // eslint-disable-next-line import/prefer-default-export
 export async function loadNysRis(
   geodatabaseEntriesIterator: NysRoadInventorySystemGeodatabaseEntryIterator,
   trafficCountStationYearDirectionAsyncIterator: TrafficCountStationYearDirectionAsyncIterator,
+  year: number,
 ) {
   const xdb = db.openConnectionToDb(SCHEMA);
 
   try {
-    xdb.exec('BEGIN EXCLUSIVE;');
+    xdb.exec('BEGIN;');
 
     createNysRisTables(xdb);
 
@@ -248,6 +292,8 @@ export async function loadNysRis(
       xdb,
       trafficCountStationYearDirectionAsyncIterator,
     );
+
+    loadRisSegmentFederalDirections(xdb, year);
 
     xdb.exec('COMMIT');
   } catch (err) {

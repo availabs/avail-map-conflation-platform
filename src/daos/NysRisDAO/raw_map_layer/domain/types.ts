@@ -481,8 +481,19 @@ export interface NysRoadInventorySystemFeature
   properties: NysRoadInventorySystemProperties;
 }
 
+export enum FederalDirection {
+  North,
+  Northeast,
+  East,
+  Southeast,
+  South,
+  Southwest,
+  West,
+  Northwest,
+}
+
 export type TrafficCountStationYearDirection = {
   rcStation: string;
   year: number;
-  federalDirection: number;
+  federalDirection: FederalDirection;
 };
