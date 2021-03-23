@@ -6,8 +6,16 @@ import {
 export default function getTerseConflationMapSegment(
   conflationMapSegment: ConflationMapSegment,
 ): TerseConflationMapSegment {
-  const { id } = conflationMapSegment;
-  const { shstReferenceId: shst } = conflationMapSegment.properties;
+  const {
+    id,
+    properties: {
+      shstReferenceId: shst,
+      tdsFederalDirection: tdsdir,
+      roadNumber: rdnum,
+      roadNumberFederalDirection: rdnumdir,
+    },
+  } = conflationMapSegment;
+
   const osm = conflationMapSegment.properties.osm.targetMapId;
   const ris =
     conflationMapSegment.properties?.nys_ris?.targetMapId || undefined;
@@ -18,7 +26,7 @@ export default function getTerseConflationMapSegment(
   const feature = {
     ...conflationMapSegment,
     id,
-    properties: { id, shst, osm, ris, tmc, netlev },
+    properties: { id, shst, osm, ris, tmc, netlev, tdsdir, rdnum, rdnumdir },
   };
 
   // @ts-ignore

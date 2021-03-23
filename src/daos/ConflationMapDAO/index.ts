@@ -895,15 +895,20 @@ export default class ConflationMapDAO {
           SELECT
               json_group_array(
                 json_object(
-                  'id',                   id,
-                  'shstReferenceId',      shst,
-                  'shstReferenceLength',  shst_reference_length,
-                  'roadClass',            road_class,
-                  'partitionStartDist',   partition_start_dist,
-                  'partitionStopDist',    partition_end_dist,
-                  'osm',                  json(osm),
-                  'nys_ris',              json(nys_ris),
-                  'npmrds',               json(npmrds)
+                  'id',                           id,
+                  'shstReferenceId',              shst,
+                  'shstReferenceLength',          shst_reference_length,
+                  'roadClass',                    road_class,
+                  'partitionStartDist',           partition_start_dist,
+                  'partitionStopDist',            partition_end_dist,
+                  'osm',                          json(osm),
+                  'nys_ris',                      json(b.nys_ris),
+                  'npmrds',                       json(npmrds),
+
+                  'tdsRcStation',                 tds_rc_station,
+                  'tdsFederalDirection',          tds_federal_direction,
+                  'roadNumber',                   road_number,
+                  'roadNumberFederalDirection',   road_number_federal_direction
                 )
               ) AS segments,
               feature AS shst_reference
@@ -911,6 +916,12 @@ export default class ConflationMapDAO {
             FROM source_map.shst_reference_features AS a
               INNER JOIN ${SCHEMA}.conflation_map_segments AS b
                 ON ( a.shst_reference_id = b.shst )
+              LEFT OUTER JOIN ${SCHEMA}.ris_assigned_match_federal_directions AS c
+                ON (
+                  ( json_extract(b.nys_ris, '$.targetMapId') = c.nys_ris )
+                  AND
+                  ( json_extract(b.nys_ris, '$.isForward') = c.is_forward )
+                )
 
             GROUP BY shst_reference_id
         `,
@@ -984,7 +995,6 @@ export default class ConflationMapDAO {
                  getFederalDirection(
                    target_map_path_bearing,
                    is_forward,
-                   tds_federal_directions
                  ) AS tds_federal_direction,
 
                  road_number,
@@ -1054,79 +1064,3 @@ export default class ConflationMapDAO {
     this.dbWriteConnection.exec(`VACUUM ${SCHEMA};`);
   }
 }
-
-/*
-  loadRisAssignedMatchFederalDirectionsTable() {
-    const result = this.dbWriteConnection
-      .prepare(
-        `
-          INSERT INTO ${SCHEMA}.ris_assigned_match_federal_directions
-            SELECT
-                 target_map_id AS nys_ris,
-                 shst_reference_id,
-                 is_forward,
-                 road_number,
-                 tds_rc_station,
-                 getFederalDirection(
-                   target_map_path_bearing,
-                   is_forward,
-                   tds_federal_directions
-                 ) AS tds_federal_direction,
-                 getFederalDirection(
-                   target_map_path_bearing,
-                   is_forward,
-                   CASE road_number
-                     WHEN ( road_number % 2 = 1) THEN '[1,5]'
-                     WHEN ( road_number % 2 = 0) THEN '[3,7]'
-                     ELSE NULL
-                   END
-                 ) AS road_number_federal_direction
-               FROM (
-                 SELECT
-                     e.target_map_id,
-                     d.shst_reference_id,
-                     d.is_forward,
-                     json_extract(a.properties, '$.targetMapPathBearing') AS target_map_path_bearing,
-                     json_extract(feature, '$.properties.tds_rc_station') AS tds_rc_station,
-                     json_extract(feature, '$.properties.tds_federal_directions') AS tds_federal_directions,
-                     CAST(
-                       IFNULL(
-                         NULLIF(json_extract(feature, '$.properties.route_no'), 0),
-                         NULLIF(json_extract(feature, '$.properties.co_rd'), 0)
-                       ) as INTEGER
-                     ) AS road_number,
-                     rank() OVER (
-                       PARTITION BY
-                         e.target_map_id,
-                         d.shst_reference_id,
-                         d.is_forward
-                       ORDER BY
-                         b.path_edge_idx DESC
-                     ) AS path_len_rnk
-                   FROM ${NYS_RIS}.target_map_ppg_paths AS a
-                     INNER JOIN ${NYS_RIS}.target_map_ppg_path_last_edges AS b
-                       USING (path_id)
-                     INNER JOIN ${NYS_RIS_BB}.target_map_edge_chosen_matches AS c
-                       USING (path_id)
-                     INNER JOIN ${NYS_RIS_BB}.target_map_edge_assigned_matches AS d
-                       ON (
-                         ( c.edge_id = d.edge_id )
-                         AND
-                         ( c.is_forward = d.is_forward )
-                         AND
-                         ( c.shst_reference = d.shst_reference_id)
-                       )
-                     INNER JOIN ${NYS_RIS}.target_map_ppg_edge_id_to_target_map_id AS e
-                       ON ( d.edge_id = e.edge_id )
-                     INNER JOIN ${NYS_RIS}.raw_target_map_features AS f
-                       USING (target_map_id)
-               )
-               WHERE ( path_len_rnk = 1 ) ; `,
-      )
-      .all();
-
-    console.log(JSON.stringify({ result }, null, 4));
-
-    return this;
-  }
-*/
