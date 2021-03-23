@@ -482,7 +482,7 @@ export interface NysRoadInventorySystemFeature
 }
 
 export enum FederalDirection {
-  North,
+  North = 1,
   Northeast,
   East,
   Southeast,

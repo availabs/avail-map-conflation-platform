@@ -1,23 +1,23 @@
 DROP TABLE IF EXISTS __SCHEMA__.conflation_map_segments;
 
 CREATE TABLE __SCHEMA__.conflation_map_segments (
-  id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+  id                              INTEGER PRIMARY KEY AUTOINCREMENT,
 
-  shst                    TEXT NOT NULL,
+  shst                            TEXT NOT NULL,
 
-  shst_reference_length   REAL NOT NULL,
+  shst_reference_length           REAL NOT NULL,
 
-  road_class              INTEGER NOT NULL,
+  road_class                      INTEGER NOT NULL,
 
-  partition_start_dist    REAL NOT NULL,
+  partition_start_dist            REAL NOT NULL,
 
-  partition_end_dist      REAL NOT NULL,
+  partition_end_dist              REAL NOT NULL,
 
-  osm                     TEXT NOT NULL, -- JSON
+  osm                             TEXT NOT NULL, -- JSON
 
-  nys_ris                 TEXT, -- JSON
+  nys_ris                         TEXT, -- JSON
 
-  npmrds                  TEXT, -- JSON
+  npmrds                          TEXT, -- JSON
 
   CHECK(shst_reference_length > 0),
 
@@ -74,3 +74,12 @@ CREATE TABLE __SCHEMA__.conflation_map_segments (
 
 CREATE INDEX __SCHEMA__.conflation_map_segments_shst_ref_idx
   ON conflation_map_segments (shst);
+
+CREATE INDEX __SCHEMA__.conflation_map_segments_osm_idx
+  ON conflation_map_segments (osm);
+
+CREATE INDEX __SCHEMA__.conflation_map_segments_nys_ris_idx
+  ON conflation_map_segments (nys_ris);
+
+CREATE INDEX __SCHEMA__.conflation_map_segments_npmrds_idx
+  ON conflation_map_segments (npmrds);
