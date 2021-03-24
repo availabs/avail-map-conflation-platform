@@ -995,13 +995,14 @@ export default class ConflationMapDAO {
                  getFederalDirection(
                    target_map_path_bearing,
                    is_forward,
+                   tds_federal_directions
                  ) AS tds_federal_direction,
 
                  road_number,
                  getFederalDirection(
                    target_map_path_bearing,
                    is_forward,
-                   CASE road_number
+                   CASE
                      WHEN ( road_number % 2 = 1) THEN '[1,5]'
                      WHEN ( road_number % 2 = 0) THEN '[3,7]'
                      ELSE NULL
@@ -1014,12 +1015,7 @@ export default class ConflationMapDAO {
                      json_extract(a.properties, '$.targetMapPathBearing') AS target_map_path_bearing,
                      json_extract(feature, '$.properties.tds_rc_station') AS tds_rc_station,
                      json_extract(feature, '$.properties.tds_federal_directions') AS tds_federal_directions,
-                     CAST(
-                       IFNULL(
-                         NULLIF(json_extract(feature, '$.properties.route_no'), 0),
-                         NULLIF(json_extract(feature, '$.properties.co_rd'), 0)
-                       ) as INTEGER
-                     ) AS road_number,
+                     NULLIF(json_extract(feature, '$.properties.route_no'), 0) AS road_number,
                      rank() OVER (
                        PARTITION BY
                          e.target_map_id,

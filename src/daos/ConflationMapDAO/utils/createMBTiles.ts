@@ -4,6 +4,8 @@ import { spawnSync } from 'child_process';
 import { createWriteStream, mkdirSync } from 'fs';
 import { join } from 'path';
 
+import _ from 'lodash';
+
 import tmp from 'tmp';
 
 import getTerseConflationMapSegment from './getTerseConflationMapSegment';
@@ -47,11 +49,17 @@ const outputSegmentsAsNDJSON = async (
     );
 
     const {
-      properties: { netlev },
+      properties: { n },
     } = terseConflationMapSegment;
 
     // @ts-ignore
-    terseConflationMapSegment.tippecanoe = tippecanoeDetails[netlev];
+    terseConflationMapSegment.tippecanoe = tippecanoeDetails[n];
+
+    // @ts-ignore
+    terseConflationMapSegment.properties = _.pick(
+      terseConflationMapSegment.properties,
+      ['id', 'osm', 'ris', 'tmc', 'n', 'dir'],
+    );
 
     const good = writeStream.write(
       `${JSON.stringify(terseConflationMapSegment)}\n`,

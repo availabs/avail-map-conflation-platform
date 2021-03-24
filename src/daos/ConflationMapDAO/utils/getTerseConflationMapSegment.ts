@@ -10,7 +10,7 @@ export default function getTerseConflationMapSegment(
     id,
     properties: {
       shstReferenceId: shst,
-      tdsFederalDirection: tdsdir,
+      tdsFederalDirection: dir,
       roadNumber: rdnum,
       roadNumberFederalDirection: rdnumdir,
     },
@@ -21,12 +21,12 @@ export default function getTerseConflationMapSegment(
     conflationMapSegment.properties?.nys_ris?.targetMapId || undefined;
   const tmc = conflationMapSegment.properties?.npmrds?.targetMapId || undefined;
 
-  const netlev = conflationMapSegment.properties.roadClass;
+  const n = conflationMapSegment.properties.roadClass;
 
   const feature = {
     ...conflationMapSegment,
     id,
-    properties: { id, shst, osm, ris, tmc, netlev, tdsdir, rdnum, rdnumdir },
+    properties: { id, shst, osm, ris, tmc, n, dir, rdnum, rdnumdir },
   };
 
   // @ts-ignore

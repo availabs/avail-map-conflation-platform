@@ -401,7 +401,7 @@ CREATE VIEW __SCHEMA__.raw_target_map_features
           fid
         ) as feature
     FROM nys_ris
-      INNER JOIN ris_segment_federal_directions AS tds
+      LEFT OUTER JOIN ris_segment_federal_directions AS tds
         USING (fid)
     WHERE ( feature IS NOT NULL )
 ;
