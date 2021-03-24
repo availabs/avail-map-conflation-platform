@@ -1,6 +1,8 @@
 /* eslint-disable no-restricted-syntax */
 
 /*
+    FIXME: The CASCADING DROP TABLE to dependent tables need work.
+
     FIXME:
       This module MUST work if ONLY the final conflation_map SQLite database is present.
       It MUST NOT depend on any input or intermediate pipeline stage SQLite databases.
@@ -32,6 +34,7 @@ import {
   CONFLATION_MAP as SCHEMA,
   SOURCE_MAP,
   NYS_RIS,
+  NPMRDS,
 } from '../../constants/databaseSchemaNames';
 
 import {
@@ -61,12 +64,6 @@ export type TargetMapConflationBlackboardDaoConfig = {
 const NYS_RIS_BB = TargetMapConflationBlackboardDao.getBlackboardSchemaName(
   NYS_RIS,
 );
-
-// const albanyCounty: turf.Feature<turf.Polygon> = JSON.parse(
-// readFileSync(join(__dirname, './geojson/albanyCounty.geojson'), {
-// encoding: 'utf8',
-// }),
-// );
 
 function createDbReadConnection(): SQLiteDatbase {
   const dbReadConnection = db.openConnectionToDb(SCHEMA);
@@ -118,6 +115,8 @@ export default class ConflationMapDAO {
     conflationMapSegmentsTableExistsStmt?: Statement;
     conflationMapSegmentsAreLoadedStmt?: Statement;
     conflationMapSegmentsStmt?: Statement;
+    risAssignedMatchFederalDirectionTableExistsStmt?: Statement;
+    risAssignedMatchFederalDirectionAreLoadedStmt?: Statement;
   };
 
   protected readonly preparedWriteStatements: {
@@ -134,51 +133,18 @@ export default class ConflationMapDAO {
     this.preparedReadStatements = {};
     this.preparedWriteStatements = {};
 
-    /*
-    if (!this.osmWayChosenMatchesAreLoaded) {
-      try {
-        console.log('loadOsmWayChosenMatchesTable');
-        console.time('loadOsmWayChosenMatchesTable');
-        this.loadOsmWayChosenMatchesTable();
-        console.timeEnd('loadOsmWayChosenMatchesTable');
-      } catch (err) {
-        console.error(err);
-        process.exit(1);
-      }
+    try {
+      this.loadOsmWayChosenMatchesTable();
+
+      this.loadTargetMapsAssignedMatches();
+
+      this.loadConflationMapSegments();
+
+      this.loadRisAssignedMatchFederalDirectionsTable();
+    } catch (err) {
+      console.error(err);
+      process.exit(1);
     }
-
-    if (!this.targetMapAssignedMatchesAreLoaded) {
-      try {
-        this.nysRisBBDao = new TargetMapConflationBlackboardDao(NYS_RIS);
-        this.npmrdsBBDao = new TargetMapConflationBlackboardDao(NPMRDS);
-
-        this.verifyTargetMapsConflationComplete();
-        console.log('loadTargetMapsAssignedMatches');
-        console.time('loadTargetMapsAssignedMatches');
-        this.loadTargetMapsAssignedMatches();
-        console.timeEnd('loadTargetMapsAssignedMatches');
-      } catch (err) {
-        console.error(err);
-        process.exit(1);
-      }
-    }
-
-    if (!this.conflationMapSegmentsAreLoaded) {
-      try {
-        // FIXME: Why is this needed?
-        //        loadConflationMapSegments real slow, even with DROP/CREATE TABLE.
-        this.dbWriteConnection.pragma(`${SCHEMA}.journal_mode = WAL`);
-
-        console.log('loadConflationMapSegments');
-        console.time('loadConflationMapSegments');
-        this.loadConflationMapSegments();
-        console.timeEnd('loadConflationMapSegments');
-      } catch (err) {
-        console.error(err);
-        process.exit(1);
-      }
-    }
-    */
   }
 
   close() {
@@ -187,6 +153,7 @@ export default class ConflationMapDAO {
   }
 
   beginWriteTransaction() {
+    this.dbWriteConnection.pragma(`${SCHEMA}.journal_mode = WAL`);
     this.dbWriteConnection.exec('BEGIN');
   }
 
@@ -196,6 +163,72 @@ export default class ConflationMapDAO {
 
   rollbackWriteTransaction() {
     this.dbWriteConnection.exec('ROLLBACK');
+  }
+
+  protected createOsmChosenMatchesTable() {
+    const createOsmWayChosenMatchesTableSQL = readFileSync(
+      join(__dirname, './sql/create_osm_way_chosen_matches_table.sql'),
+      { encoding: 'utf-8' },
+    ).replace(/__SCHEMA__/g, SCHEMA);
+
+    this.dbWriteConnection.exec(createOsmWayChosenMatchesTableSQL);
+    this.createTargetMapsAssignedMatchesTable();
+  }
+
+  protected createTargetMapsAssignedMatchesTable() {
+    const sql = readFileSync(
+      join(__dirname, './sql/create_target_map_assigned_matches_table.sql'),
+      { encoding: 'utf-8' },
+    ).replace(/__SCHEMA__/g, SCHEMA);
+
+    this.dbWriteConnection.exec(sql);
+
+    this.createConflationMapSegmentsTable();
+  }
+
+  private createTempAllOsmWaysWithShstReferencesTable() {
+    this.dbWriteConnection.exec(`
+      DROP TABLE IF EXISTS ${SCHEMA}.tmp_all_osm_ways_with_shst_references ;
+
+      CREATE TABLE ${SCHEMA}.tmp_all_osm_ways_with_shst_references (
+        osm_way_id    INTEGER PRIMARY KEY,
+        osm_node_ids  TEXT NOT NULL, -- JSON
+        shst_refs     TEXT NOT NULL
+      ) WITHOUT ROWID;
+    `);
+  }
+
+  protected createConflationMapSegmentsTable() {
+    const createConflationMapSegmentsTableSQL = readFileSync(
+      join(__dirname, './sql/create_conflation_map_segments_table.sql'),
+      { encoding: 'utf-8' },
+    ).replace(/__SCHEMA__/g, SCHEMA);
+
+    this.dbWriteConnection.exec(createConflationMapSegmentsTableSQL);
+
+    this.createTempAllOsmWaysWithShstReferencesTable();
+    this.createRisAssignedMatchFederalDirectionsTable();
+  }
+
+  createRisAssignedMatchFederalDirectionsTable() {
+    this.dbWriteConnection.exec(
+      `
+        DROP TABLE IF EXISTS ${SCHEMA}.ris_assigned_match_federal_directions ;
+
+        CREATE TABLE ${SCHEMA}.ris_assigned_match_federal_directions (
+          nys_ris                         TEXT,
+          is_forward                      INTEGER,
+
+          tds_rc_station                  TEXT,
+          tds_federal_direction           INTEGER,
+
+          road_number                     INTEGER,
+          road_number_federal_direction   INTEGER,
+
+          PRIMARY KEY(nys_ris, is_forward)
+        ) ;
+      `,
+    );
   }
 
   verifyTargetMapsConflationComplete(): void | never {
@@ -263,42 +296,66 @@ export default class ConflationMapDAO {
     );
   }
 
-  private createTempAllOsmWaysWithShstReferencesTable() {
-    this.dbWriteConnection.exec(`
-      DROP TABLE IF EXISTS ${SCHEMA}.tmp_all_osm_ways_with_shst_references ;
+  private loadTempAllOsmWaysWithShstReferencesTable() {
+    console.log('loadTempAllOsmWaysWithShstReferencesTable');
 
-      CREATE TABLE ${SCHEMA}.tmp_all_osm_ways_with_shst_references (
-        osm_way_id    INTEGER PRIMARY KEY,
-        osm_node_ids  TEXT NOT NULL, -- JSON
-        shst_refs     TEXT NOT NULL
-      ) WITHOUT ROWID;
+    this.beginWriteTransaction();
 
-      INSERT INTO ${SCHEMA}.tmp_all_osm_ways_with_shst_references
-        SELECT
-            a.osm_way_id,
-            a.osm_node_ids,
-            json_group_array(
-              DISTINCT json(b.feature)
-            ) AS shst_refs
+    this.createTempAllOsmWaysWithShstReferencesTable();
 
-        FROM ${SOURCE_MAP}.osm_ways AS a
+    console.time('loadTempAllOsmWaysWithShstReferencesTable');
 
-          INNER JOIN(
+    // const albanyCounty: turf.Feature<turf.Polygon> = JSON.parse(
+    // readFileSync(join(__dirname, './geojson/albanyCounty.geojson'), {
+    // encoding: 'utf8',
+    // }),
+    // );
+
+    // @ts-ignore
+    // const boundingPolyHull = getGeometriesConcaveHull([albanyCounty]);
+    // const [boundingPolyCoords] = turf.getCoords(boundingPolyHull);
+
+    this.dbWriteConnection
+      .prepare(
+        `
+          INSERT INTO ${SCHEMA}.tmp_all_osm_ways_with_shst_references
             SELECT
-                json_extract(t.value, '$.way_id') AS osm_way_id,
-                feature
+                a.osm_way_id,
+                a.osm_node_ids,
+                json_group_array(
+                  DISTINCT json(b.feature)
+                ) AS shst_refs
 
-              FROM ${SOURCE_MAP}.shst_reference_features,
-                json_each(
-                  json_extract(feature, '$.properties.osmMetadataWaySections')
-                ) AS t
-              WHERE(
-                json_extract(feature, '$.properties.minOsmRoadClass') < ${SharedStreetsRoadClass.Other}
-              )
-            ) AS b USING(osm_way_id)
+            FROM ${SOURCE_MAP}.osm_ways AS a
 
-        GROUP BY osm_way_id ;
-    `);
+              INNER JOIN(
+                SELECT
+                    json_extract(t.value, '$.way_id') AS osm_way_id,
+                    feature
+
+                  FROM ${SOURCE_MAP}.shst_reference_features
+                    -- INNER JOIN (
+                    --   SELECT
+                    --       shst_reference_id
+                    --     FROM ${SOURCE_MAP}.shst_reference_features_geopoly_idx
+                    --     WHERE geopoly_overlap(_shape, ?)
+                    -- ) USING ( shst_reference_id )
+                    , json_each(
+                      json_extract(feature, '$.properties.osmMetadataWaySections')
+                    ) AS t
+                  WHERE(
+                    json_extract(feature, '$.properties.minOsmRoadClass') < ${SharedStreetsRoadClass.Other}
+                  )
+                ) AS b USING(osm_way_id)
+
+            GROUP BY osm_way_id ; `,
+      )
+      .run();
+    // .run([JSON.stringify(boundingPolyCoords)]);
+
+    this.commitWriteTransaction();
+
+    console.timeEnd('loadTempAllOsmWaysWithShstReferencesTable');
   }
 
   protected get allOsmWaysWithShstReferencesStmt(): Statement {
@@ -315,39 +372,6 @@ export default class ConflationMapDAO {
         `,
       );
 
-    /*
-    this.dbReadConnection.prepare(
-      `
-        SELECT
-            a.osm_way_id,
-            a.osm_node_ids,
-            json_group_array(
-              DISTINCT json(b.feature)
-            ) AS shst_refs
-
-        FROM ${SOURCE_MAP}.osm_ways AS a
-
-          INNER JOIN(
-            SELECT
-                json_extract(t.value, '$.way_id') AS osm_way_id,
-                feature
-
-              FROM ${SOURCE_MAP}.shst_reference_features,
-                json_each(
-                  json_extract(feature, '$.properties.osmMetadataWaySections')
-                ) AS t
-              WHERE(
-                json_extract(feature, '$.properties.minOsmRoadClass') < ${SharedStreetsRoadClass.Other}
-              )
-            ) AS b USING(osm_way_id)
-
-        GROUP BY osm_way_id
-
-        ORDER BY osm_way_id;
-    `,
-    );
-    */
-
     return this.preparedReadStatements.allOsmWaysWithShstReferencesStmt;
   }
 
@@ -357,12 +381,8 @@ export default class ConflationMapDAO {
     shstReferences: SharedStreetsReferenceFeature[];
   }> {
     console.log('makeOsmWaysWithShstReferencesIterator');
-    // @ts-ignore
-    // const boundingPolyHull = getGeometriesConcaveHull([albanyCounty]);
-    // const [boundingPolyCoords] = turf.getCoords(boundingPolyHull);
 
     const iter = this.allOsmWaysWithShstReferencesStmt.raw().iterate();
-    // .iterate([JSON.stringify(boundingPolyCoords)]);
 
     let logIterTime = true;
     console.timeEnd('  iter start');
@@ -404,42 +424,26 @@ export default class ConflationMapDAO {
       .insertChosenShstReferenceSegmentForOsmWayStmt;
   }
 
-  protected createOsmChosenMatchesTable() {
-    const createOsmWayChosenMatchesTableSQL = readFileSync(
-      join(__dirname, './sql/create_osm_way_chosen_matches_table.sql'),
-      { encoding: 'utf-8' },
-    ).replace(/__SCHEMA__/g, SCHEMA);
-
-    this.dbWriteConnection.exec(createOsmWayChosenMatchesTableSQL);
-  }
-
   loadOsmWayChosenMatchesTable() {
-    try {
-      this.dbWriteConnection.exec('BEGIN;');
-      console.time('createTempAllOsmWaysWithShstReferencesTable');
-      this.createTempAllOsmWaysWithShstReferencesTable();
-      console.timeEnd('createTempAllOsmWaysWithShstReferencesTable');
-      this.dbWriteConnection.exec('COMMIT;');
+    if (this.osmWayChosenMatchesAreLoaded) {
+      return;
+    }
 
-      this.dbWriteConnection.exec('BEGIN;');
+    try {
+      this.loadTempAllOsmWaysWithShstReferencesTable();
+
+      console.log('loadOsmWayChosenMatchesTable');
+      console.time('loadOsmWayChosenMatchesTable');
+
+      this.beginWriteTransaction();
 
       this.createOsmChosenMatchesTable();
+      this.createTargetMapsAssignedMatchesTable();
+      this.createConflationMapSegmentsTable();
 
-      console.time('makeOsmWaysWithShstReferencesIterator');
       const iter = this.makeOsmWaysWithShstReferencesIterator();
 
-      let ct = 0;
-      console.time('next');
       for (const { osmWayId, osmNodeIds, shstReferences } of iter) {
-        console.timeEnd('next');
-        if (ct === 0) {
-          console.timeEnd('makeOsmWaysWithShstReferencesIterator');
-        }
-
-        console.log();
-        console.log(++ct, osmWayId);
-
-        console.time('getChosenShstReferenceSegmentsForOsmWay');
         const {
           chosenForward,
           chosenBackward,
@@ -448,9 +452,7 @@ export default class ConflationMapDAO {
           osmNodeIds,
           shstReferences,
         });
-        console.timeEnd('getChosenShstReferenceSegmentsForOsmWay');
 
-        console.time('insert forward');
         for (let i = 0; i < chosenForward.length; ++i) {
           const {
             shstReferenceId,
@@ -475,9 +477,7 @@ export default class ConflationMapDAO {
             throw err;
           }
         }
-        console.timeEnd('insert forward');
 
-        console.time('insert backward');
         for (let i = 0; i < chosenBackward.length; ++i) {
           const {
             shstReferenceId,
@@ -502,24 +502,16 @@ export default class ConflationMapDAO {
             throw err;
           }
         }
-        console.timeEnd('insert backward');
-        console.time('next');
       }
 
-      this.dbWriteConnection.exec('COMMIT;');
+      this.commitWriteTransaction();
     } catch (err) {
-      this.dbWriteConnection.exec('ROLLBACK');
+      console.error(err);
+      this.rollbackWriteTransaction();
       throw err;
+    } finally {
+      console.timeEnd('loadOsmWayChosenMatchesTable');
     }
-  }
-
-  protected createTargetMapsAssignedMatchesTable() {
-    const sql = readFileSync(
-      join(__dirname, './sql/create_target_map_assigned_matches_table.sql'),
-      { encoding: 'utf-8' },
-    ).replace(/__SCHEMA__/g, SCHEMA);
-
-    this.dbWriteConnection.exec(sql);
   }
 
   protected get targetMapAssignedMatchesTableExistsStmt(): Statement {
@@ -617,7 +609,19 @@ export default class ConflationMapDAO {
   }
 
   loadTargetMapsAssignedMatches() {
+    if (this.targetMapAssignedMatchesAreLoaded) {
+      return;
+    }
+
+    console.log('loadTargetMapsAssignedMatches');
+    console.time('loadTargetMapsAssignedMatches');
+
     try {
+      this.nysRisBBDao = new TargetMapConflationBlackboardDao(NYS_RIS);
+      this.npmrdsBBDao = new TargetMapConflationBlackboardDao(NPMRDS);
+
+      this.verifyTargetMapsConflationComplete();
+
       this.beginWriteTransaction();
 
       this.createTargetMapsAssignedMatchesTable();
@@ -662,6 +666,8 @@ export default class ConflationMapDAO {
     } catch (err) {
       this.rollbackWriteTransaction();
       throw err;
+    } finally {
+      console.timeEnd('loadTargetMapsAssignedMatches');
     }
   }
 
@@ -817,15 +823,6 @@ export default class ConflationMapDAO {
     );
   }
 
-  protected createConflationMapSegmentsTable() {
-    const createConflationMapSegmentsTableSQL = readFileSync(
-      join(__dirname, './sql/create_conflation_map_segments_table.sql'),
-      { encoding: 'utf-8' },
-    ).replace(/__SCHEMA__/g, SCHEMA);
-
-    this.dbWriteConnection.exec(createConflationMapSegmentsTableSQL);
-  }
-
   protected get insertConflationMapSegmentStmt() {
     this.preparedWriteStatements.insertConflationMapSegmentStmt =
       this.preparedWriteStatements.insertConflationMapSegmentStmt ||
@@ -849,7 +846,13 @@ export default class ConflationMapDAO {
   }
 
   loadConflationMapSegments() {
+    if (this.conflationMapSegmentsAreLoaded) {
+      return;
+    }
+
     try {
+      console.time('loadConflationMapSegments');
+
       this.beginWriteTransaction();
 
       this.createConflationMapSegmentsTable();
@@ -882,8 +885,10 @@ export default class ConflationMapDAO {
 
       this.commitWriteTransaction();
     } catch (err) {
-      console.error(err);
       this.rollbackWriteTransaction();
+      throw err;
+    } finally {
+      console.timeEnd('loadConflationMapSegments');
     }
   }
 
@@ -959,93 +964,130 @@ export default class ConflationMapDAO {
     }
   }
 
+  protected get risAssignedMatchFederalDirectionTableExistsStmt(): Statement {
+    this.preparedReadStatements.risAssignedMatchFederalDirectionTableExistsStmt =
+      this.preparedReadStatements
+        .risAssignedMatchFederalDirectionTableExistsStmt ||
+      this.dbReadConnection.prepare(
+        `
+          SELECT EXISTS(
+            SELECT 1
+              FROM ${SCHEMA}.sqlite_master
+              WHERE(
+                (type = 'table')
+                AND
+                (name = 'ris_assigned_match_federal_directions')
+              )
+          ) ;
+        `,
+      );
+
+    return this.preparedReadStatements
+      .risAssignedMatchFederalDirectionTableExistsStmt;
+  }
+
+  protected get risAssignedMatchFederalDirectionAreLoadedStmt(): Statement {
+    this.preparedReadStatements.risAssignedMatchFederalDirectionAreLoadedStmt =
+      this.preparedReadStatements
+        .risAssignedMatchFederalDirectionAreLoadedStmt ||
+      this.dbReadConnection.prepare(
+        `
+          SELECT EXISTS(
+            SELECT 1
+              FROM ${SCHEMA}.ris_assigned_match_federal_directions
+          );
+        `,
+      );
+
+    return this.preparedReadStatements
+      .risAssignedMatchFederalDirectionAreLoadedStmt;
+  }
+
+  get risAssignedMatchFederalDirectionAreLoaded(): boolean {
+    return (
+      this.risAssignedMatchFederalDirectionTableExistsStmt.pluck().get() ===
+        1 &&
+      this.risAssignedMatchFederalDirectionAreLoadedStmt.pluck().get() === 1
+    );
+  }
+
   loadRisAssignedMatchFederalDirectionsTable() {
+    if (this.risAssignedMatchFederalDirectionAreLoaded) {
+      return;
+    }
+
+    this.beginWriteTransaction();
+
+    this.createRisAssignedMatchFederalDirectionsTable();
+
     this.dbWriteConnection.exec(
       `
-          BEGIN;
+        INSERT INTO ${SCHEMA}.ris_assigned_match_federal_directions (
+            nys_ris,
+            is_forward,
+            tds_rc_station,
+            tds_federal_direction,
+            road_number,
+            road_number_federal_direction
+          )
+          SELECT
+               target_map_id AS nys_ris,
+               is_forward,
 
-          DROP TABLE IF EXISTS ${SCHEMA}.ris_assigned_match_federal_directions ;
-
-          CREATE TABLE ${SCHEMA}.ris_assigned_match_federal_directions (
-            nys_ris                         TEXT,
-            is_forward                      INTEGER,
-
-            tds_rc_station                  TEXT,
-            tds_federal_direction           INTEGER,
-
-            road_number                     INTEGER,
-            road_number_federal_direction   INTEGER,
-
-            PRIMARY KEY(nys_ris, is_forward)
-          ) ;
-
-          INSERT INTO ${SCHEMA}.ris_assigned_match_federal_directions (
-              nys_ris,
-              is_forward,
-              tds_rc_station,
-              tds_federal_direction,
-              road_number,
-              road_number_federal_direction
-            )
-            SELECT
-                 target_map_id AS nys_ris,
+               tds_rc_station,
+               getFederalDirection(
+                 target_map_path_bearing,
                  is_forward,
+                 tds_federal_directions
+               ) AS tds_federal_direction,
 
-                 tds_rc_station,
-                 getFederalDirection(
-                   target_map_path_bearing,
-                   is_forward,
-                   tds_federal_directions
-                 ) AS tds_federal_direction,
-
-                 road_number,
-                 getFederalDirection(
-                   target_map_path_bearing,
-                   is_forward,
-                   CASE
-                     WHEN ( road_number % 2 = 1) THEN '[1,5]'
-                     WHEN ( road_number % 2 = 0) THEN '[3,7]'
-                     ELSE NULL
-                   END
-                 ) AS road_number_federal_direction
-               FROM (
-                 SELECT DISTINCT
-                     e.target_map_id,
-                     d.is_forward,
-                     json_extract(a.properties, '$.targetMapPathBearing') AS target_map_path_bearing,
-                     json_extract(feature, '$.properties.tds_rc_station') AS tds_rc_station,
-                     json_extract(feature, '$.properties.tds_federal_directions') AS tds_federal_directions,
-                     NULLIF(json_extract(feature, '$.properties.route_no'), 0) AS road_number,
-                     rank() OVER (
-                       PARTITION BY
-                         e.target_map_id,
-                         d.is_forward
-                       ORDER BY
-                         b.path_edge_idx DESC
-                     ) AS path_len_rnk
-                   FROM ${NYS_RIS}.target_map_ppg_paths AS a
-                     INNER JOIN ${NYS_RIS}.target_map_ppg_path_last_edges AS b
-                       USING (path_id)
-                     INNER JOIN ${NYS_RIS_BB}.target_map_edge_chosen_matches AS c
-                       USING (path_id)
-                     INNER JOIN ${NYS_RIS_BB}.target_map_edge_assigned_matches AS d
-                       ON (
-                         ( c.edge_id = d.edge_id )
-                         AND
-                         ( c.is_forward = d.is_forward )
-                         AND
-                         ( c.shst_reference = d.shst_reference_id)
-                       )
-                     INNER JOIN ${NYS_RIS}.target_map_ppg_edge_id_to_target_map_id AS e
-                       ON ( d.edge_id = e.edge_id )
-                     INNER JOIN ${NYS_RIS}.raw_target_map_features AS f
-                       USING (target_map_id)
-               )
-               WHERE ( path_len_rnk = 1 ) ;
-
-            COMMIT;
-          `,
+               road_number,
+               getFederalDirection(
+                 target_map_path_bearing,
+                 is_forward,
+                 CASE
+                   WHEN ( road_number % 2 = 1) THEN '[1,5]'
+                   WHEN ( road_number % 2 = 0) THEN '[3,7]'
+                   ELSE NULL
+                 END
+               ) AS road_number_federal_direction
+             FROM (
+               SELECT DISTINCT
+                   e.target_map_id,
+                   d.is_forward,
+                   json_extract(a.properties, '$.targetMapPathBearing') AS target_map_path_bearing,
+                   json_extract(feature, '$.properties.tds_rc_station') AS tds_rc_station,
+                   json_extract(feature, '$.properties.tds_federal_directions') AS tds_federal_directions,
+                   NULLIF(json_extract(feature, '$.properties.route_no'), 0) AS road_number,
+                   rank() OVER (
+                     PARTITION BY
+                       e.target_map_id,
+                       d.is_forward
+                     ORDER BY
+                       b.path_edge_idx DESC
+                   ) AS path_len_rnk
+                 FROM ${NYS_RIS}.target_map_ppg_paths AS a
+                   INNER JOIN ${NYS_RIS}.target_map_ppg_path_last_edges AS b
+                     USING (path_id)
+                   INNER JOIN ${NYS_RIS_BB}.target_map_edge_chosen_matches AS c
+                     USING (path_id)
+                   INNER JOIN ${NYS_RIS_BB}.target_map_edge_assigned_matches AS d
+                     ON (
+                       ( c.edge_id = d.edge_id )
+                       AND
+                       ( c.is_forward = d.is_forward )
+                       AND
+                       ( c.shst_reference = d.shst_reference_id)
+                     )
+                   INNER JOIN ${NYS_RIS}.target_map_ppg_edge_id_to_target_map_id AS e
+                     ON ( d.edge_id = e.edge_id )
+                   INNER JOIN ${NYS_RIS}.raw_target_map_features AS f
+                     USING (target_map_id)
+             )
+             WHERE ( path_len_rnk = 1 ) ; `,
     );
+
+    this.commitWriteTransaction();
   }
 
   createMBTiles() {

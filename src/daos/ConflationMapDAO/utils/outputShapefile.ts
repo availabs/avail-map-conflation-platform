@@ -35,9 +35,9 @@ const getDatasetLayer = (dataset: gdal.Dataset) => {
   layer.fields.add(new gdal.FieldDefn('osm', gdal.OFTInteger));
   layer.fields.add(new gdal.FieldDefn('ris', gdal.OFTInteger));
   layer.fields.add(new gdal.FieldDefn('tmc', gdal.OFTString));
-  layer.fields.add(new gdal.FieldDefn('netlev', gdal.OFTInteger));
+  layer.fields.add(new gdal.FieldDefn('n', gdal.OFTInteger));
 
-  layer.fields.add(new gdal.FieldDefn('tdsdir', gdal.OFTInteger));
+  layer.fields.add(new gdal.FieldDefn('dir', gdal.OFTInteger));
   layer.fields.add(new gdal.FieldDefn('rdnum', gdal.OFTInteger));
   layer.fields.add(new gdal.FieldDefn('rdnumdir', gdal.OFTInteger));
 
@@ -53,7 +53,7 @@ const addConflationMapSegmentToLayer = (
   );
 
   const {
-    properties: { id, shst, osm, ris, tmc, netlev, tdsdir, rdnum, rdnumdir },
+    properties: { id, shst, osm, ris, tmc, n, dir, rdnum, rdnumdir },
   } = terseConflationMapSegment;
 
   const gdalFeature = new gdal.Feature(layer);
@@ -63,8 +63,8 @@ const addConflationMapSegmentToLayer = (
   gdalFeature.fields.set('osm', osm);
   gdalFeature.fields.set('ris', ris ?? null);
   gdalFeature.fields.set('tmc', tmc ?? null);
-  gdalFeature.fields.set('netlev', netlev ?? null);
-  gdalFeature.fields.set('tdsdir', tdsdir ?? null);
+  gdalFeature.fields.set('n', n ?? null);
+  gdalFeature.fields.set('dir', dir ?? null);
   gdalFeature.fields.set('rdnum', rdnum ?? null);
   gdalFeature.fields.set('rdnumdir', rdnumdir ?? null);
 
