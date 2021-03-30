@@ -88,9 +88,7 @@ export type TargetMapPathMatchesRecord = {
   targetMapPathMatches: TargetMapEdgeShstMatches[] | null;
 };
 
-export type TargetMapPathMatchesIterator = Generator<
-  TargetMapPathMatchesRecord
->;
+export type TargetMapPathMatchesIterator = Generator<TargetMapPathMatchesRecord>;
 
 export type TargetMapPathChosenMatches = {
   targetMapPathId: TargetMapPathId;
@@ -113,6 +111,9 @@ export type ChosenMatchMetadata = {
   shstReferenceId: SharedStreetsReferenceId;
   sectionStart: number;
   sectionEnd: number;
+  alongEdgeStart: number;
+  alongEdgeEnd: number;
+  avgDevianceKm: number | null;
 };
 
 export type ChosenMatchFeature = SharedStreetsReferenceFeature & {

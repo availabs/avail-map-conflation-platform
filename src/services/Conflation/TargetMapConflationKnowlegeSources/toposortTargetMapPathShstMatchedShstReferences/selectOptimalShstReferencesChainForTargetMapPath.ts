@@ -11,7 +11,7 @@ import {
 import getFrechetDistance from '../../scoreChosenPaths/frechet';
 
 import mergePathIntoLineString from '../divvyToposortedHypothesizedTargetMapPathShstReferences/mergePathIntoLineString';
-import reverseTargetMapPathCoordinates from '../divvyToposortedHypothesizedTargetMapPathShstReferences/reverseTargetMapPathCoordinates';
+import reverseTargetMapPathCoordinates from '../../utils/reverseTargetMapPathCoordinates';
 
 export default function selectOptimalShstReferencesChainForTargetMapPath(
   vicinity: TargetMapPathVicinity<RawTargetMapFeature>,

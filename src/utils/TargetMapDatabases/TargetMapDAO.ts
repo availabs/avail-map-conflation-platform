@@ -69,6 +69,7 @@ export type PreloadedTargetMapEdge = {
   endCoord: Position;
   properties: Record<string, any> & {
     targetMapId: TargetMapId;
+    targetMapEdgeLength: number;
     isUnidirectional: boolean;
   };
   coordinates: [number, number][] | [number, number][][];
@@ -497,6 +498,15 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
 
       for (const edge of edgesIterator) {
         console.log(edge.properties.targetMapId);
+
+        const feature = Array.isArray(edge.coordinates[0][0])
+          ? // @ts-ignore
+            turf.multiLineString(edge.coordinates)
+          : // @ts-ignore
+            turf.lineString(edge.coordinates);
+
+        edge.properties.targetMapEdgeLength = turf.length(feature);
+
         const {
           startCoord: [startLon, startLat],
           endCoord: [endLon, endLat],

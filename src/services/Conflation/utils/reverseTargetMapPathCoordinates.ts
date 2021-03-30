@@ -4,7 +4,7 @@ import _ from 'lodash';
 import {
   TargetMapPathEdgeFeatures,
   ReversedTargetMapPathEdgeFeatures,
-} from '../../domain/types';
+} from '../domain/types';
 
 export default function reverseTargetMapPathCoordinates(
   path: TargetMapPathEdgeFeatures,

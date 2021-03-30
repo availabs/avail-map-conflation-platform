@@ -2,7 +2,7 @@
 import _ from 'lodash';
 import TargetMapPathVicinity from '../../TargetMapConflationHypothesesContexts/TargetMapPathVicinity';
 
-import reverseTargetMapPathCoordinates from './reverseTargetMapPathCoordinates';
+import reverseTargetMapPathCoordinates from '../../utils/reverseTargetMapPathCoordinates';
 
 import getOverlaps, { TargetMapPathMatchOverlapSummary } from './getOverlaps';
 
@@ -46,6 +46,7 @@ export default function divvy(
     forwardOverlapsToChosenMatches(
       targetMapPathEdges,
       forwardOverlaps.targetMapPathShstReferenceOverlaps,
+      vicinity.allVicinitySharedStreetsReferencesById,
     );
 
   const backward =
@@ -53,6 +54,7 @@ export default function divvy(
     backwardOverlapsToChosenMatches(
       reversedTargetMapPathEdges,
       backwardOverlaps.targetMapPathShstReferenceOverlaps,
+      vicinity.allVicinitySharedStreetsReferencesById,
     );
 
   const chosenMatches = {

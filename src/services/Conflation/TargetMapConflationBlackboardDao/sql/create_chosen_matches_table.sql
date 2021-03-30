@@ -11,8 +11,14 @@ CREATE TABLE __SCHEMA__.target_map_edge_chosen_matches (
   edge_shst_match_idx     INTEGER NOT NULL,
 
   shst_reference          TEXT NOT NULL,
+
   section_start           REAL NOT NULL,
   section_end             REAL NOT NULL,
+
+  along_edge_start        REAL NOT NULL,
+  along_edge_end          REAL NOT NULL,
+
+  avg_deviance_km         REAL, -- FIXME: NULL represents a problem. Consider it a flag for now.
 
   -- NOTE: Because of circles and cul-de-sacs, is_forward required in PKey
   -- NOTE: Including shst_reference, without section_start and section_end,
@@ -23,8 +29,18 @@ CREATE TABLE __SCHEMA__.target_map_edge_chosen_matches (
 
   CHECK(is_forward BETWEEN 0 AND 1),
   CHECK(edge_shst_match_idx >= 0),
+
   CHECK(section_start >= 0),
-  CHECK(section_start < section_end)
+  CHECK(section_start < section_end),
+
+  CHECK(along_edge_start >= 0),
+  CHECK(along_edge_start < along_edge_end),
+
+  CHECK(
+    ( avg_deviance_km IS NULL )
+    OR
+    ( avg_deviance_km >= 0 )
+  )
 ) WITHOUT ROWID ;
 
 CREATE INDEX __SCHEMA__.target_map_edge_chosen_matches_path_edge_idx

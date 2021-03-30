@@ -681,7 +681,6 @@ export default class TargetMapConflationBlackboardDao<
     if (!this.preparedWriteStatements.insertChosenMatchStmt) {
       this.preparedWriteStatements.insertChosenMatchStmt = this.dbWriteConnection.prepare(
         `
-          -- INSERT OR IGNORE INTO ${this.blkbrdDbSchema}.target_map_edge_chosen_matches (
           INSERT OR IGNORE INTO ${this.blkbrdDbSchema}.target_map_edge_chosen_matches (
             path_id,
             path_edge_idx,
@@ -692,9 +691,14 @@ export default class TargetMapConflationBlackboardDao<
 
             shst_reference,
             section_start,
-            section_end
+            section_end,
+
+            along_edge_start,
+            along_edge_end,
+
+            avg_deviance_km
           )
-            VALUES(?, ?, ?, ?, ?, ?, ?, ?) ; `,
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ; `,
       );
     }
 
@@ -714,6 +718,9 @@ export default class TargetMapConflationBlackboardDao<
       shstReferenceId,
       sectionStart,
       sectionEnd,
+      alongEdgeStart,
+      alongEdgeEnd,
+      avgDevianceKm,
     } = chosenMatch;
 
     const insertResult = this.insertChosenMatchStmt.run([
@@ -725,6 +732,9 @@ export default class TargetMapConflationBlackboardDao<
       shstReferenceId,
       sectionStart,
       sectionEnd,
+      alongEdgeStart,
+      alongEdgeEnd,
+      avgDevianceKm,
     ]);
 
     if (insertResult.changes < 1 && sectionStart < sectionEnd) {

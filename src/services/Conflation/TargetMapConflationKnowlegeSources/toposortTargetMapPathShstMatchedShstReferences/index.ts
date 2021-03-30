@@ -54,13 +54,15 @@ export default function searchAndSort(
     .uniqWith(_.isEqual)
     .value();
 
-  const optimalForwardPath = selectOptimalShstReferencesChainForTargetMapPath(
-    vicinity,
-    allForwardPaths,
-    true,
-  );
+  const optimalForwardPaths = [
+    selectOptimalShstReferencesChainForTargetMapPath(
+      vicinity,
+      allForwardPaths,
+      true,
+    ),
+  ];
 
-  const optimalBackwardPath = vicinity.targetMapIsCenterline
+  const optimalBackwardPaths = vicinity.targetMapIsCenterline
     ? [
         selectOptimalShstReferencesChainForTargetMapPath(
           vicinity,
@@ -71,7 +73,7 @@ export default function searchAndSort(
     : [];
 
   return {
-    forwardPaths: [optimalForwardPath],
-    backwardPaths: optimalBackwardPath,
+    forwardPaths: optimalForwardPaths,
+    backwardPaths: optimalBackwardPaths,
   };
 }
