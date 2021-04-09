@@ -42,6 +42,8 @@ mkdirpSync(sqliteDir);
 
 const tmpSqliteDir = join(__dirname, '../../../output/tmp/');
 
+mkdirpSync(tmpSqliteDir);
+
 const attachedDatabases = new Set();
 
 const getDatabaseFilePath = (databaseSchemaName: string) =>
@@ -192,15 +194,20 @@ const tmpSqliteRemoveCallbacks: Map<
 // https://www.npmjs.com/package/tmp#graceful-cleanup
 tmp.setGracefulCleanup();
 
-const createTemporaryDatabase = (): SqliteDatabase => {
-  mkdirpSync(tmpSqliteDir);
+const getTemporaryDatabaseFile = ({ keep } = { keep: false }) => {
+  const tmpobj = tmp.fileSync({ tmpdir: tmpSqliteDir, keep });
 
-  const tmpobj = tmp.fileSync({ tmpdir: tmpSqliteDir });
-  // const tmpobj = tmp.fileSync({ tmpdir: tmpSqliteDir, keep: true });
+  return tmpobj;
+};
 
-  const tmpDb = new Database(tmpobj.name);
+const createTemporaryDatabase = (
+  { keep } = { keep: false },
+): SqliteDatabase => {
+  const { name, removeCallback } = getTemporaryDatabaseFile({ keep });
 
-  tmpSqliteRemoveCallbacks.set(tmpDb, tmpobj.removeCallback);
+  const tmpDb = new Database(name);
+
+  tmpSqliteRemoveCallbacks.set(tmpDb, removeCallback);
 
   return tmpDb;
 };
@@ -215,9 +222,15 @@ const destroyTemporaryDatabase = (tmpDb: SqliteDatabase) => {
   tmpSqliteRemoveCallbacks.delete(tmpDb);
 };
 
+const createConnectionToDatabaseFile = (dbFilePath: string) => {
+  return new Database(dbFilePath);
+};
+
 // Can bind more db methods if they are needed.
 //   https://github.com/JoshuaWise/better-sqlite3/blob/master/docs/api.md
 export default {
+  tmpSqliteDir,
+
   attachDatabase,
   prepare,
   exec: db.exec.bind(db),
@@ -239,6 +252,9 @@ export default {
   unsafeMode: db.unsafeMode.bind(db),
   close: db.close.bind(db),
 
+  getTemporaryDatabaseFile,
   createTemporaryDatabase,
   destroyTemporaryDatabase,
+
+  createConnectionToDatabaseFile,
 };

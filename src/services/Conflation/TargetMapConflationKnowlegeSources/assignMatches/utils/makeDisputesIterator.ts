@@ -2,8 +2,8 @@
 
 import { Database as SqliteDatabase } from 'better-sqlite3';
 
-export default function* makeDisputesIterator(tmpDb: SqliteDatabase) {
-  const iter = tmpDb
+export default function* makeDisputesIterator(db: SqliteDatabase) {
+  const iter = db
     .prepare(
       `
         SELECT
@@ -29,10 +29,10 @@ export default function* makeDisputesIterator(tmpDb: SqliteDatabase) {
               )
             ) AS claimant_features
 
-          FROM tmp_chosen_match_disputed_sections AS a
-            INNER JOIN tmp_chosen_match_dispute_claimants AS b
+          FROM chosen_match_disputed_sections AS a
+            INNER JOIN chosen_match_dispute_claimants AS b
               USING (dispute_id)
-            INNER JOIN tmp_disputed_chosen_match_trimmability AS c
+            INNER JOIN disputed_chosen_match_trimmability AS c
               USING (
                 path_id,
                 path_edge_idx,

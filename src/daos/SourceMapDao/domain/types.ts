@@ -17,6 +17,10 @@ import {
 export { SharedStreetsFormOfWay };
 export { SharedStreetsRoadClass };
 
+export type SharedStreetsRoadwayRoadClass = Omit<
+  SharedStreetsRoadClass,
+  'Other'
+>;
 export type SharedStreetsIntersectionId = SharedStreetsIntersection['id'];
 
 export type OsmNodeId = number;
@@ -65,6 +69,7 @@ export interface SharedStreetsReferenceFeature
     maxOsmRoadClass: SharedStreetsRoadClass;
     distinctOsmRoadClasses: SharedStreetsRoadClass[];
     shstReferenceLength: SharedStreetsReferenceLength;
+    isUnidirectional: boolean | 0 | 1;
   };
 }
 

@@ -10,16 +10,17 @@
             we must keep the ChosenMatch that connects with
               the first ChosenMatch of the TMPath's 2nd TMPathEdge.
 */
+BEGIN;
 
-DROP TABLE IF EXISTS tmp_paths_last_edge_idx ;
-DROP TABLE IF EXISTS tmp_disputed_chosen_match_trimmability ;
+DROP TABLE IF EXISTS paths_last_edge_idx ;
+DROP TABLE IF EXISTS disputed_chosen_match_trimmability ;
 
-CREATE TABLE tmp_paths_last_edge_idx (
+CREATE TABLE paths_last_edge_idx (
   path_id             INTEGER PRIMARY KEY,
   last_path_edge_idx  INTEGER NOT NULL
 ) WITHOUT ROWID;
 
-INSERT INTO tmp_paths_last_edge_idx
+INSERT INTO paths_last_edge_idx
   SELECT
       path_id,
       MAX(path_edge_idx) AS last_path_edge_idx
@@ -28,7 +29,7 @@ INSERT INTO tmp_paths_last_edge_idx
 ;
 
 
-CREATE TABLE tmp_disputed_chosen_match_trimmability (
+CREATE TABLE disputed_chosen_match_trimmability (
     path_id                INTEGER NOT NULL,
     path_edge_idx          INTEGER NOT NULL,
     is_forward             INTEGER NOT NULL,
@@ -66,7 +67,7 @@ CREATE TABLE tmp_disputed_chosen_match_trimmability (
 --   However, we SHOULD avoid completely trimming away the TMPathEdge.
 --   Therefore, we set the start_trimmable and end_trimmable to NULL to indicate
 --     that we do not know the start/end trimmability at this point.
-INSERT INTO tmp_disputed_chosen_match_trimmability
+INSERT INTO disputed_chosen_match_trimmability
   SELECT DISTINCT
       path_id,
       path_edge_idx,
@@ -75,18 +76,18 @@ INSERT INTO tmp_disputed_chosen_match_trimmability
       NULL AS start_trimmable,
       NULL AS end_trimmable
     FROM target_map_bb.target_map_edge_chosen_matches
-      INNER JOIN tmp_chosen_match_dispute_claimants
+      INNER JOIN chosen_match_dispute_claimants
         USING (
           path_id,
           path_edge_idx,
           is_forward,
           edge_shst_match_idx
         )
-      INNER JOIN tmp_paths_last_edge_idx
+      INNER JOIN paths_last_edge_idx
         USING (path_id)
     WHERE ( last_path_edge_idx = 0 ) ; -- TMPaths with a single edge are a special case
 
-INSERT OR IGNORE INTO tmp_disputed_chosen_match_trimmability
+INSERT OR IGNORE INTO disputed_chosen_match_trimmability
   -- ChosenMatches for first TMPath in the forward direction
   --   All but the last ChosenMatch for this edge are trimmable at both the start and end.
   --   To keep the TMPathEdge connected to the rest of the TMPath,
@@ -107,14 +108,14 @@ INSERT OR IGNORE INTO tmp_disputed_chosen_match_trimmability
           edge_shst_match_idx,
           row_number() OVER win1 as row_num
         FROM target_map_bb.target_map_edge_chosen_matches
-          INNER JOIN tmp_chosen_match_dispute_claimants
+          INNER JOIN chosen_match_dispute_claimants
             USING (
               path_id,
               path_edge_idx,
               is_forward,
               edge_shst_match_idx
             )
-          INNER JOIN tmp_paths_last_edge_idx
+          INNER JOIN paths_last_edge_idx
             USING (path_id)
         WHERE (
           ( last_path_edge_idx > 0 ) -- TMPaths with a single edge are a special case
@@ -143,14 +144,14 @@ INSERT OR IGNORE INTO tmp_disputed_chosen_match_trimmability
       -- All but the last ChosenMatch for the TMPathEdge (keep connected to TMPath)
       1 AS end_trimmable
     FROM target_map_bb.target_map_edge_chosen_matches
-      INNER JOIN tmp_chosen_match_dispute_claimants
+      INNER JOIN chosen_match_dispute_claimants
         USING (
           path_id,
           path_edge_idx,
           is_forward,
           edge_shst_match_idx
         )
-      INNER JOIN tmp_paths_last_edge_idx
+      INNER JOIN paths_last_edge_idx
         USING (path_id)
     WHERE (
       ( last_path_edge_idx > 0 ) -- TMPaths with a single edge are a special case
@@ -173,14 +174,14 @@ INSERT OR IGNORE INTO tmp_disputed_chosen_match_trimmability
       ( edge_shst_match_idx > 0 ) AS start_trimmable,
       1 AS end_trimmable
     FROM target_map_bb.target_map_edge_chosen_matches
-      INNER JOIN tmp_chosen_match_dispute_claimants
+      INNER JOIN chosen_match_dispute_claimants
         USING (
           path_id,
           path_edge_idx,
           is_forward,
           edge_shst_match_idx
         )
-      INNER JOIN tmp_paths_last_edge_idx
+      INNER JOIN paths_last_edge_idx
         USING (path_id)
     WHERE (
       ( last_path_edge_idx > 0 ) -- TMPaths with a single edge are a special case
@@ -210,14 +211,14 @@ INSERT OR IGNORE INTO tmp_disputed_chosen_match_trimmability
           edge_shst_match_idx,
           row_number() OVER win1 as row_num
         FROM target_map_bb.target_map_edge_chosen_matches
-          INNER JOIN tmp_chosen_match_dispute_claimants
+          INNER JOIN chosen_match_dispute_claimants
             USING (
               path_id,
               path_edge_idx,
               is_forward,
               edge_shst_match_idx
             )
-          INNER JOIN tmp_paths_last_edge_idx AS b
+          INNER JOIN paths_last_edge_idx AS b
             USING (path_id)
         WHERE (
           ( last_path_edge_idx > 0 ) -- TMPaths with a single edge are a special case
@@ -235,7 +236,7 @@ INSERT OR IGNORE INTO tmp_disputed_chosen_match_trimmability
 
 -- NOTE: Because of the Primary Key Constraint,
 --         all inserted above will not be inserted below.
-INSERT OR IGNORE INTO tmp_disputed_chosen_match_trimmability
+INSERT OR IGNORE INTO disputed_chosen_match_trimmability
   SELECT
       path_id,
       path_edge_idx,
@@ -244,7 +245,7 @@ INSERT OR IGNORE INTO tmp_disputed_chosen_match_trimmability
       0 AS start_trimmable,
       0 AS end_trimmable
     FROM target_map_bb.target_map_edge_chosen_matches
-      INNER JOIN tmp_chosen_match_dispute_claimants
+      INNER JOIN chosen_match_dispute_claimants
         USING (
           path_id,
           path_edge_idx,
@@ -252,3 +253,5 @@ INSERT OR IGNORE INTO tmp_disputed_chosen_match_trimmability
           edge_shst_match_idx
         )
 ;
+
+COMMIT;

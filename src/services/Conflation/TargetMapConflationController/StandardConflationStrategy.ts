@@ -4,16 +4,7 @@ import TargetMapConflationBlackboardDao from '../TargetMapConflationBlackboardDa
 import SharedStreetsMatcherKnowledgeSource from '../TargetMapConflationKnowlegeSources/SharedStreets';
 
 import createChosenMatchesIterator from './utils/createChosenMatchesIterator';
-import Assigner from '../TargetMapConflationKnowlegeSources/assignMatches/Assigner';
-
-export function createAssignedMatchesIterator(
-  // @ts-ignore
-  blkbrdDao: TargetMapConflationBlackboardDao,
-) {
-  const assigner = new Assigner(blkbrdDao);
-
-  return assigner.makeAssignedMatchesIterator();
-}
+import AssignerController from '../TargetMapConflationKnowlegeSources/assignMatches/AssignerController';
 
 export default class StandardConflationStrategy {
   // @ts-ignore
@@ -39,7 +30,13 @@ export default class StandardConflationStrategy {
     }
 
     if (!this.blkbrdDao.assignedMatchesAreLoaded) {
-      const assignedMatchesIter = createAssignedMatchesIterator(this.blkbrdDao);
+      const assignerController = new AssignerController(
+        this.blkbrdDao.targetMapSchema,
+      );
+
+      assignerController.assign();
+
+      const assignedMatchesIter = assignerController.makeMatchesIterator();
 
       await this.blkbrdDao.bulkLoadAssignedMatches(assignedMatchesIter);
     }

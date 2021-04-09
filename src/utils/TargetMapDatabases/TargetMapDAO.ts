@@ -40,14 +40,6 @@ export interface RawTargetMapFeature
   id: number | string;
 }
 
-export interface TargetMapEdgeFeature
-  extends turf.Feature<turf.LineString | turf.MultiLineString> {
-  id: number;
-  properties: turf.Feature['properties'];
-  geometry: turf.LineString | turf.MultiLineString;
-}
-export type TargetMapEntityLabel = string;
-
 export type PreloadedTargetMapNode = {
   lon: number;
   lat: number;
@@ -70,7 +62,7 @@ export type PreloadedTargetMapEdge = {
   properties: Record<string, any> & {
     targetMapId: TargetMapId;
     targetMapEdgeLength: number;
-    isUnidirectional: boolean;
+    isUnidirectional: boolean | 0 | 1;
   };
   coordinates: [number, number][] | [number, number][][];
 };
@@ -80,6 +72,14 @@ export type TargetMapEdge = {
   properties: PreloadedTargetMapEdge['properties'];
   labels: TargetMapEntityLabel[];
 };
+
+export interface TargetMapEdgeFeature
+  extends turf.Feature<turf.LineString | turf.MultiLineString> {
+  id: TargetMapEdge['id'];
+  properties: TargetMapEdge['properties'];
+  geometry: turf.LineString | turf.MultiLineString;
+}
+export type TargetMapEntityLabel = string;
 
 export type TargetMapEdgesGeoproximityIterator = Generator<TargetMapEdgeFeature>;
 

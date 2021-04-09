@@ -1,6 +1,6 @@
-DROP TABLE IF EXISTS tmp_assigned_matches;
+DROP TABLE IF EXISTS assigned_matches;
 
-CREATE TABLE tmp_assigned_matches (
+CREATE TABLE assigned_matches (
   shst_reference_id   INTEGER NOT NULL,
 
   edge_id             INTEGER NOT NULL,
@@ -32,7 +32,6 @@ CREATE TABLE tmp_assigned_matches (
     )
   )
 
-
   UNIQUE(
     shst_reference_id,
     section_start
@@ -44,5 +43,5 @@ CREATE TABLE tmp_assigned_matches (
   )
 ) WITHOUT ROWID;
 
-CREATE INDEX tmp_assigned_matches_shst_ref_idx
-  ON tmp_assigned_matches(shst_reference_id);
+CREATE INDEX assigned_matches_shst_ref_idx
+  ON assigned_matches(shst_reference_id);

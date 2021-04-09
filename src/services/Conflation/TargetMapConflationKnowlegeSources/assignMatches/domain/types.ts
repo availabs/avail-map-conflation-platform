@@ -19,8 +19,8 @@ export type ClaimantFeature = TargetMapPathEdgeFeature & {
       targetMapEdgeShstMatchIdx: number;
       sectionStart: number;
       sectionEnd: number;
-      startTrimmable: boolean | null;
-      endTrimmable: boolean | null;
+      startTrimmable: 0 | 1 | null;
+      endTrimmable: 0 | 1 | null;
     };
   };
 };

@@ -5,7 +5,11 @@ import * as turf from '@turf/turf';
 import db from '../../../services/DbService';
 
 import { SOURCE_MAP } from '../../../constants/databaseSchemaNames';
-import { SharedStreetsReferenceFeature, OsmNodeId } from '../domain/types';
+import {
+  SharedStreetsReferenceId,
+  SharedStreetsReferenceFeature,
+  OsmNodeId,
+} from '../domain/types';
 
 const getShstReferenceFeaturesOverlappingPolyStmt = db.prepare(
   `
@@ -89,12 +93,23 @@ export function getShstReferenceRoadsOverlappingPoly(
 export function getShstReferences(
   shstReferenceIds: SharedStreetsReferenceFeature['id'][],
 ): SharedStreetsReferenceFeature[] {
-  const result = getShstReferencesStmt
+  const shstRefsById = getShstReferencesStmt
     .raw()
-    .all([JSON.stringify(shstReferenceIds)]);
+    .all([JSON.stringify(shstReferenceIds)])
+    .reduce(
+      (
+        acc: Record<SharedStreetsReferenceId, SharedStreetsReferenceFeature>,
+        shstRefStr: string,
+      ) => {
+        const shstRef = JSON.parse(shstRefStr);
+        acc[shstRef.id] = shstRef;
+        return acc;
+      },
+      {},
+    );
 
-  const shstRefLineStrings = result.map(([featureStr]) =>
-    JSON.parse(featureStr),
+  const shstRefLineStrings = shstReferenceIds.map(
+    (shstRefId) => shstRefsById[shstRefId] || null,
   );
 
   return shstRefLineStrings;

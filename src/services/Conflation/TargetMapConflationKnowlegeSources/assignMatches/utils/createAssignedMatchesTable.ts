@@ -5,9 +5,9 @@ import { join } from 'path';
 
 import { Database as SqliteDatabase } from 'better-sqlite3';
 
-export default function createTrimmabilityTable(tmpDb: SqliteDatabase) {
-  tmpDb.exec(
-    readFileSync(join(__dirname, '../sql/create_trimmability_table.sql'), {
+export default function createAssignedMatchesTable(db: SqliteDatabase) {
+  db.exec(
+    readFileSync(join(__dirname, '../sql/create_assigned_matches_table.sql'), {
       encoding: 'utf8',
     }),
   );

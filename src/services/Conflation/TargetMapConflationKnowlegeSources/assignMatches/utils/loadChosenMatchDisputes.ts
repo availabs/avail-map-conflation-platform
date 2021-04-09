@@ -7,18 +7,18 @@ import _ from 'lodash';
 
 import { Database as SqliteDatabase } from 'better-sqlite3';
 
-export default function identifyChosenMatchDisputes(tmpDb: SqliteDatabase) {
-  tmpDb.exec('BEGIN;');
+const createTablesSql = readFileSync(
+  join(__dirname, '../sql/create_chosen_match_disputes_tables.sql'),
+  { encoding: 'utf-8' },
+);
 
-  const sql = readFileSync(
-    join(__dirname, '../sql/create_chosen_match_disputes_tables.sql'),
-    { encoding: 'utf-8' },
-  );
+export default function loadChosenMatchDisputes(db: SqliteDatabase) {
+  db.exec('BEGIN;');
 
-  tmpDb.exec(sql);
+  db.exec(createTablesSql);
 
-  const disputeInsertStmt = tmpDb.prepare(`
-    INSERT INTO tmp_chosen_match_disputed_sections (
+  const disputeInsertStmt = db.prepare(`
+    INSERT INTO chosen_match_disputed_sections (
       dispute_id,
       shst_geometry_id,
       shst_reference_id,
@@ -27,8 +27,8 @@ export default function identifyChosenMatchDisputes(tmpDb: SqliteDatabase) {
     ) VALUES (?, ?, ?, ?, ?) ;
   `);
 
-  const claimantInsertStmt = tmpDb.prepare(`
-    INSERT INTO tmp_chosen_match_dispute_claimants (
+  const claimantInsertStmt = db.prepare(`
+    INSERT INTO chosen_match_dispute_claimants (
       dispute_id,
       path_id,
       path_edge_idx,
@@ -54,7 +54,7 @@ export default function identifyChosenMatchDisputes(tmpDb: SqliteDatabase) {
 
   // TODO: Assert that there are no disputes within a TargetMapPath
 
-  const disputeIterator = tmpDb
+  const disputeIterator = db
     .prepare(
       `
         SELECT
@@ -97,17 +97,9 @@ export default function identifyChosenMatchDisputes(tmpDb: SqliteDatabase) {
             ( a.path_id < b.path_id )
             AND
             (
-              (
-                ( a.section_start >= b.section_start )
-                AND
-                ( a.section_end <= b.section_end )
-              )
-              OR
-              (
-                ( b.section_start >= a.section_start )
-                AND
-                ( b.section_end <= a.section_end )
-              )
+              ( a.section_start < b.section_end )
+              AND
+              ( b.section_start < a.section_end )
             )
           )
           GROUP BY 1, 2, 3
@@ -138,19 +130,6 @@ export default function identifyChosenMatchDisputes(tmpDb: SqliteDatabase) {
 
     const claimants = _.uniqWith(JSON.parse(claimantsArrStr), _.isEqual);
 
-    // console.log(
-    // JSON.stringify(
-    // {
-    // shstReferenceId,
-    // disputedSectionStart,
-    // disputedSectionEnd,
-    // claimants,
-    // },
-    // null,
-    // 4,
-    // ),
-    // );
-
     try {
       claimantInsertStmt.run([disputeId, JSON.stringify(claimants)]);
     } catch (err) {
@@ -160,35 +139,17 @@ export default function identifyChosenMatchDisputes(tmpDb: SqliteDatabase) {
     }
   }
 
-  /*
-  tmpDb.exec(`
-    INSERT INTO tmp_chosen_match_dispute_shst_references_metadata (
-      shst_reference_id,
-      geometry_id,
-      road_class,
-      form_of_way,
-      from_intersection_id,
-      to_intersection_id,
-      shst_ref_length,
-      is_unidirectional
-    )
-      SELECT DISTINCT
-          json_extract(feature, '$.properties.shstReferenceId') AS shst_reference_id,
-          json_extract(feature, '$.properties.geometryId') AS geometry_id,
-          json_extract(feature, '$.properties.roadClass') AS road_class,
-          json_extract(feature, '$.properties.formOfWay') AS form_of_way,
-          json_extract(feature, '$.properties.fromIntersectionId') AS from_intersection_id,
-          json_extract(feature, '$.properties.toIntersectionId') AS to_intersection_id,
-          json_extract(feature, '$.properties.shstReferenceLength') AS shst_ref_length,
-          json_extract(feature, '$.properties.isUnidirectional') AS is_unidirectional
-        FROM source_map.shst_reference_features
-          INNER JOIN tmp_chosen_match_disputed_sections
-            USING (shst_reference_id) ;
+  db.exec(`
+    CREATE TABLE chosen_match_dispute_claimants_initial
+      AS
+        SELECT
+            *
+          FROM chosen_match_dispute_claimants
+    ;
   `);
-  */
 
-  tmpDb.exec('COMMIT;');
+  db.exec('COMMIT;');
 
   // @ts-ignore
-  tmpDb.unsafeMode(false);
+  db.unsafeMode(false);
 }
