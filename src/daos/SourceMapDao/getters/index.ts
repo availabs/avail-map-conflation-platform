@@ -1,6 +1,7 @@
 /* eslint-disable no-restricted-syntax, import/prefer-default-export */
 
 import * as turf from '@turf/turf';
+import memoizeOne from 'memoize-one';
 
 import db from '../../../services/DbService';
 
@@ -11,49 +12,55 @@ import {
   OsmNodeId,
 } from '../domain/types';
 
-const getShstReferenceFeaturesOverlappingPolyStmt = db.prepare(
-  `
-    SELECT
-        feature
-      FROM ${SOURCE_MAP}.shst_reference_features
-        INNER JOIN (
-          SELECT
-              shst_reference_id
-            FROM ${SOURCE_MAP}.shst_reference_features_geopoly_idx
-            WHERE geopoly_overlap(_shape, ?)
-        ) USING ( shst_reference_id ) ;
-  `,
+const getShstReferenceFeaturesOverlappingPolyStmt = memoizeOne(() =>
+  db.prepare(
+    `
+      SELECT
+          feature
+        FROM ${SOURCE_MAP}.shst_reference_features
+          INNER JOIN (
+            SELECT
+                shst_reference_id
+              FROM ${SOURCE_MAP}.shst_reference_features_geopoly_idx
+              WHERE geopoly_overlap(_shape, ?)
+          ) USING ( shst_reference_id ) ;
+    `,
+  ),
 );
 
-const getShstReferenceRoadsOverlappingPolyStmt = db.prepare(
-  `
-    SELECT
-        feature
-      FROM ${SOURCE_MAP}.shst_reference_features
-        INNER JOIN (
-          SELECT
-              shst_reference_id
-            FROM ${SOURCE_MAP}.shst_reference_features_geopoly_idx
-            WHERE geopoly_overlap(_shape, ?)
-        ) USING ( shst_reference_id )
-      WHERE ( json_extract(feature, '$.properties.minOsmRoadClass') < 8 )
-  `,
+const getShstReferenceRoadsOverlappingPolyStmt = memoizeOne(() =>
+  db.prepare(
+    `
+      SELECT
+          feature
+        FROM ${SOURCE_MAP}.shst_reference_features
+          INNER JOIN (
+            SELECT
+                shst_reference_id
+              FROM ${SOURCE_MAP}.shst_reference_features_geopoly_idx
+              WHERE geopoly_overlap(_shape, ?)
+          ) USING ( shst_reference_id )
+        WHERE ( json_extract(feature, '$.properties.minOsmRoadClass') < 8 )
+    `,
+  ),
 );
 
-const getShstReferencesStmt = db.prepare(
-  `
-    SELECT
-        feature
-      FROM ${SOURCE_MAP}.shst_reference_features
-      WHERE shst_reference_id IN (
-        SELECT
-            value
-          FROM (
-              SELECT json(?) AS shst_ref_ids_arr
-            ) AS t, json_each(t.shst_ref_ids_arr)
-      )
-      ORDER BY shst_reference_id ;
-  `,
+const getShstReferencesStmt = memoizeOne(() =>
+  db.prepare(
+    `
+      SELECT
+          feature
+        FROM ${SOURCE_MAP}.shst_reference_features
+        WHERE shst_reference_id IN (
+          SELECT
+              value
+            FROM (
+                SELECT json(?) AS shst_ref_ids_arr
+              ) AS t, json_each(t.shst_ref_ids_arr)
+        )
+        ORDER BY shst_reference_id ;
+    `,
+  ),
 );
 
 // The geopoly types copied from the following:
@@ -63,7 +70,7 @@ export function getShstReferenceFeaturesOverlappingPoly(
 ): SharedStreetsReferenceFeature[] {
   const geopolyCoords = turf.getCoords(geopoly);
 
-  const result = getShstReferenceFeaturesOverlappingPolyStmt
+  const result = getShstReferenceFeaturesOverlappingPolyStmt()
     .raw()
     .all([JSON.stringify(geopolyCoords)]);
 
@@ -79,7 +86,7 @@ export function getShstReferenceRoadsOverlappingPoly(
 ): SharedStreetsReferenceFeature[] {
   const geopolyCoords = turf.getCoords(geopoly);
 
-  const result = getShstReferenceRoadsOverlappingPolyStmt
+  const result = getShstReferenceRoadsOverlappingPolyStmt()
     .raw()
     .all([JSON.stringify(geopolyCoords)]);
 
@@ -93,7 +100,7 @@ export function getShstReferenceRoadsOverlappingPoly(
 export function getShstReferences(
   shstReferenceIds: SharedStreetsReferenceFeature['id'][],
 ): SharedStreetsReferenceFeature[] {
-  const shstRefsById = getShstReferencesStmt
+  const shstRefsById = getShstReferencesStmt()
     .raw()
     .all([JSON.stringify(shstReferenceIds)])
     .reduce(
