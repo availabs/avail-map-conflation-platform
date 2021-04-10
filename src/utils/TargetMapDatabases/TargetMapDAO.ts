@@ -138,6 +138,7 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
     prepareTargetMapPathEdgesStmt?: Statement;
     rawEdgeFeaturesStmt?: Statement;
     allRawEdgeFeaturesStmt?: Statement;
+    filteredRawEdgeFeaturesStmt?: Statement;
     groupedRawEdgeFeaturesStmt?: Record<number, Record<number, Statement>>;
     targetMapEdgeFeaturesStmt?: Statement;
     targetMapEdgesOverlappingPolyStmt?: Statement;
@@ -973,6 +974,36 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
   // Can be wrapped to create induced subgraph iterators.
   *makeRawEdgeFeaturesIterator(): Generator<T> {
     const iter = this.allRawEdgeFeaturesStmt.raw().iterate();
+
+    for (const [f] of iter) {
+      const feature = JSON.parse(f);
+
+      yield feature;
+    }
+  }
+
+  private get filteredRawEdgeFeaturesStmt(): Statement {
+    this.preparedReadStatements.filteredRawEdgeFeaturesStmt =
+      this.preparedReadStatements.filteredRawEdgeFeaturesStmt ||
+      this.dbReadConnection.prepare(
+        `
+          SELECT
+              feature
+            FROM ${this.targetMapSchema}.raw_target_map_features
+            WHERE ( json_extract(feature, '$.properties.' || ?) = ? )
+            ORDER BY target_map_id;
+        `,
+      );
+
+    return this.preparedReadStatements.filteredRawEdgeFeaturesStmt;
+  }
+
+  // Can be wrapped to create induced subgraph iterators.
+  *makeFilteredRawEdgeFeaturesIterator(
+    key: string,
+    value: string | number,
+  ): Generator<T> {
+    const iter = this.filteredRawEdgeFeaturesStmt.raw().iterate([key, value]);
 
     for (const [f] of iter) {
       const feature = JSON.parse(f);

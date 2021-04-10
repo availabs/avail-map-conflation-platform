@@ -14,41 +14,14 @@ import { NpmrdsTmcFeature } from '../raw_map_layer/domain/types';
 
 type NpmrdsTargetMapDao = TargetMapDAO<NpmrdsTmcFeature>;
 
-const tmpDir = join(__dirname, '../../../../output/tmp/');
-mkdirSync(tmpDir, { recursive: true });
-
 tmp.setGracefulCleanup();
 
-/*
-    The FHWA approved Functional Classification
-    System code. If multiple HPMS segments with
-    different attribute values are assigned to a single
-    TMC path, the value for the highest functional class
-    (minimum code value) is assigned.
+const mbtilesOutputDir = join(__dirname, '../../../../output/qa_mbtiles');
 
-      Attribute Value: Description
-      1: Interstate
-      2: Principal Arterial – Other Freeways and Expressways
-      3: Principal Arterial – Other
-      4: Minor Arterial
-      5: Major Collector
-      6: Minor Collector
-      7: Local
- */
-const tippecanoeDetails = {
-  1: { layer: 'interstate' },
-  2: { minzoom: 7, layer: 'highway' },
-  3: { minzoom: 8, layer: 'arterial' },
-  4: { minzoom: 9, layer: 'arterial' },
-  5: { minzoom: 10, layer: 'collector' },
-  6: { minzoom: 11, layer: 'collector' },
-  7: { minzoom: 12, layer: 'local' },
-};
+const tmpDir = join(mbtilesOutputDir, 'tmp/');
+mkdirSync(tmpDir, { recursive: true });
 
-const mbtilesOutputDir = join(__dirname, '../../../../output/mbtiles/');
-mkdirSync(mbtilesOutputDir, { recursive: true });
-
-const mbtilesOutputFile = join(mbtilesOutputDir, 'npmrds.mbtiles');
+const mbtilesOutputFile = join(mbtilesOutputDir, 'npmrds_qa.mbtiles');
 
 const outputSegmentsAsNDJSON = async (
   npmrdsSegmentsIter: Generator<NpmrdsTmcFeature>,
@@ -61,10 +34,10 @@ const outputSegmentsAsNDJSON = async (
   });
 
   for (const npmrdsSegment of npmrdsSegmentsIter) {
-    const n = npmrdsSegment.properties.f_system;
-
     // @ts-ignore
-    npmrdsSegment.tippecanoe = tippecanoeDetails[+n];
+    npmrdsSegment.tippecanoe = { layer: 'npmrds_qa' };
+    // @ts-ignore
+    npmrdsSegment.properties = { tmc: npmrdsSegment.id };
 
     const good = writeStream.write(`${JSON.stringify(npmrdsSegment)}\n`);
 

@@ -5,6 +5,7 @@ import {BrowserRouter as Router, Switch, Route} from 'react-router-dom';
 import qaLayerFactory from 'layer-new/npmrd-qa.layer';
 import AvlMap from './AvlMap';
 import TargetMapPathVicinityView from './views/TargetMapPathVicinityView'
+import NysRisConflationView from './views/ConflationQAView'
 
 function App() {
   const qaLayer = qaLayerFactory({active: false});
@@ -29,6 +30,9 @@ function App() {
           </Route>
           <Route exact path="/target-map-path-vicinity/:targetMapPathId">
             <TargetMapPathVicinityView />
+          </Route>
+          <Route exact path="/nys-ris-conflation/">
+            <NysRisConflationView />
           </Route>
         </Switch>
       </Router>

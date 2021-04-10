@@ -8,6 +8,7 @@ import EventBus from './services/EventBus';
 import NpmrdsController from './controllers/NpmrdsController';
 import NysRisController from './controllers/NysRisController';
 import * as SharedStreetsController from './controllers/SharedStreetsController';
+import ConflationMapController from './controllers/ConflationMapController'
 
 const PORT = process.env.PORT || 8080;
 
@@ -221,6 +222,37 @@ server.get('/:targetMap/target-map-path-vicinity/:targetMapPathId', (req, res, n
     return next(err);
   }
 });
+
+server.get('/:targetMap/conflation-mappings', (req, res, next) => {
+  try {
+    const {targetMap} = req.params;
+
+    const mappings = ConflationMapController.getConflationMappings(targetMap)
+
+    res.send(mappings)
+
+    return next();
+  } catch (err) {
+    console.error(err)
+    return next(err);
+  }
+});
+
+server.get('/:targetMap/conflation-metrics', (req, res, next) => {
+  try {
+    const {targetMap} = req.params;
+
+    const metrics = ConflationMapController.getConflationMetrics(targetMap)
+
+    res.send(metrics)
+
+    return next();
+  } catch (err) {
+    console.error(err)
+    return next(err);
+  }
+});
+
 
 server.listen(PORT, function main() {
   console.log('%s listening at %s', server.name, server.url);

@@ -21,3 +21,10 @@ export const outputConflationShapefile = {
   builder: {},
   handler: () => new ConflationMapDAO().outputShapefile(),
 };
+
+export const outputConflationMapMBTilesForQA = {
+  command: 'output_conflation_map_qa_mbtiles',
+  desc: 'Output the Conflation Map QA MBTiles',
+  builder: {},
+  handler: () => new ConflationMapDAO().createMBTilesForQA(),
+};

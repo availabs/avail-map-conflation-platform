@@ -13,6 +13,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 import * as turf from '@turf/turf';
+import _ from 'lodash';
 
 import { Database as SQLiteDatbase, Statement } from 'better-sqlite3';
 
@@ -23,11 +24,12 @@ import db, {
 
 import TargetMapConflationBlackboardDao from '../../services/Conflation/TargetMapConflationBlackboardDao';
 
-// import { getGeometriesConcaveHull } from '../../utils/gis/hulls';
+import { getGeometriesConcaveHull } from '../../utils/gis/hulls';
 
 import getChosenShstReferenceSegmentsForOsmWay from './utils/getChosenShstReferenceSegmentsForOsmWay';
 import partitionShstReference from './utils/partitionShstReference';
 import createMBTiles from './utils/createMBTiles';
+import createMBTilesForQA from './utils/createMBTilesForQA';
 import outputShapefile from './utils/outputShapefile';
 
 import {
@@ -79,6 +81,7 @@ function createDbWriteConnection(): SQLiteDatbase {
   db.attachDatabaseToConnection(dbWriteConnection, SOURCE_MAP);
   db.attachDatabaseToConnection(dbWriteConnection, NYS_RIS);
   db.attachDatabaseToConnection(dbWriteConnection, NYS_RIS_BB);
+  db.attachDatabaseToConnection(dbWriteConnection, NPMRDS);
 
   dbWriteConnection.function(
     'getFederalDirection',
@@ -114,6 +117,10 @@ export default class ConflationMapDAO {
     shstReferenceTargetMapsAssignmentsStmt?: Statement;
     conflationMapSegmentsTableExistsStmt?: Statement;
     conflationMapSegmentsAreLoadedStmt?: Statement;
+    nysRisConflationMappingsStmt?: Statement;
+    nysRisConflationMetricsStmt?: Statement;
+    npmrdsConflationMappingsStmt?: Statement;
+    npmrdsConflationMetricsStmt?: Statement;
     conflationMapSegmentsStmt?: Statement;
     risAssignedMatchFederalDirectionTableExistsStmt?: Statement;
     risAssignedMatchFederalDirectionAreLoadedStmt?: Statement;
@@ -125,6 +132,14 @@ export default class ConflationMapDAO {
     insertTargetMapAssignedMatchStmt?: Statement;
     insertConflationMapSegmentStmt?: Statement;
   };
+
+  protected static loadQALengthsTablesSql = readFileSync(
+    join(__dirname, './sql/load_qa_lengths_tables.sql'),
+    { encoding: 'utf8' },
+  )
+    .replace(/__SCHEMA__/g, SCHEMA)
+    .replace(/__NYS_RIS__/g, NYS_RIS)
+    .replace(/__NPMRDS__/g, NPMRDS);
 
   constructor() {
     this.dbReadConnection = createDbReadConnection();
@@ -305,15 +320,15 @@ export default class ConflationMapDAO {
 
     console.time('loadTempAllOsmWaysWithShstReferencesTable');
 
-    // const albanyCounty: turf.Feature<turf.Polygon> = JSON.parse(
-    // readFileSync(join(__dirname, './geojson/albanyCounty.geojson'), {
-    // encoding: 'utf8',
-    // }),
-    // );
+    const albanyCounty: turf.Feature<turf.Polygon> = JSON.parse(
+      readFileSync(join(__dirname, './geojson/albanyCounty.geojson'), {
+        encoding: 'utf8',
+      }),
+    );
 
     // @ts-ignore
-    // const boundingPolyHull = getGeometriesConcaveHull([albanyCounty]);
-    // const [boundingPolyCoords] = turf.getCoords(boundingPolyHull);
+    const boundingPolyHull = getGeometriesConcaveHull([albanyCounty]);
+    const [boundingPolyCoords] = turf.getCoords(boundingPolyHull);
 
     this.dbWriteConnection
       .prepare(
@@ -334,12 +349,12 @@ export default class ConflationMapDAO {
                     feature
 
                   FROM ${SOURCE_MAP}.shst_reference_features
-                    -- INNER JOIN (
-                    --   SELECT
-                    --       shst_reference_id
-                    --     FROM ${SOURCE_MAP}.shst_reference_features_geopoly_idx
-                    --     WHERE geopoly_overlap(_shape, ?)
-                    -- ) USING ( shst_reference_id )
+                    INNER JOIN (
+                      SELECT
+                          shst_reference_id
+                        FROM ${SOURCE_MAP}.shst_reference_features_geopoly_idx
+                        WHERE geopoly_overlap(_shape, ?)
+                    ) USING ( shst_reference_id )
                     , json_each(
                       json_extract(feature, '$.properties.osmMetadataWaySections')
                     ) AS t
@@ -350,8 +365,7 @@ export default class ConflationMapDAO {
 
             GROUP BY osm_way_id ; `,
       )
-      .run();
-    // .run([JSON.stringify(boundingPolyCoords)]);
+      .run([JSON.stringify(boundingPolyCoords)]);
 
     this.commitWriteTransaction();
 
@@ -385,10 +399,8 @@ export default class ConflationMapDAO {
     const iter = this.allOsmWaysWithShstReferencesStmt.raw().iterate();
 
     let logIterTime = true;
-    console.timeEnd('  iter start');
     for (const [osmWayId, osmNodeIdsStr, shstRefsStr] of iter) {
       if (logIterTime) {
-        console.time('  iter start');
         logIterTime = false;
       }
 
@@ -892,6 +904,138 @@ export default class ConflationMapDAO {
     }
   }
 
+  protected get nysRisConflationMappingsStmt(): Statement {
+    this.preparedReadStatements.nysRisConflationMappingsStmt =
+      this.preparedReadStatements.nysRisConflationMappingsStmt ||
+      this.dbReadConnection.prepare(
+        `
+          SELECT
+              id,
+              json_extract(nys_ris, '$.targetMapId') AS ris
+            FROM ${SCHEMA}.conflation_map_segments
+            WHERE ( nys_ris IS NOT NULL )
+        `,
+      );
+
+    return this.preparedReadStatements.nysRisConflationMappingsStmt;
+  }
+
+  get nysRisConflationMappings() {
+    return this.nysRisConflationMappingsStmt.all();
+  }
+
+  protected get nysRisConflationMetricsStmt(): Statement {
+    this.preparedReadStatements.nysRisConflationMetricsStmt =
+      this.preparedReadStatements.nysRisConflationMetricsStmt ||
+      this.dbReadConnection.prepare(
+        `
+          SELECT
+              nys_ris AS ris,
+              target_map_edge_length,
+              is_unidirectional,
+              forward_conflation_segments_length_sum,
+              backward_conflation_segments_length_sum
+            FROM ${SCHEMA}.qa_nys_ris_lengths ;
+        `,
+      );
+
+    return this.preparedReadStatements.nysRisConflationMetricsStmt;
+  }
+
+  get nysRisConflationMetrics() {
+    return this.nysRisConflationMetricsStmt
+      .all()
+      .reduce(
+        (
+          acc,
+          {
+            ris,
+            target_map_edge_length,
+            is_unidirectional,
+            forward_conflation_segments_length_sum,
+            backward_conflation_segments_length_sum,
+          },
+        ) => {
+          acc[ris] = {
+            ris,
+            targetMapEdgeLength: _.round(target_map_edge_length, 6),
+            isUnidirectional: !!is_unidirectional,
+            forwardConflationSegmentsLengthSum:
+              forward_conflation_segments_length_sum &&
+              _.round(forward_conflation_segments_length_sum, 6),
+            backwardConflationSegmentsLengthSum:
+              backward_conflation_segments_length_sum &&
+              _.round(backward_conflation_segments_length_sum, 6),
+          };
+
+          return acc;
+        },
+        {},
+      );
+  }
+
+  protected get npmrdsConflationMappingsStmt(): Statement {
+    this.preparedReadStatements.npmrdsConflationMappingsStmt =
+      this.preparedReadStatements.npmrdsConflationMappingsStmt ||
+      this.dbReadConnection.prepare(
+        `
+          SELECT
+              id,
+              json_extract(npmrds, '$.targetMapId') AS tmc
+            FROM ${SCHEMA}.conflation_map_segments
+            WHERE ( npmrds IS NOT NULL )
+        `,
+      );
+
+    return this.preparedReadStatements.npmrdsConflationMappingsStmt;
+  }
+
+  get npmrdsConflationMappings() {
+    return this.npmrdsConflationMappingsStmt.all();
+  }
+
+  protected get npmrdsConflationMetricsStmt(): Statement {
+    this.preparedReadStatements.npmrdsConflationMetricsStmt =
+      this.preparedReadStatements.npmrdsConflationMetricsStmt ||
+      this.dbReadConnection.prepare(
+        `
+          SELECT
+              tmc AS id,
+              target_map_edge_length,
+              forward_conflation_segments_length_sum
+            FROM ${SCHEMA}.qa_npmrds_lengths ;
+        `,
+      );
+
+    return this.preparedReadStatements.npmrdsConflationMetricsStmt;
+  }
+
+  get npmrdsConflationMetrics() {
+    return this.npmrdsConflationMetricsStmt
+      .all()
+      .reduce(
+        (
+          acc,
+          {
+            id,
+            target_map_edge_length,
+            forward_conflation_segments_length_sum,
+          },
+        ) => {
+          acc[id] = {
+            id,
+            target_map_edge_length: _.round(target_map_edge_length, 6),
+            forward_conflation_segments_length_sum:
+              forward_conflation_segments_length_sum &&
+              _.round(forward_conflation_segments_length_sum, 6),
+          };
+
+          return acc;
+        },
+        {},
+      );
+  }
+
   protected get conflationMapSegmentsStmt(): Statement {
     this.preparedReadStatements.conflationMapSegmentsStmt =
       this.preparedReadStatements.conflationMapSegmentsStmt ||
@@ -1090,8 +1234,16 @@ export default class ConflationMapDAO {
     this.commitWriteTransaction();
   }
 
+  loadQALengthsTables() {
+    this.dbWriteConnection.exec(ConflationMapDAO.loadQALengthsTablesSql);
+  }
+
   createMBTiles() {
     return createMBTiles(this.makeConflationMapSegmentsIterator());
+  }
+
+  createMBTilesForQA() {
+    return createMBTilesForQA(this.makeConflationMapSegmentsIterator());
   }
 
   outputShapefile() {

@@ -34,8 +34,14 @@
     }
   },
   "data": {
-    "conflation_map_20200910": {
-      "mbtiles": "../../output/conflation_map/conflation_map.mbtiles"
+    "nys_ris_qa": {
+      "mbtiles": "../../output/qa_mbtiles/nys_ris_qa.mbtiles"
+    },
+    "npmrds_qa": {
+      "mbtiles": "../../output/qa_mbtiles/npmrds_qa.mbtiles"
+    },
+    "conflation_map_qa": {
+      "mbtiles": "../../output/qa_mbtiles/conflation_map_qa.mbtiles"
     }
   }
 }
