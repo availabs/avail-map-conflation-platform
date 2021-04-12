@@ -1010,7 +1010,7 @@ export default class ConflationMapDAO {
       this.dbReadConnection.prepare(
         `
           SELECT
-              tmc AS targetMapId,
+              npmrds AS targetMapId,
               target_map_edge_length,
               forward_conflation_segments_length_sum
             FROM ${SCHEMA}.qa_npmrds_lengths ;
