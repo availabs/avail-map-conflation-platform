@@ -202,36 +202,48 @@ export class ConflationAnalysisLayer extends MapLayer {
   }
 
   showConflationMapMatchedSegments() {
+    this.resetMinAndMaxLenDiffs()
+
     this.setConflationMapVisible(true)
     this.conflationMapShow(this.conflationAnalysis.matchedConflationMapIds)
     this.setConflationMapLineColor('black')
   }
 
   showConflationMapForwardMatchedSegments() {
+    this.resetMinAndMaxLenDiffs()
+
     this.setConflationMapVisible(true)
     this.conflationMapShow(this.conflationAnalysis.forwardMatchedConflationMapIds)
     this.setConflationMapLineColor('black')
   }
 
   showConflationMapSegmentsBackwardMatched() {
+    this.resetMinAndMaxLenDiffs()
+
     this.setConflationMapVisible(true)
     this.conflationMapShow(this.conflationAnalysis.backwardMatchedConflationMapIds)
     this.setConflationMapLineColor('black')
   }
 
   showConflationMapUnmatchedSegments() {
+    this.resetMinAndMaxLenDiffs()
+
     this.setConflationMapVisible(true)
     this.conflationMapHide(this.conflationAnalysis.matchedConflationMapIds)
     this.setConflationMapLineColor('orangered')
   }
 
   showTargetMapMatchedSegments() {
+    this.resetMinAndMaxLenDiffs()
+
     this.setTargetMapVisible(true)
     this.targetMapShow(this.conflationAnalysis.directionalMatchedTargetMapIds)
     this.setTargetMapLineColor('blue')
   }
 
   showTargetMapUnmatchedSegments() {
+    this.resetMinAndMaxLenDiffs()
+
     this.setTargetMapVisible(true)
     this.targetMapShow(this.conflationAnalysis.directionalUnmatchedTargetMapIds)
     this.setTargetMapLineColor('red')
@@ -240,12 +252,16 @@ export class ConflationAnalysisLayer extends MapLayer {
   }
 
   showTargetMapForwardMatchedSegments() {
+    this.resetMinAndMaxLenDiffs()
+
     this.setTargetMapVisible(true)
     this.targetMapShow(this.conflationAnalysis.forwardMatchedTargetMapIds)
     this.setTargetMapLineColor('blue')
   }
 
   showTargetMapForwardUnmatchedSegments() {
+    this.resetMinAndMaxLenDiffs()
+
     this.setTargetMapVisible(true)
     this.targetMapShow(this.conflationAnalysis.forwardUnmatchedTargetMapIds)
     this.setTargetMapLineColor('red')
@@ -254,12 +270,16 @@ export class ConflationAnalysisLayer extends MapLayer {
   }
 
   showTargetMapBackwardMatchedSegments() {
+    this.resetMinAndMaxLenDiffs()
+
     this.setTargetMapVisible(true)
     this.targetMapShow(this.conflationAnalysis.backwardMatchedTargetMapIds ?? [])
     this.setTargetMapLineColor('blue')
   }
 
   showTargetMapBackwardUnmatchedSegments() {
+    this.resetMinAndMaxLenDiffs()
+
     this.setTargetMapVisible(true)
     this.targetMapShow(this.conflationAnalysis.backwardUnmatchedTargetMapIds ?? [])
     this.setTargetMapLineColor('red')
@@ -267,7 +287,15 @@ export class ConflationAnalysisLayer extends MapLayer {
     this.disableShowHoveredTargetMapConflationMatches()
   }
 
+  private resetMinAndMaxLenDiffs() {
+    this.minLenDiff = null;
+    this.maxLenDiff = null;
+  }
+
   showTargetMapMatchedSegmentsInLengthDifferenceRange(minLenDiff: number | null, maxLenDiff: number | null) {
+    this.minLenDiff = minLenDiff;
+    this.maxLenDiff = maxLenDiff;
+
     this.setTargetMapVisible(true)
     const targetMapIds =
       this.conflationAnalysis.getLengthDifferenceFilteredMatchedTargetMapIds(minLenDiff, maxLenDiff)
@@ -278,6 +306,9 @@ export class ConflationAnalysisLayer extends MapLayer {
   }
 
   showTargetMapFowardMatchedSegmentsInLengthDifferenceRange(minLenDiff: number | null, maxLenDiff: number | null) {
+    this.minLenDiff = minLenDiff;
+    this.maxLenDiff = maxLenDiff;
+
     this.setTargetMapVisible(true)
     const targetMapIds =
       this.conflationAnalysis.getLengthDifferenceFilteredForwardMatchedTargetMapIds(minLenDiff, maxLenDiff)

@@ -43,7 +43,10 @@ const getMatchingStatsTable = (layer: ConflationAnalysisLayer) => {
       <div style={{display: 'flex', paddingBottom: 15}}>
         <div
           style={{flex: '8', textAlign: 'center', cursor: 'pointer'}}
-          onClick={() => filter(matchingStats.matchedMeanLenDiffKm, Infinity)}
+          onClick={() => layer.minLenDiff === matchingStats.matchedMeanLenDiffKm && layer.maxLenDiff === Infinity
+            ? filter(0, matchingStats.matchedMeanLenDiffKm)
+            : filter(matchingStats.matchedMeanLenDiffKm, Infinity)
+          }
         >
           <div>Mean Δ</div>
           <div style={divStyle}> {_.round(matchingStats.matchedMeanLenDiffKm * 1000)} m</div>
@@ -51,7 +54,10 @@ const getMatchingStatsTable = (layer: ConflationAnalysisLayer) => {
 
         <div
           style={{flex: '8', textAlign: 'center', cursor: 'pointer'}}
-          onClick={() => filter(matchingStats.matchedMedianLenDiffKm, Infinity)}
+          onClick={() => layer.minLenDiff === matchingStats.matchedMedianLenDiffKm && layer.maxLenDiff === Infinity
+            ? filter(0, matchingStats.matchedMedianLenDiffKm)
+            : filter(matchingStats.matchedMedianLenDiffKm, Infinity)
+          }
         >
           <div>Median Δ</div>
           <div style={divStyle}>{_.round(matchingStats.matchedMedianLenDiffKm * 1000)} m</div>
