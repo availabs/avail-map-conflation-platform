@@ -8,7 +8,6 @@ import {ConflationAnalysis} from '../../store/ConflationAnalysisFactory'
 
 import {TargetMap, TargetMapId, ConflationMapId} from '../../domain/types'
 
-import Test from '../../components/Test'
 import ConflationMatchingStats from '../../components/ConflationMatchingStats'
 
 // const createLineWidthObj = (baseWidth: number) => (
