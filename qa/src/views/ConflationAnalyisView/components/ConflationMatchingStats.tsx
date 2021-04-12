@@ -4,7 +4,6 @@ import React from "react"
 
 import _ from 'lodash'
 
-import { ConflationAnalysis } from '../store/ConflationAnalysisFactory'
 import { ConflationAnalysisLayer } from '../layers/ConflationLayerFactory'
 
 // https://github.com/cssinjs/jss/issues/1344#issuecomment-734402215
@@ -18,7 +17,8 @@ const getMatchingStatsTable = (layer: ConflationAnalysisLayer) => {
   const conflationAnalysis = layer.conflationAnalysis
   const { matchingStats } = conflationAnalysis
 
-  const filter = layer.showTargetMapFowardMatchedSegmentsInLengthDifferenceRange.bind(layer)
+  const showUnmatched = layer.showTargetMapUnmatchedSegments.bind(layer)
+  const filter = layer.showTargetMapMatchedSegmentsInLengthDifferenceRange.bind(layer)
 
   return (
     <div>
@@ -28,7 +28,10 @@ const getMatchingStatsTable = (layer: ConflationAnalysisLayer) => {
         </div>
       </div>
 
-      <div style={{display: 'flex', paddingBottom: 15}}>
+      <div
+        style={{display: 'flex', paddingBottom: 15, cursor: 'pointer'}}
+        onClick={() => showUnmatched()}
+      >
         <div style={{flex: 1, textAlign: 'center', cursor: 'pointer'}}>
           <span>% Matching </span>
             <div style={divStyle}>
@@ -49,7 +52,7 @@ const getMatchingStatsTable = (layer: ConflationAnalysisLayer) => {
         </div>
       </div>
 
-      <div 
+      <div
         style={{display: 'flex', paddingBottom: 15, cursor: 'pointer'}}
         onClick={() => filter(0, 0.005)}
       >
@@ -61,7 +64,7 @@ const getMatchingStatsTable = (layer: ConflationAnalysisLayer) => {
         </div>
       </div>
 
-      <div 
+      <div
         style={{display: 'flex', paddingBottom: 15, cursor: 'pointer'}}
         onClick={() => filter(0.005, 0.01)}
       >
@@ -73,7 +76,7 @@ const getMatchingStatsTable = (layer: ConflationAnalysisLayer) => {
         </div>
       </div>
 
-      <div 
+      <div
         style={{display: 'flex', paddingBottom: 15, cursor: 'pointer'}}
         onClick={() => filter(0.01, 0.025)}
       >
@@ -85,7 +88,7 @@ const getMatchingStatsTable = (layer: ConflationAnalysisLayer) => {
         </div>
       </div>
 
-      <div 
+      <div
         style={{display: 'flex', paddingBottom: 15, cursor: 'pointer'}}
         onClick={() => filter(0.025, 0.05)}
       >
@@ -97,7 +100,7 @@ const getMatchingStatsTable = (layer: ConflationAnalysisLayer) => {
         </div>
       </div>
 
-      <div 
+      <div
         style={{display: 'flex', paddingBottom: 15, cursor: 'pointer'}}
         onClick={() => filter(0.05, 0.1)}
       >
@@ -109,7 +112,7 @@ const getMatchingStatsTable = (layer: ConflationAnalysisLayer) => {
         </div>
       </div>
 
-      <div 
+      <div
         style={{display: 'flex', paddingBottom: 15, cursor: 'pointer'}}
         onClick={() => filter(0.1, Infinity)}
       >

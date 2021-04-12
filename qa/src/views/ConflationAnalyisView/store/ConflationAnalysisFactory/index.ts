@@ -515,7 +515,7 @@ export class ConflationAnalysis {
 
     const fwdMatchedConflationMapIds = _.flatten(
       tgtMapIds.map(
-        targetMapId => this.targetMapToConflationMapLookup[targetMapId].forward
+        targetMapId => this.targetMapToConflationMapLookup[targetMapId]?.forward
       ).filter(id => !_.isNil(id))
     )
 
@@ -527,7 +527,7 @@ export class ConflationAnalysis {
 
     const bwdMatchedConflationMapIds = _.flatten(
       tgtMapIds.map(
-        targetMapId => this.targetMapToConflationMapLookup[targetMapId].backward
+        targetMapId => this.targetMapToConflationMapLookup[targetMapId]?.backward
       ).filter(id => !_.isNil(id))
     )
 

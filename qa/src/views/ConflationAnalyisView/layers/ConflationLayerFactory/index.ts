@@ -233,6 +233,8 @@ export class ConflationAnalysisLayer extends MapLayer {
     this.setTargetMapVisible(true)
     this.targetMapShow(this.conflationAnalysis.directionalUnmatchedTargetMapIds)
     this.setTargetMapLineColor('red')
+
+    this.disableShowHoveredTargetMapConflationMatches()
   }
 
   showTargetMapForwardMatchedSegments() {
@@ -245,6 +247,8 @@ export class ConflationAnalysisLayer extends MapLayer {
     this.setTargetMapVisible(true)
     this.targetMapShow(this.conflationAnalysis.forwardUnmatchedTargetMapIds)
     this.setTargetMapLineColor('red')
+
+    this.disableShowHoveredTargetMapConflationMatches()
   }
 
   showTargetMapBackwardMatchedSegments() {
@@ -257,6 +261,8 @@ export class ConflationAnalysisLayer extends MapLayer {
     this.setTargetMapVisible(true)
     this.targetMapShow(this.conflationAnalysis.backwardUnmatchedTargetMapIds ?? [])
     this.setTargetMapLineColor('red')
+
+    this.disableShowHoveredTargetMapConflationMatches()
   }
 
   showTargetMapMatchedSegmentsInLengthDifferenceRange(minLenDiff: number | null, maxLenDiff: number | null) {
@@ -265,6 +271,8 @@ export class ConflationAnalysisLayer extends MapLayer {
       this.conflationAnalysis.getLengthDifferenceFilteredMatchedTargetMapIds(minLenDiff, maxLenDiff)
     this.targetMapShow(targetMapIds)
     this.setTargetMapLineColor('blue')
+
+    this.showHoveredTargetMapConflationMatches()
   }
 
   showTargetMapFowardMatchedSegmentsInLengthDifferenceRange(minLenDiff: number | null, maxLenDiff: number | null) {
@@ -273,6 +281,8 @@ export class ConflationAnalysisLayer extends MapLayer {
       this.conflationAnalysis.getLengthDifferenceFilteredForwardMatchedTargetMapIds(minLenDiff, maxLenDiff)
     this.targetMapShow(targetMapIds)
     this.setTargetMapLineColor('blue')
+
+    this.showHoveredTargetMapConflationMatches()
   }
 
 
@@ -281,25 +291,37 @@ export class ConflationAnalysisLayer extends MapLayer {
     this.conflationMapShow([])
     this.setConflationMapLineColor('green')
 
-    this.map.on('mousemove', 'target_map', (e: any) => {
-      const hoveredTargetMapIds = e.features.map(({properties}) => properties.id)
-      const conflationMapIds = this.conflationAnalysis.getMatchedConflationMapIds(hoveredTargetMapIds)
+    if (!this.targetMapMouseMoveListener) {
+      this.targetMapMouseMoveListener = (e: any) => {
+        const hoveredTargetMapIds = e.features.map(({properties}) => properties.id)
+        const conflationMapIds = this.conflationAnalysis.getMatchedConflationMapIds(hoveredTargetMapIds)
 
-      // FIXME: Should use own layer
-      this.conflationMapShow(conflationMapIds)
+        // FIXME: Should use own layer
+        this.conflationMapShow(conflationMapIds)
 
-      this.map.setPaintProperty(
-        'target_map',
-        'line-color',
-        ["match",
-          ["get", "id"],
-          hoveredTargetMapIds,
-          'midnightblue',
-          'cornflowerblue'
-        ]
-      )
-    })
+        this.map.setPaintProperty(
+          'target_map',
+          'line-color',
+          ["match",
+            ["get", "id"],
+            hoveredTargetMapIds,
+            'midnightblue',
+            'cornflowerblue'
+          ]
+        )
+      }
+
+      this.map.on('mousemove', 'target_map', this.targetMapMouseMoveListener)
+    }
   }
+
+  disableShowHoveredTargetMapConflationMatches() {
+    if (this.targetMapMouseMoveListener) {
+      this.map.off('mousemove', 'target_map', this.targetMapMouseMoveListener)
+      this.targetMapMouseMoveListener = null
+    }
+  }
+
 
   showHoveredTargetMapForwardConflationMatches() {
     this.setConflationMapVisible(true)
