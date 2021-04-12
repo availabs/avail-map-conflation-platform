@@ -115,10 +115,6 @@ export class ConflationAnalysisLayer extends MapLayer {
         : 0
 
     this.infoBoxes = {
-      ['MapControls']: {
-        comp: Test,
-        show: true
-      },
       ['Stats']: {
         comp: ConflationMatchingStats,
         show: true
