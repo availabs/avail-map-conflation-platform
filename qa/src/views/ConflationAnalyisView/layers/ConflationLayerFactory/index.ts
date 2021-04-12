@@ -8,6 +8,9 @@ import {ConflationAnalysis} from '../../store/ConflationAnalysisFactory'
 
 import {TargetMap, TargetMapId, ConflationMapId} from '../../domain/types'
 
+import Test from '../../components/Test'
+import ConflationMatchingStats from '../../components/ConflationMatchingStats'
+
 // const createLineWidthObj = (baseWidth: number) => (
 // {
 // "type": "exponential",
@@ -109,6 +112,17 @@ export class ConflationAnalysisLayer extends MapLayer {
       conflationAnalysis.targetMap === TargetMap.NPMRDS
         ? 1
         : 0
+
+    this.infoBoxes = {
+      ['MapControls']: {
+        comp: Test,
+        show: true
+      },
+      ['Stats']: {
+        comp: ConflationMatchingStats,
+        show: true
+      }
+    }
   }
 
   onAdd(map: Map) {
@@ -322,6 +336,7 @@ export class ConflationAnalysisLayer extends MapLayer {
     // this.conflationMapShow([])
     // })
   }
+
 }
 
 export default {

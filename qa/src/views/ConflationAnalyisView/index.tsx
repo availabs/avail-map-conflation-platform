@@ -40,7 +40,10 @@ export default function ConflationAnalysisView() {
   useEffect(() => {
     if (mapReady) {
       // @ts-ignore
-      conflationAnalysisLayer.current.showTargetMapMatchedSegmentsInLengthDifferenceRange(0, 0.005);
+      // conflationAnalysisLayer.current.showTargetMapUnmatchedSegments()
+
+      // // @ts-ignore
+      conflationAnalysisLayer.current.showTargetMapMatchedSegmentsInLengthDifferenceRange(0.005);
       // @ts-ignore
       conflationAnalysisLayer.current.showHoveredTargetMapConflationMatches();
 
