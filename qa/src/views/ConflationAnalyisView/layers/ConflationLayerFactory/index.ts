@@ -106,6 +106,8 @@ export class ConflationAnalysisLayer extends MapLayer {
     super(name, config)
     this.conflationAnalysis = conflationAnalysis
 
+    console.log('==> targetMap:', conflationAnalysis.targetMap)
+
     this.targetMapSource = targetMapSources[conflationAnalysis.targetMap]
 
     this.targetMapLineOffset =
@@ -133,7 +135,7 @@ export class ConflationAnalysisLayer extends MapLayer {
     // @ts-ignore
     map.addSource(this.targetMapSource.id, this.targetMapSource.source)
 
-    map.addLayer(makeLineLayer('conflation_map', conflationMapSource.id, 1, 'black', 2))
+    map.addLayer(makeLineLayer('conflation_map', conflationMapSource.id, 1, 'black', this.targetMapLineOffset + 2))
 
     map.addLayer(makeLineLayer('target_map', this.targetMapSource.id, 1, 'blue', this.targetMapLineOffset))
 

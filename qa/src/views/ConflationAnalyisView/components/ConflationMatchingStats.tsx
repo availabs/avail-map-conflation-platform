@@ -41,12 +41,18 @@ const getMatchingStatsTable = (layer: ConflationAnalysisLayer) => {
       </div>
 
       <div style={{display: 'flex', paddingBottom: 15}}>
-        <div style={{flex: '8', textAlign: 'center'}}>
+        <div
+          style={{flex: '8', textAlign: 'center', cursor: 'pointer'}}
+          onClick={() => filter(matchingStats.matchedMeanLenDiffKm, Infinity)}
+        >
           <div>Mean Δ</div>
           <div style={divStyle}> {_.round(matchingStats.matchedMeanLenDiffKm * 1000)} m</div>
         </div>
 
-        <div style={{flex: '8', textAlign: 'center'}}>
+        <div
+          style={{flex: '8', textAlign: 'center', cursor: 'pointer'}}
+          onClick={() => filter(matchingStats.matchedMedianLenDiffKm, Infinity)}
+        >
           <div>Median Δ</div>
           <div style={divStyle}>{_.round(matchingStats.matchedMedianLenDiffKm * 1000)} m</div>
         </div>
