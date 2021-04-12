@@ -35,9 +35,9 @@ const outputSegmentsAsNDJSON = async (
 
   for (const nysRisSegment of nysRisSegmentsIter) {
     // @ts-ignore
-    nysRisSegment.tippecanoe = { layer: 'nys_ris_qa' };
+    nysRisSegment.tippecanoe = { layer: 'nys_ris_qa', minzoom: 1 };
     // @ts-ignore
-    nysRisSegment.properties = { ris: nysRisSegment.id };
+    nysRisSegment.properties = { id: nysRisSegment.id };
 
     const good = writeStream.write(`${JSON.stringify(nysRisSegment)}\n`);
 
@@ -62,7 +62,7 @@ function generateTileSet(tmpFilePath: string) {
   spawnSync('tippecanoe', [
     '--no-feature-limit',
     '--no-tile-size-limit',
-    '--generate-ids',
+    '--no-tile-stats',
     '--read-parallel',
     '--force',
     '-o',
@@ -94,7 +94,7 @@ export default async function createMBTiles({ county = null }) {
 
     generateTileSet(tmpFilePath);
 
-    tmpobj.removeCallback();
+    // tmpobj.removeCallback();
   } catch (err) {
     console.error(err);
     process.exit(1);

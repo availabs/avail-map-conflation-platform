@@ -37,7 +37,7 @@ const outputSegmentsAsNDJSON = async (
     // @ts-ignore
     npmrdsSegment.tippecanoe = { layer: 'npmrds_qa' };
     // @ts-ignore
-    npmrdsSegment.properties = { tmc: npmrdsSegment.id };
+    npmrdsSegment.properties = { id: npmrdsSegment.id };
 
     const good = writeStream.write(`${JSON.stringify(npmrdsSegment)}\n`);
 
@@ -59,7 +59,6 @@ function generateTileSet(tmpFilePath: string) {
   spawnSync('tippecanoe', [
     '--no-feature-limit',
     '--no-tile-size-limit',
-    '--generate-ids',
     '--read-parallel',
     '--force',
     '-o',

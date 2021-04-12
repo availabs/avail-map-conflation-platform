@@ -910,10 +910,19 @@ export default class ConflationMapDAO {
       this.dbReadConnection.prepare(
         `
           SELECT
-              id,
-              json_extract(nys_ris, '$.targetMapId') AS ris
-            FROM ${SCHEMA}.conflation_map_segments
-            WHERE ( nys_ris IS NOT NULL )
+              a.id,
+              json_extract(a.nys_ris, '$.targetMapId') AS targetMapId,
+              b.is_forward AS isForward
+            FROM ${SCHEMA}.conflation_map_segments AS a
+              INNER JOIN ${SCHEMA}.target_maps_assigned_matches AS b
+                ON (
+                  ( CAST(json_extract(a.nys_ris, '$.targetMapId') AS INTEGER) = b.target_map_id )
+                  AND
+                  ( a.shst = b.shst_reference_id )
+                  AND
+                  ( b.target_map = 'nys_ris' )
+                )
+            WHERE ( a.nys_ris IS NOT NULL )
         `,
       );
 
@@ -930,7 +939,7 @@ export default class ConflationMapDAO {
       this.dbReadConnection.prepare(
         `
           SELECT
-              nys_ris AS ris,
+              nys_ris AS targetMapId,
               target_map_edge_length,
               is_unidirectional,
               forward_conflation_segments_length_sum,
@@ -949,15 +958,15 @@ export default class ConflationMapDAO {
         (
           acc,
           {
-            ris,
+            targetMapId,
             target_map_edge_length,
             is_unidirectional,
             forward_conflation_segments_length_sum,
             backward_conflation_segments_length_sum,
           },
         ) => {
-          acc[ris] = {
-            ris,
+          acc[targetMapId] = {
+            targetMapId,
             targetMapEdgeLength: _.round(target_map_edge_length, 6),
             isUnidirectional: !!is_unidirectional,
             forwardConflationSegmentsLengthSum:
@@ -981,7 +990,8 @@ export default class ConflationMapDAO {
         `
           SELECT
               id,
-              json_extract(npmrds, '$.targetMapId') AS tmc
+              json_extract(npmrds, '$.targetMapId') AS targetMapId,
+              1 AS isForward
             FROM ${SCHEMA}.conflation_map_segments
             WHERE ( npmrds IS NOT NULL )
         `,
@@ -1000,7 +1010,7 @@ export default class ConflationMapDAO {
       this.dbReadConnection.prepare(
         `
           SELECT
-              tmc AS id,
+              tmc AS targetMapId,
               target_map_edge_length,
               forward_conflation_segments_length_sum
             FROM ${SCHEMA}.qa_npmrds_lengths ;
@@ -1017,17 +1027,19 @@ export default class ConflationMapDAO {
         (
           acc,
           {
-            id,
+            targetMapId,
             target_map_edge_length,
             forward_conflation_segments_length_sum,
           },
         ) => {
-          acc[id] = {
-            id,
-            target_map_edge_length: _.round(target_map_edge_length, 6),
-            forward_conflation_segments_length_sum:
+          acc[targetMapId] = {
+            targetMapId,
+            targetMapEdgeLength: _.round(target_map_edge_length, 6),
+            isUnidirectional: true,
+            forwardConflationSegmentsLengthSum:
               forward_conflation_segments_length_sum &&
               _.round(forward_conflation_segments_length_sum, 6),
+            backwardConflationSegmentsLengthSum: null,
           };
 
           return acc;
