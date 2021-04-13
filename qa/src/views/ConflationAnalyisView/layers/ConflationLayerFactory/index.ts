@@ -105,6 +105,8 @@ export class ConflationAnalysisLayer extends MapLayer {
 
   activeTargetMapIds: TargetMapId[];
 
+  private getMatchedConflationMapIdsFn: Function
+
   constructor(
     name: string,
     config: any,
@@ -113,8 +115,6 @@ export class ConflationAnalysisLayer extends MapLayer {
   ) {
     super(name, config)
     this.conflationAnalysis = conflationAnalysis
-
-    console.log('==> targetMap:', conflationAnalysis.targetMap)
 
     this.targetMapSource = targetMapSources[conflationAnalysis.targetMap]
 
@@ -136,6 +136,8 @@ export class ConflationAnalysisLayer extends MapLayer {
     this.maxLenDiff = null;
 
     this.activeTargetMapIds = []
+
+    this.getMatchedConflationMapIdsFn = () => console.warn('this.getMatchedConflationMapIdsFn is not set')
   }
 
   onAdd(map: Map) {
@@ -192,6 +194,31 @@ export class ConflationAnalysisLayer extends MapLayer {
       ['get', 'id'],
       ['literal', ids],
     ])
+  }
+
+  get showingMatched() {
+    return this.activeTargetMapIds === this.conflationAnalysis.directionalMatchedTargetMapIds
+  }
+
+  get showingUnmatched() {
+    return this.activeTargetMapIds === this.conflationAnalysis.directionalUnmatchedTargetMapIds
+  }
+
+  showSetDifferenceTargetMapSegments() {
+    // FIXME: If we add directionality, must update this.
+    this.activeTargetMapIds = _.difference(
+      this.conflationAnalysis.targetMapIds,
+      _.union(
+        this.activeTargetMapIds,
+        this.conflationAnalysis.directionalUnmatchedTargetMapIds
+      )
+    )
+
+    this.minLenDiff = null
+    this.maxLenDiff = null
+
+    this.targetMapShow(this.activeTargetMapIds)
+    this.conflationMapShow(this.getMatchedConflationMapIdsFn(this.activeTargetMapIds))
   }
 
   private setMapLineColor(mapName: string, color: string) {
@@ -346,6 +373,8 @@ export class ConflationAnalysisLayer extends MapLayer {
   }
 
   private enableShowHoveredTargetMapConflationMatches(getMatchedConflationMapIdsFn: Function) {
+    this.getMatchedConflationMapIdsFn = getMatchedConflationMapIdsFn
+
     // For idempotency
     if (this.targetMapMouseMoveListener) {
       return
@@ -357,8 +386,6 @@ export class ConflationAnalysisLayer extends MapLayer {
     this.conflationMapShow(getMatchedConflationMapIdsFn(currentActiveTargetMapIds))
 
     const updateMapColors = (targetMapIds = [-1], conflationMapIds = [-1]) => {
-      console.log('UPDATE MAP COLORS')
-      console.log(targetMapIds, conflationMapIds)
       this.map.setPaintProperty(
         'target_map',
         'line-color',
@@ -386,9 +413,8 @@ export class ConflationAnalysisLayer extends MapLayer {
 
     this.targetMapMouseMoveListener = (e: any) => {
       if (currentActiveTargetMapIds !== this.activeTargetMapIds) {
-        console.log('currentActiveTargetMapIds !== this.activeTargetMapIds')
         currentActiveTargetMapIds = this.activeTargetMapIds
-        this.conflationMapShow(getMatchedConflationMapIdsFn(currentActiveTargetMapIds))
+        this.conflationMapShow(this.getMatchedConflationMapIdsFn(currentActiveTargetMapIds))
       }
 
       // @ts-ignore

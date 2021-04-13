@@ -511,8 +511,6 @@ export class ConflationAnalysis {
   getForwardMatchedConflationMapIds(targetMapIds: TargetMapId | TargetMapId[]) {
     const tgtMapIds = Array.isArray(targetMapIds) ? targetMapIds : [targetMapIds]
 
-    console.log({tgtMapIds})
-
     const fwdMatchedConflationMapIds = _.flatten(
       tgtMapIds.map(
         targetMapId => this.targetMapToConflationMapLookup[targetMapId]?.forward

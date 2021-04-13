@@ -24,9 +24,7 @@ export default function ConflationAnalysisView() {
     (async () => {
       conflationAnalysis.current = await ConflationAnalysisFactory.createConflationAnalysis(targetMap)
 
-      console.time('getStats')
       console.table(conflationAnalysis.current.matchingStats)
-      console.timeEnd('getStats')
 
       const notifyMapReady = () => setMapReady(true)
 

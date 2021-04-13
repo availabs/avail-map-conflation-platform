@@ -19,6 +19,7 @@ const getMatchingStatsTable = (layer: ConflationAnalysisLayer) => {
 
   const showUnmatched = layer.showTargetMapUnmatchedSegments.bind(layer)
   const filter = layer.showTargetMapMatchedSegmentsInLengthDifferenceRange.bind(layer)
+  const showSetDifference = layer.showSetDifferenceTargetMapSegments.bind(layer)
 
   return (
     <div>
@@ -30,7 +31,7 @@ const getMatchingStatsTable = (layer: ConflationAnalysisLayer) => {
 
       <div
         style={{display: 'flex', paddingBottom: 15, cursor: 'pointer'}}
-        onClick={() => showUnmatched()}
+        onClick={() => layer.showingUnmatched ? filter(-Infinity, Infinity) : showUnmatched()}
       >
         <div style={{flex: 1, textAlign: 'center', cursor: 'pointer'}}>
           <span>% Matching </span>
@@ -44,7 +45,7 @@ const getMatchingStatsTable = (layer: ConflationAnalysisLayer) => {
         <div
           style={{flex: '8', textAlign: 'center', cursor: 'pointer'}}
           onClick={() => layer.minLenDiff === matchingStats.matchedMeanLenDiffKm && layer.maxLenDiff === Infinity
-            ? filter(0, matchingStats.matchedMeanLenDiffKm)
+            ? showSetDifference()
             : filter(matchingStats.matchedMeanLenDiffKm, Infinity)
           }
         >
@@ -55,7 +56,7 @@ const getMatchingStatsTable = (layer: ConflationAnalysisLayer) => {
         <div
           style={{flex: '8', textAlign: 'center', cursor: 'pointer'}}
           onClick={() => layer.minLenDiff === matchingStats.matchedMedianLenDiffKm && layer.maxLenDiff === Infinity
-            ? filter(0, matchingStats.matchedMedianLenDiffKm)
+            ? showSetDifference()
             : filter(matchingStats.matchedMedianLenDiffKm, Infinity)
           }
         >
@@ -66,7 +67,10 @@ const getMatchingStatsTable = (layer: ConflationAnalysisLayer) => {
 
       <div
         style={{display: 'flex', paddingBottom: 15, cursor: 'pointer'}}
-        onClick={() => filter(0, 0.005)}
+        onClick={() => layer.minLenDiff === 0 && layer.maxLenDiff === 0.005
+          ? showSetDifference()
+          : filter(0, 0.005)
+        }
       >
         <div style={{flex: 1, textAlign: 'center'}}>
           <div>{'Δ < 5m'}</div>
@@ -78,7 +82,10 @@ const getMatchingStatsTable = (layer: ConflationAnalysisLayer) => {
 
       <div
         style={{display: 'flex', paddingBottom: 15, cursor: 'pointer'}}
-        onClick={() => filter(0.005, 0.01)}
+        onClick={() => layer.minLenDiff === 0.005 && layer.maxLenDiff === 0.01
+          ? showSetDifference()
+          : filter(0.005, 0.01)
+        }
       >
         <div style={{flex: 1, textAlign: 'center'}}>
           <div>{'5m ≤ Δ < 10m'}</div>
@@ -90,7 +97,10 @@ const getMatchingStatsTable = (layer: ConflationAnalysisLayer) => {
 
       <div
         style={{display: 'flex', paddingBottom: 15, cursor: 'pointer'}}
-        onClick={() => filter(0.01, 0.025)}
+        onClick={() => layer.minLenDiff === 0.01 && layer.maxLenDiff === 0.025
+          ? showSetDifference()
+          : filter(0.01, 0.025)
+        }
       >
         <div style={{flex: 1, textAlign: 'center'}}>
           <div>{'10m ≤ Δ < 25m'}</div>
@@ -102,7 +112,10 @@ const getMatchingStatsTable = (layer: ConflationAnalysisLayer) => {
 
       <div
         style={{display: 'flex', paddingBottom: 15, cursor: 'pointer'}}
-        onClick={() => filter(0.025, 0.05)}
+        onClick={() => layer.minLenDiff === 0.025 && layer.maxLenDiff === 0.05
+          ? showSetDifference()
+          : filter(0.025, 0.05)
+        }
       >
         <div style={{flex: 1, textAlign: 'center'}}>
           <div>{'25m < Δ ≤ 50m'}</div>
@@ -114,7 +127,10 @@ const getMatchingStatsTable = (layer: ConflationAnalysisLayer) => {
 
       <div
         style={{display: 'flex', paddingBottom: 15, cursor: 'pointer'}}
-        onClick={() => filter(0.05, 0.1)}
+        onClick={() => layer.minLenDiff === 0.05 && layer.maxLenDiff === 0.1
+          ? showSetDifference()
+          : filter(0.05, 0.1)
+        }
       >
         <div style={{flex: 1, textAlign: 'center'}}>
           <div>{'50m ≤ Δ < 100m'}</div>
@@ -126,7 +142,10 @@ const getMatchingStatsTable = (layer: ConflationAnalysisLayer) => {
 
       <div
         style={{display: 'flex', paddingBottom: 15, cursor: 'pointer'}}
-        onClick={() => filter(0.1, Infinity)}
+        onClick={() => layer.minLenDiff === 0.1 && layer.maxLenDiff === Infinity
+          ? showSetDifference()
+          : filter(0.1, Infinity)
+        }
       >
         <div style={{flex: 1, textAlign: 'center'}}>
           <div>{'100m ≤ Δ'}</div>
