@@ -40,16 +40,7 @@ export default function ConflationAnalysisView() {
   useEffect(() => {
     if (mapReady) {
       // @ts-ignore
-      // conflationAnalysisLayer.current.showTargetMapUnmatchedSegments()
-
-      // // @ts-ignore
       conflationAnalysisLayer.current.showTargetMapMatchedSegmentsInLengthDifferenceRange(0.005);
-      // @ts-ignore
-      conflationAnalysisLayer.current.showHoveredTargetMapConflationMatches();
-
-      // conflationAnalysisLayer.current.showTargetMapFowardMatchedSegmentsInLengthDifferenceRange(0, 0.005);
-      // @ts-ignore
-      // conflationAnalysisLayer.current.showHoveredTargetMapForwardConflationMatches();
     }
   }, [mapReady])
 
@@ -68,7 +59,7 @@ export default function ConflationAnalysisView() {
         style: 'mapbox://styles/mapbox/light-v10',
       },
     ]}
-    sidebar={true}
+    sidebar={false}
     header={`${targetMap} Conflation Analysis`}
   />
 }

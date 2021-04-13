@@ -96,6 +96,15 @@ export class ConflationAnalysisLayer extends MapLayer {
 
   targetMapLineOffset: number;
 
+  private targetMapMouseMoveListener: Function | null;
+
+  readonly infoBoxes: any;
+
+  minLenDiff: number | null;
+  maxLenDiff: number | null;
+
+  activeTargetMapIds: TargetMapId[];
+
   constructor(
     name: string,
     config: any,
@@ -120,6 +129,13 @@ export class ConflationAnalysisLayer extends MapLayer {
         show: true
       }
     }
+
+    this.targetMapMouseMoveListener = null
+
+    this.minLenDiff = null;
+    this.maxLenDiff = null;
+
+    this.activeTargetMapIds = []
   }
 
   onAdd(map: Map) {
@@ -130,9 +146,9 @@ export class ConflationAnalysisLayer extends MapLayer {
     // @ts-ignore
     map.addSource(this.targetMapSource.id, this.targetMapSource.source)
 
-    map.addLayer(makeLineLayer('conflation_map', conflationMapSource.id, 1, 'black', this.targetMapLineOffset + 2))
+    map.addLayer(makeLineLayer('conflation_map', conflationMapSource.id, 1, 'lightseagreen', this.targetMapLineOffset + 2))
 
-    map.addLayer(makeLineLayer('target_map', this.targetMapSource.id, 1, 'blue', this.targetMapLineOffset))
+    map.addLayer(makeLineLayer('target_map', this.targetMapSource.id, 1, 'midnightblue', this.targetMapLineOffset))
 
     this.setConflationMapVisible(false)
 
@@ -169,6 +185,8 @@ export class ConflationAnalysisLayer extends MapLayer {
   }
 
   private targetMapShow(ids: TargetMapId[]) {
+    this.activeTargetMapIds = ids
+
     this.map.setFilter('target_map', [
       'in',
       ['get', 'id'],
@@ -292,12 +310,19 @@ export class ConflationAnalysisLayer extends MapLayer {
     this.maxLenDiff = maxLenDiff;
 
     this.setTargetMapVisible(true)
+
     const targetMapIds =
       this.conflationAnalysis.getLengthDifferenceFilteredMatchedTargetMapIds(minLenDiff, maxLenDiff)
-    this.targetMapShow(targetMapIds)
-    this.setTargetMapLineColor('blue')
 
-    this.showHoveredTargetMapConflationMatches()
+    this.targetMapShow(targetMapIds)
+
+    this.conflationMapShow(
+      this.conflationAnalysis.getMatchedConflationMapIds(this.activeTargetMapIds)
+    )
+
+    this.enableShowHoveredTargetMapConflationMatches(
+      this.conflationAnalysis.getMatchedConflationMapIds.bind(this.conflationAnalysis)
+    )
   }
 
   showTargetMapFowardMatchedSegmentsInLengthDifferenceRange(minLenDiff: number | null, maxLenDiff: number | null) {
@@ -305,88 +330,85 @@ export class ConflationAnalysisLayer extends MapLayer {
     this.maxLenDiff = maxLenDiff;
 
     this.setTargetMapVisible(true)
+
     const targetMapIds =
       this.conflationAnalysis.getLengthDifferenceFilteredForwardMatchedTargetMapIds(minLenDiff, maxLenDiff)
+
     this.targetMapShow(targetMapIds)
-    this.setTargetMapLineColor('blue')
 
-    this.showHoveredTargetMapConflationMatches()
+    this.conflationMapShow(
+      this.conflationAnalysis.getForwardMatchedConflationMapIds(this.activeTargetMapIds)
+    )
+
+    this.enableShowHoveredTargetMapConflationMatches(
+      this.conflationAnalysis.getForwardMatchedConflationMapIds.bind(this.conflationAnalysis)
+    )
   }
 
-
-  showHoveredTargetMapConflationMatches() {
-    this.setConflationMapVisible(true)
-    this.conflationMapShow([])
-    this.setConflationMapLineColor('green')
-
-    if (!this.targetMapMouseMoveListener) {
-      this.targetMapMouseMoveListener = (e: any) => {
-        const hoveredTargetMapIds = e.features.map(({properties}) => properties.id)
-        const conflationMapIds = this.conflationAnalysis.getMatchedConflationMapIds(hoveredTargetMapIds)
-
-        // FIXME: Should use own layer
-        this.conflationMapShow(conflationMapIds)
-
-        this.map.setPaintProperty(
-          'target_map',
-          'line-color',
-          ["match",
-            ["get", "id"],
-            hoveredTargetMapIds,
-            'midnightblue',
-            'cornflowerblue'
-          ]
-        )
-      }
-
-      this.map.on('mousemove', 'target_map', this.targetMapMouseMoveListener)
-    }
-  }
-
-  disableShowHoveredTargetMapConflationMatches() {
+  private enableShowHoveredTargetMapConflationMatches(getMatchedConflationMapIdsFn: Function) {
+    // For idempotency
     if (this.targetMapMouseMoveListener) {
-      this.map.off('mousemove', 'target_map', this.targetMapMouseMoveListener)
-      this.targetMapMouseMoveListener = null
+      return
     }
-  }
 
-
-  showHoveredTargetMapForwardConflationMatches() {
     this.setConflationMapVisible(true)
-    this.conflationMapShow([])
-    this.setConflationMapLineColor('green')
 
-    this.map.on('mousemove', 'target_map', (e: any) => {
-      const hoveredTargetMapIds = e.features.map(({properties}) => properties.id)
-      const conflationMapIds = this.conflationAnalysis.getForwardMatchedConflationMapIds(hoveredTargetMapIds)
+    let currentActiveTargetMapIds = this.activeTargetMapIds
+    this.conflationMapShow(getMatchedConflationMapIdsFn(currentActiveTargetMapIds))
 
-      // FIXME: Should use own layer
-      this.conflationMapShow(conflationMapIds)
-
+    const updateMapColors = (targetMapIds = [-1], conflationMapIds = [-1]) => {
+      console.log('UPDATE MAP COLORS')
+      console.log(targetMapIds, conflationMapIds)
       this.map.setPaintProperty(
         'target_map',
         'line-color',
         ["match",
           ["get", "id"],
-          hoveredTargetMapIds,
+          targetMapIds,
           'midnightblue',
           'cornflowerblue'
         ]
       )
 
-      // const conflationMetrics = hoveredTargetMapIds.map(
-      // tgtMapId => this.conflationAnalysis.getConflationMetricsForTargetMapId(tgtMapId)
-      // )
+      this.map.setPaintProperty(
+        'conflation_map',
+        'line-color',
+        ["match",
+          ["get", "id"],
+          conflationMapIds,
+          'seagreen',
+          'lightgreen'
+        ]
+      )
+    }
 
-      // console.log({conflationMetrics})
-    })
+    updateMapColors()
 
-    // Turned this off because it's too sensitive
-    // this.map.on('mouseleave', 'target_map', () => {
-    // this.conflationMapShow([])
-    // })
+    this.targetMapMouseMoveListener = (e: any) => {
+      if (currentActiveTargetMapIds !== this.activeTargetMapIds) {
+        console.log('currentActiveTargetMapIds !== this.activeTargetMapIds')
+        currentActiveTargetMapIds = this.activeTargetMapIds
+        this.conflationMapShow(getMatchedConflationMapIdsFn(currentActiveTargetMapIds))
+      }
+
+      // @ts-ignore
+      const hoveredTargetMapIds = e.features.map(({properties}) => properties.id)
+      const conflationMapIds = getMatchedConflationMapIdsFn(hoveredTargetMapIds)
+
+      updateMapColors(hoveredTargetMapIds, conflationMapIds)
+    }
+
+    this.map.on('mousemove', 'target_map', this.targetMapMouseMoveListener)
   }
 
+  disableShowHoveredTargetMapConflationMatches() {
+    this.setConflationMapVisible(false)
+
+    if (this.targetMapMouseMoveListener) {
+      this.map.off('mousemove', 'target_map', this.targetMapMouseMoveListener)
+      this.targetMapMouseMoveListener = null
+    }
+  }
 }
 
 export default {
