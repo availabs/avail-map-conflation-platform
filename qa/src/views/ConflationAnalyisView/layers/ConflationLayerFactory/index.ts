@@ -69,11 +69,15 @@ const makeLineLayer =
       }
     )
 
+// FIXME: The Mapbox tiles are being cached.
+//        This throws off the ids of the conflation_map_qa source.
+// https://stackoverflow.com/a/41559057/3970755
+// Not sure if the ?fresh=true is actually working.
 const conflationMapSource = {
   id: 'conflation_map_qa',
   source: {
     type: 'vector',
-    url: `${TILESERVER_HOST}/data/conflation_map_qa.json`
+    url: `${TILESERVER_HOST}/data/conflation_map_qa.json?fresh=true`
   }
 }
 
@@ -82,14 +86,14 @@ const targetMapSources = {
     id: 'nys_ris_qa',
     source: {
       type: 'vector',
-      url: `${TILESERVER_HOST}/data/nys_ris_qa.json`
+      url: `${TILESERVER_HOST}/data/nys_ris_qa.json?fresh=true`
     }
   },
   [TargetMap.NPMRDS]: {
     id: 'npmrds_qa',
     source: {
       type: 'vector',
-      url: `${TILESERVER_HOST}/data/npmrds_qa.json`
+      url: `${TILESERVER_HOST}/data/npmrds_qa.json?fresh=true`
     }
   }
 }
@@ -519,6 +523,32 @@ export class ConflationAnalysisLayer extends MapLayer {
       this.map.off('mousemove', 'target_map', this.targetMapMouseMoveListener)
       this.targetMapMouseMoveListener = null
     }
+  }
+
+  // Recreating the MBTiles requires clearing the cache.
+  // https://github.com/mapbox/mapbox-gl-js/issues/2633#issuecomment-576050636
+  clearMapboxTileCaches() {
+    const sourceIds = [
+      conflationMapSource.id,
+      this.targetMapSource.id
+    ]
+
+    console.log(this.map.style.sourceCaches)
+
+    for (const sourceId of sourceIds) {
+      const sourceCache = this.map.style.sourceCaches[sourceId];
+
+      sourceCache.clearTiles();
+
+      for (const id in sourceCache._tiles) {
+        sourceCache._tiles[id].expirationTime = Date.now() - 1;
+        sourceCache._reloadTile(id, 'reloading');
+      }
+
+      sourceCache._cache.reset();
+    }
+
+    this.map.triggerRepaint()
   }
 }
 
