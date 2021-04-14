@@ -142,7 +142,7 @@ WITH cte_unidir_chosen_match_dir_stats AS (
     IN (
       SELECT
           edge_id,
-          forward_dir_is_preferred AS is_forward
+          (NOT forward_dir_is_preferred) AS is_forward
         FROM cte_unidir_preferred_chosen_match_dir
         WHERE ( avg_total_deviance_diff_sufficient AND preferred_direction_total_distance_sufficient )
     )
