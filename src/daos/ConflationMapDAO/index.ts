@@ -629,12 +629,12 @@ export default class ConflationMapDAO {
     console.time('loadTargetMapsAssignedMatches');
 
     try {
+      this.beginWriteTransaction();
+
       this.nysRisBBDao = new TargetMapConflationBlackboardDao(NYS_RIS);
       this.npmrdsBBDao = new TargetMapConflationBlackboardDao(NPMRDS);
 
       this.verifyTargetMapsConflationComplete();
-
-      this.beginWriteTransaction();
 
       this.createTargetMapsAssignedMatchesTable();
 
@@ -676,6 +676,7 @@ export default class ConflationMapDAO {
 
       this.commitWriteTransaction();
     } catch (err) {
+      console.error(err);
       this.rollbackWriteTransaction();
       throw err;
     } finally {
@@ -896,6 +897,8 @@ export default class ConflationMapDAO {
       }
 
       this.commitWriteTransaction();
+
+      this.loadQALengthsTables();
     } catch (err) {
       this.rollbackWriteTransaction();
       throw err;
@@ -1010,7 +1013,7 @@ export default class ConflationMapDAO {
       this.dbReadConnection.prepare(
         `
           SELECT
-              npmrds AS targetMapId,
+              tmc AS targetMapId,
               target_map_edge_length,
               forward_conflation_segments_length_sum
             FROM ${SCHEMA}.qa_npmrds_lengths ;
