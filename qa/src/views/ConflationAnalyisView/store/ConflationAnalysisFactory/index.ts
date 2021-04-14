@@ -293,6 +293,10 @@ export class ConflationAnalysis {
     return this.conflationMapToTargetMapLookup[conflationMapId] ?? null
   }
 
+  getConflationMetrics(targetMapId: TargetMapId) {
+    const stats = this.conflationMetrics[targetMapId] || null
+    return stats && {...stats}
+  }
   get matchingStats() {
     if (this.cachedMatchingStats) {
       return this.cachedMatchingStats

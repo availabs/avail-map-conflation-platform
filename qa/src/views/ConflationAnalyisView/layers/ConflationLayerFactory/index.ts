@@ -1,14 +1,19 @@
 import {Map, LineLayer} from 'mapbox-gl'
 
+import EventEmitter from 'eventemitter3'
+
 import _ from 'lodash'
 
 import MapLayer from "AvlMap/MapLayer"
+
+import {TILESERVER_HOST} from '../../../../config'
 
 import {ConflationAnalysis} from '../../store/ConflationAnalysisFactory'
 
 import {TargetMap, TargetMapId, ConflationMapId} from '../../domain/types'
 
 import ConflationMatchingStats from '../../components/ConflationMatchingStats'
+import TargetMapEdgeInfo from '../../components/TargetMapEdgeInfo'
 
 // const createLineWidthObj = (baseWidth: number) => (
 // {
@@ -35,7 +40,6 @@ const makeLineLayer =
   (
     name: string,
     sourceLayer: string,
-    baseWidth: number,
     lineColor: string,
     lineOffset: number = 0
   ): LineLayer => (
@@ -51,7 +55,8 @@ const makeLineLayer =
         'paint': {
           'line-color': lineColor,
           // @ts-ignore
-          "line-width": createLineWidthObj(baseWidth),
+          // "line-width": createLineWidthObj(baseWidth),
+          "line-width": 1,
           'line-offset': {
             "type": "exponential",
             "base": 1.5,
@@ -68,7 +73,7 @@ const conflationMapSource = {
   id: 'conflation_map_qa',
   source: {
     type: 'vector',
-    url: 'http://127.0.0.1:8090/data/conflation_map_qa.json'
+    url: `${TILESERVER_HOST}/data/conflation_map_qa.json`
   }
 }
 
@@ -77,16 +82,26 @@ const targetMapSources = {
     id: 'nys_ris_qa',
     source: {
       type: 'vector',
-      url: 'http://127.0.0.1:8090/data/nys_ris_qa.json'
+      url: `${TILESERVER_HOST}/data/nys_ris_qa.json`
     }
   },
   [TargetMap.NPMRDS]: {
     id: 'npmrds_qa',
     source: {
       type: 'vector',
-      url: 'http://127.0.0.1:8090/data/npmrds_qa.json'
+      url: `${TILESERVER_HOST}/data/npmrds_qa.json`
     }
   }
+}
+
+enum ConflationMapColors {
+  active = 'lime',
+  inactive = 'palegreen'
+}
+
+enum TargetMapColors {
+  active = 'navy',
+  inactive = 'cornflowerblue',
 }
 
 export class ConflationAnalysisLayer extends MapLayer {
@@ -105,13 +120,18 @@ export class ConflationAnalysisLayer extends MapLayer {
 
   activeTargetMapIds: TargetMapId[];
 
+  selectedTargetMapId: TargetMapId | null;
+
+  selectedTargetMapIdChangeEmitter: EventEmitter;
+
+  mapReadyEventEmitter: EventEmitter;
+
   private getMatchedConflationMapIdsFn: Function
 
   constructor(
     name: string,
     config: any,
-    conflationAnalysis: ConflationAnalysis,
-    readonly notifyMapReady: Function,
+    conflationAnalysis: ConflationAnalysis
   ) {
     super(name, config)
     this.conflationAnalysis = conflationAnalysis
@@ -124,8 +144,12 @@ export class ConflationAnalysisLayer extends MapLayer {
         : 0
 
     this.infoBoxes = {
-      ['Stats']: {
+      ['AggStats']: {
         comp: ConflationMatchingStats,
+        show: true
+      },
+      ['EdgeInfo']: {
+        comp: TargetMapEdgeInfo,
         show: true
       }
     }
@@ -136,6 +160,11 @@ export class ConflationAnalysisLayer extends MapLayer {
     this.maxLenDiff = null;
 
     this.activeTargetMapIds = []
+    this.selectedTargetMapId = null
+
+    this.selectedTargetMapIdChangeEmitter = new EventEmitter()
+
+    this.mapReadyEventEmitter = new EventEmitter()
 
     this.getMatchedConflationMapIdsFn = () => console.warn('this.getMatchedConflationMapIdsFn is not set')
   }
@@ -148,15 +177,29 @@ export class ConflationAnalysisLayer extends MapLayer {
     // @ts-ignore
     map.addSource(this.targetMapSource.id, this.targetMapSource.source)
 
-    map.addLayer(makeLineLayer('conflation_map', conflationMapSource.id, 1, 'lightseagreen', this.targetMapLineOffset + 2))
+    map.addLayer(
+      makeLineLayer(
+        'conflation_map',
+        conflationMapSource.id,
+        ConflationMapColors.inactive,
+        this.targetMapLineOffset + 2
+      )
+    )
 
-    map.addLayer(makeLineLayer('target_map', this.targetMapSource.id, 1, 'midnightblue', this.targetMapLineOffset))
+    map.addLayer(
+      makeLineLayer(
+        'target_map',
+        this.targetMapSource.id,
+        TargetMapColors.inactive,
+        this.targetMapLineOffset
+      )
+    )
 
     this.setConflationMapVisible(false)
 
     this.setTargetMapVisible(false)
 
-    this.notifyMapReady()
+    this.mapReadyEventEmitter.emit('ready')
   }
 
   private setConflationMapVisible(visible: boolean) {
@@ -170,7 +213,7 @@ export class ConflationAnalysisLayer extends MapLayer {
   private conflationMapShow(ids: ConflationMapId[]) {
     this.map.setFilter('conflation_map', [
       'in',
-      ['get', 'id'],
+      ['id'],
       ['literal', ids],
     ])
   }
@@ -372,6 +415,69 @@ export class ConflationAnalysisLayer extends MapLayer {
     )
   }
 
+  selectTargetMapId(targetMapId: TargetMapId) {
+    if (this.selectedTargetMapId !== targetMapId) {
+      this.selectedTargetMapId = targetMapId
+
+      this.selectedTargetMapIdChangeEmitter.emit('update', this.selectedTargetMapId)
+
+      this.updateMapColors()
+    }
+  }
+
+  updateMapColors() {
+    const targetMapId = this.selectedTargetMapId ?? -1
+    let conflationMapIds = this.getMatchedConflationMapIdsFn(targetMapId)
+
+    if (_.isEmpty(conflationMapIds)) {
+      conflationMapIds = [-1]
+    }
+
+    this.map.setPaintProperty(
+      'target_map',
+      'line-color',
+      ["match",
+        ["get", "id"],
+        [this.selectedTargetMapId ?? -1],
+        TargetMapColors.active,
+        TargetMapColors.inactive,
+      ]
+    )
+
+    this.map.setPaintProperty(
+      'target_map',
+      'line-width',
+      ["match",
+        ["get", "id"],
+        [this.selectedTargetMapId ?? -1],
+        2,
+        1
+      ]
+    )
+
+    this.map.setPaintProperty(
+      'conflation_map',
+      'line-color',
+      ["match",
+        ["id"],
+        conflationMapIds,
+        ConflationMapColors.active,
+        ConflationMapColors.inactive,
+      ]
+    )
+
+    this.map.setPaintProperty(
+      'conflation_map',
+      'line-width',
+      ["match",
+        ["id"],
+        conflationMapIds,
+        2,
+        1
+      ]
+    )
+  }
+
   private enableShowHoveredTargetMapConflationMatches(getMatchedConflationMapIdsFn: Function) {
     this.getMatchedConflationMapIdsFn = getMatchedConflationMapIdsFn
 
@@ -382,34 +488,12 @@ export class ConflationAnalysisLayer extends MapLayer {
 
     this.setConflationMapVisible(true)
 
+    // FIXME: May potentially break
     let currentActiveTargetMapIds = this.activeTargetMapIds
     this.conflationMapShow(getMatchedConflationMapIdsFn(currentActiveTargetMapIds))
 
-    const updateMapColors = (targetMapIds = [-1], conflationMapIds = [-1]) => {
-      this.map.setPaintProperty(
-        'target_map',
-        'line-color',
-        ["match",
-          ["get", "id"],
-          targetMapIds,
-          'midnightblue',
-          'cornflowerblue'
-        ]
-      )
-
-      this.map.setPaintProperty(
-        'conflation_map',
-        'line-color',
-        ["match",
-          ["get", "id"],
-          conflationMapIds,
-          'seagreen',
-          'lightgreen'
-        ]
-      )
-    }
-
-    updateMapColors()
+    // Run it once on entry.
+    this.updateMapColors()
 
     this.targetMapMouseMoveListener = (e: any) => {
       if (currentActiveTargetMapIds !== this.activeTargetMapIds) {
@@ -418,10 +502,11 @@ export class ConflationAnalysisLayer extends MapLayer {
       }
 
       // @ts-ignore
-      const hoveredTargetMapIds = e.features.map(({properties}) => properties.id)
-      const conflationMapIds = getMatchedConflationMapIdsFn(hoveredTargetMapIds)
+      const hoveredTargetMapIds = e.features.map(({properties}) => properties.id).slice(0, 1);
 
-      updateMapColors(hoveredTargetMapIds, conflationMapIds)
+      const hoveredTargetMapId = hoveredTargetMapIds[0] ?? -1
+
+      this.selectTargetMapId(hoveredTargetMapId)
     }
 
     this.map.on('mousemove', 'target_map', this.targetMapMouseMoveListener)
@@ -440,13 +525,11 @@ export class ConflationAnalysisLayer extends MapLayer {
 export default {
   createConflationAnalysisLayer(
     conflationAnalysis: ConflationAnalysis,
-    notifyMapReady: Function,
   ) {
     const conflationAnalysisLayer = new ConflationAnalysisLayer(
       "Conflation Analysis",
       {active: true},
       conflationAnalysis,
-      notifyMapReady,
     )
 
     return conflationAnalysisLayer

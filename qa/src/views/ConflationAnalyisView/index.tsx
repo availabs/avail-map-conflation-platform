@@ -26,12 +26,22 @@ export default function ConflationAnalysisView() {
 
       console.table(conflationAnalysis.current.matchingStats)
 
-      const notifyMapReady = () => setMapReady(true)
-
       conflationAnalysisLayer.current = ConflationLayerFactory
-        .createConflationAnalysisLayer(conflationAnalysis.current, notifyMapReady)
+        .createConflationAnalysisLayer(conflationAnalysis.current)
+
+      conflationAnalysisLayer.current.mapReadyEventEmitter.once('ready', () => setMapReady(true))
+
+      // So we can manipulate the map from the console.
+      //   E.G.: conflationAnalysisLayer.selectTargetMapId('120+25135')
+      // @ts-ignore
+      window.conflationAnalysisLayer = conflationAnalysisLayer.current
 
       setPageReady(true)
+
+      return () => {
+        // @ts-ignore
+        window.conflationAnalysisLayer = undefined
+      }
     })();
   }, []);
 
@@ -48,6 +58,7 @@ export default function ConflationAnalysisView() {
 
   // const statsTable = <ConflationMatchingStatsTable conflationAnalysis={conflationAnalysis.current}/>
 
+
   return <AvlMap
     layers={[conflationAnalysisLayer.current]}
     dragPan={true}
@@ -61,4 +72,3 @@ export default function ConflationAnalysisView() {
     header={`${targetMap} Conflation Analysis`}
   />
 }
-
