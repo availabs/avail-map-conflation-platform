@@ -134,6 +134,13 @@ export default class TargetMapConflationBlackboardDao<
         this.dbReadConnection,
         this.targetMapSchema,
       );
+
+      // FIXME: Was getting Database Locked error when running for the entire state.
+      //        This did not happen when running for a County.
+      //        This fixed the problem, but I don't understand why the error was
+      //          happening in the first place.
+      // @ts-ignore
+      this.dbReadConnection.unsafeMode(true);
     }
 
     return this.connections.dbReadConnection;
@@ -150,6 +157,16 @@ export default class TargetMapConflationBlackboardDao<
       db.attachDatabaseToConnection(
         this.dbWriteConnection,
         this.targetMapSchema,
+      );
+
+      // FIXME: Was getting Database Locked error when running for the entire state.
+      //        This did not happen when running for a County.
+      //        This fixed the problem, but I don't understand why the error was
+      //          happening in the first place.
+      // @ts-ignore
+      this.dbWriteConnection.unsafeMode(true);
+      this.dbWriteConnection.pragma(
+        `${this.blkbrdDbSchema}.journal_mode = WAL`,
       );
     }
 
