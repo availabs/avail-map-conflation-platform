@@ -12,22 +12,7 @@
 */
 BEGIN;
 
-DROP TABLE IF EXISTS paths_last_edge_idx ;
 DROP TABLE IF EXISTS disputed_chosen_match_trimmability ;
-
-CREATE TABLE paths_last_edge_idx (
-  path_id             INTEGER PRIMARY KEY,
-  last_path_edge_idx  INTEGER NOT NULL
-) WITHOUT ROWID;
-
-INSERT INTO paths_last_edge_idx
-  SELECT
-      path_id,
-      MAX(path_edge_idx) AS last_path_edge_idx
-    FROM target_map.target_map_ppg_path_edges
-    GROUP BY (path_id)
-;
-
 
 CREATE TABLE disputed_chosen_match_trimmability (
     path_id                INTEGER NOT NULL,
@@ -83,9 +68,9 @@ INSERT INTO disputed_chosen_match_trimmability
           is_forward,
           edge_shst_match_idx
         )
-      INNER JOIN paths_last_edge_idx
+      INNER JOIN target_map_path_last_edge_idx
         USING (path_id)
-    WHERE ( last_path_edge_idx = 0 ) ; -- TMPaths with a single edge are a special case
+    WHERE ( last_edge_idx = 0 ) ; -- TMPaths with a single edge are a special case
 
 INSERT OR IGNORE INTO disputed_chosen_match_trimmability
   -- ChosenMatches for first TMPath in the forward direction
@@ -115,10 +100,10 @@ INSERT OR IGNORE INTO disputed_chosen_match_trimmability
               is_forward,
               edge_shst_match_idx
             )
-          INNER JOIN paths_last_edge_idx
+          INNER JOIN target_map_path_last_edge_idx
             USING (path_id)
         WHERE (
-          ( last_path_edge_idx > 0 ) -- TMPaths with a single edge are a special case
+          ( last_edge_idx > 0 ) -- TMPaths with a single edge are a special case
           AND
           ( path_edge_idx = 0 ) -- The start edge of the TMPath in the forward direction.
           AND
@@ -151,10 +136,10 @@ INSERT OR IGNORE INTO disputed_chosen_match_trimmability
           is_forward,
           edge_shst_match_idx
         )
-      INNER JOIN paths_last_edge_idx
+      INNER JOIN target_map_path_last_edge_idx
         USING (path_id)
     WHERE (
-      ( last_path_edge_idx > 0 ) -- TMPaths with a single edge are a special case
+      ( last_edge_idx > 0 ) -- TMPaths with a single edge are a special case
       AND
       ( path_edge_idx = 0 ) -- The last edge of the TMPath in the backward direction.
       AND
@@ -181,12 +166,12 @@ INSERT OR IGNORE INTO disputed_chosen_match_trimmability
           is_forward,
           edge_shst_match_idx
         )
-      INNER JOIN paths_last_edge_idx
+      INNER JOIN target_map_path_last_edge_idx
         USING (path_id)
     WHERE (
-      ( last_path_edge_idx > 0 ) -- TMPaths with a single edge are a special case
+      ( last_edge_idx > 0 ) -- TMPaths with a single edge are a special case
       AND
-      ( path_edge_idx = last_path_edge_idx )
+      ( path_edge_idx = last_edge_idx )
       AND
       ( is_forward )
     )
@@ -218,12 +203,12 @@ INSERT OR IGNORE INTO disputed_chosen_match_trimmability
               is_forward,
               edge_shst_match_idx
             )
-          INNER JOIN paths_last_edge_idx AS b
+          INNER JOIN target_map_path_last_edge_idx
             USING (path_id)
         WHERE (
-          ( last_path_edge_idx > 0 ) -- TMPaths with a single edge are a special case
+          ( last_edge_idx > 0 ) -- TMPaths with a single edge are a special case
           AND
-          ( path_edge_idx = last_path_edge_idx )
+          ( path_edge_idx = last_edge_idx )
           AND
           ( NOT is_forward )
         )

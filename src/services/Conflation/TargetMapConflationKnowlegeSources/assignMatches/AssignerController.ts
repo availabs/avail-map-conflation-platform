@@ -1,10 +1,11 @@
 /* eslint-disable no-restricted-syntax */
 
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
 import { Database as SqliteDatabase } from 'better-sqlite3';
 
 import loadChosenMatchDisputes from './utils/loadChosenMatchDisputes';
-import loadTrimmabilityTable from './utils/loadTrimmabilityTable';
-import createAssignedMatchesTable from './utils/createAssignedMatchesTable';
 
 import AssignerWorkDatabaseService from './AssignerWorkDatabaseService';
 import AssignerStrategy from './AssignerStrategy';
@@ -13,6 +14,12 @@ import { TargetMapSchema } from '../../../../utils/TargetMapDatabases/TargetMapD
 import { AssignedMatch } from '../../domain/types';
 
 export default class AssignerController {
+  protected static getSql(fName: string) {
+    return readFileSync(join(__dirname, './sql/', fName), {
+      encoding: 'utf8',
+    });
+  }
+
   readonly db: SqliteDatabase;
 
   private readonly assignerStrategy: AssignerStrategy;
@@ -33,10 +40,61 @@ export default class AssignerController {
     );
   }
 
+  // These tables simply hold information. They do not assign matches.
   initializeCoreDatabaseTables() {
+    console.time('initializeCoreDatabaseTables');
     loadChosenMatchDisputes(this.db);
-    loadTrimmabilityTable(this.db);
-    createAssignedMatchesTable(this.db);
+    this.createDiscoveredKnavesTables();
+    this.createTargetMapPathLastEdgeTable();
+    this.createTargetMapPathEdgeChosenMatchesAggregateStats();
+    this.createTargetMapUnidirectionalEdgePreferredDirectionTable();
+    this.loadTrimmabilityTable();
+    this.createAssignedMatchesTable();
+    console.timeEnd('initializeCoreDatabaseTables');
+  }
+
+  protected createDiscoveredKnavesTables() {
+    const sql = AssignerController.getSql(
+      'create_discovered_knaves_tables.sql',
+    );
+
+    this.db.exec(sql);
+  }
+
+  protected createTargetMapPathLastEdgeTable() {
+    const sql = AssignerController.getSql(
+      'create_target_map_path_last_edge_table.sql',
+    );
+
+    this.db.exec(sql);
+  }
+
+  protected createTargetMapPathEdgeChosenMatchesAggregateStats() {
+    const sql = AssignerController.getSql(
+      'create_target_map_path_edge_chosen_matches_aggregate_stats_table.sql',
+    );
+
+    this.db.exec(sql);
+  }
+
+  protected createTargetMapUnidirectionalEdgePreferredDirectionTable() {
+    const sql = AssignerController.getSql(
+      'create_target_map_unidirectional_edge_preferred_direction_table.sql',
+    );
+
+    this.db.exec(sql);
+  }
+
+  protected loadTrimmabilityTable() {
+    const sql = AssignerController.getSql('initialize_trimmability_table.sql');
+
+    this.db.exec(sql);
+  }
+
+  protected createAssignedMatchesTable() {
+    const sql = AssignerController.getSql('create_assigned_matches_table.sql');
+
+    this.db.exec(sql);
   }
 
   *makeMatchesIterator(): Generator<AssignedMatch> {
@@ -58,7 +116,23 @@ export default class AssignerController {
                   is_forward,
                   edge_shst_match_idx
                 )
-            WHERE ( b.dispute_id IS NULL )
+              LEFT OUTER JOIN discovered_knaves AS c
+                ON (
+                  ( a.shst_reference = c.shst_reference_id )
+                  AND
+                  ( a.edge_id = c.edge_id )
+                  AND
+                  ( a.is_forward = c.is_forward )
+                  AND
+                  ( a.section_start < c.section_end )
+                  AND
+                  ( a.section_end > c.section_start )
+                )
+            WHERE (
+              ( b.path_id IS NULL )
+              AND
+              ( c.shst_reference_id IS NULL )
+            )
       `,
       )
       .iterate();

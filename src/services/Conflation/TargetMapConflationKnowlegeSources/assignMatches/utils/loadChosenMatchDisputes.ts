@@ -139,12 +139,37 @@ export default function loadChosenMatchDisputes(db: SqliteDatabase) {
     }
   }
 
+  console.warn();
+  console.warn(
+    'FIXME: Why is "OR IGNORE" required in INSERT OR IGNORE INTO chosen_match_dispute_claimants_initial',
+  );
+  console.warn();
+
   db.exec(`
-    CREATE TABLE chosen_match_dispute_claimants_initial
-      AS
-        SELECT
-            *
-          FROM chosen_match_dispute_claimants
+    INSERT OR IGNORE INTO chosen_match_dispute_claimants_initial (
+      path_id,
+      path_edge_idx,
+
+      edge_id,
+
+      is_forward,
+      edge_shst_match_idx,
+
+      section_start,
+      section_end
+    )
+      SELECT
+          path_id,
+          path_edge_idx,
+
+          edge_id,
+
+          is_forward,
+          edge_shst_match_idx,
+
+          section_start,
+          section_end
+        FROM chosen_match_dispute_claimants
     ;
   `);
 

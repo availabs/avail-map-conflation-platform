@@ -45,3 +45,23 @@ CREATE TABLE chosen_match_dispute_claimants (
     REFERENCES chosen_match_disputed_sections
     ON DELETE CASCADE
 ) WITHOUT ROWID ;
+
+CREATE TABLE chosen_match_dispute_claimants_initial (
+  path_id                  INTEGER NOT NULL,
+  path_edge_idx            INTEGER NOT NULL,
+
+  edge_id                  INTEGER NOT NULL,
+
+  is_forward               INTEGER NOT NULL,
+  edge_shst_match_idx      INTEGER NOT NULL,
+
+  section_start            REAL NOT NULL,
+  section_end              REAL NOT NULL
+
+  PRIMARY KEY (
+    path_id,
+    path_edge_idx,
+    is_forward,
+    edge_shst_match_idx
+  )
+) WITHOUT ROWID ;
