@@ -164,11 +164,11 @@ export class ConflationAnalysis {
       } = this.conflationMetrics[targetMapId]
 
       const directionalMatched = isUnidirectional
-        ? (
+        ? !!(
           forwardConflationSegmentsLengthSum
           || backwardConflationSegmentsLengthSum
         )
-        : (
+        : !!(
           forwardConflationSegmentsLengthSum
           && backwardConflationSegmentsLengthSum
         )
@@ -184,7 +184,11 @@ export class ConflationAnalysis {
         ? Math.abs(targetMapEdgeLength - forwardConflationSegmentsLengthSum)
         : targetMapEdgeLength
 
-      this.forwardMatchLengthDiffs[targetMapId] = fwdLenDiff
+
+      this.forwardMatchLengthDiffs[targetMapId] =
+        (!directionalMatched || forwardConflationSegmentsLengthSum)
+          ? fwdLenDiff
+          : null
 
       if (forwardConflationSegmentsLengthSum) {
         this.forwardMatchedTargetMapIds.push(targetMapId)
@@ -200,6 +204,7 @@ export class ConflationAnalysis {
         this.forwardUnmatchedTargetMapIds.push(targetMapId)
       }
 
+      // If the TargetMap is unidirectional (E.G.: NPMRDS, not centerline)
       if (!this.targetMapIsUnidirectional) {
         const {
           backwardConflationSegmentsLengthSum
@@ -210,8 +215,12 @@ export class ConflationAnalysis {
           ? Math.abs(targetMapEdgeLength - backwardConflationSegmentsLengthSum)
           : targetMapEdgeLength
 
+
         // @ts-ignore
-        this.backwardMatchLengthDiffs[targetMapId] = bwdLenDiff
+        this.backwardMatchLengthDiffs[targetMapId] =
+          (!directionalMatched || backwardConflationSegmentsLengthSum)
+            ? bwdLenDiff
+            : null
 
         if (backwardConflationSegmentsLengthSum) {
           // @ts-ignore
@@ -446,54 +455,57 @@ export class ConflationAnalysis {
   // FIXME: All using only forwardMatchLengthDiffs
   private filterTargetMapIdsByMatchLengthDiffs(
     targetMapIds: TargetMapId[],
-    minFwdLenDiff?: number | null,
-    maxFwdLenDiff?: number | null
+    minLenDiff?: number | null,
+    maxLenDiff?: number | null
   ) {
-    const min = minFwdLenDiff ?? -Infinity
-    const max = maxFwdLenDiff ?? Infinity
+    const min = minLenDiff ?? -Infinity
+    const max = maxLenDiff ?? Infinity
 
+    // let n = 0
     return targetMapIds.filter(
-      targetMapId => (
-        this.forwardMatchLengthDiffs[targetMapId] !== null
-        // @ts-ignore
-        && this.forwardMatchLengthDiffs[targetMapId] >= min
-        // @ts-ignore
-        && this.forwardMatchLengthDiffs[targetMapId] < max
-      )
+      targetMapId => {
+
+        const lengthDiff = Math.max(
+          this.forwardMatchLengthDiffs[targetMapId] || -Infinity,
+          this.backwardMatchLengthDiffs?.[targetMapId] || -Infinity,
+        )
+
+        return lengthDiff >= min && lengthDiff < max
+      }
     )
   }
 
   getLengthDifferenceFilteredMatchedTargetMapIds(
-    minFwdLenDiff?: number | null,
-    maxFwdLenDiff?: number | null
+    minLenDiff?: number | null,
+    maxLenDiff?: number | null
   ) {
     // FIXME: Should pass ONLY if both directions pass
     return this.filterTargetMapIdsByMatchLengthDiffs(
       this.directionalMatchedTargetMapIds,
-      minFwdLenDiff,
-      maxFwdLenDiff
+      minLenDiff,
+      maxLenDiff
     )
   }
 
   getLengthDifferenceFilteredForwardMatchedTargetMapIds(
-    minFwdLenDiff?: number | null,
-    maxFwdLenDiff?: number | null
+    minLenDiff?: number | null,
+    maxLenDiff?: number | null
   ) {
     return this.filterTargetMapIdsByMatchLengthDiffs(
       this.forwardMatchedTargetMapIds,
-      minFwdLenDiff,
-      maxFwdLenDiff
+      minLenDiff,
+      maxLenDiff
     )
   }
 
   getLengthDifferenceFilteredBackwardMatchedTargetMapIds(
-    minFwdLenDiff?: number | null,
-    maxFwdLenDiff?: number | null
+    minLenDiff?: number | null,
+    maxLenDiff?: number | null
   ) {
     return this.filterTargetMapIdsByMatchLengthDiffs(
       this.backwardMatchedTargetMapIds || [],
-      minFwdLenDiff,
-      maxFwdLenDiff
+      minLenDiff,
+      maxLenDiff
     )
   }
 

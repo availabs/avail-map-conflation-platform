@@ -15,26 +15,6 @@ import {TargetMap, TargetMapId, ConflationMapId} from '../../domain/types'
 import ConflationMatchingStats from '../../components/ConflationMatchingStats'
 import TargetMapEdgeInfo from '../../components/TargetMapEdgeInfo'
 
-// const createLineWidthObj = (baseWidth: number) => (
-// {
-// "type": "exponential",
-// "base": 2,
-// "stops": [
-// [1, baseWidth * Math.pow(2, (1 - 8))],
-// [8, baseWidth * Math.pow(2, (8 - 8))]
-// ]
-// });
-
-const createLineWidthObj = (baseWidth: number) => (
-  {
-    "type": "exponential",
-    "base": 2,
-    "stops": [
-      [1, baseWidth * Math.pow(2, (1 - 8))],
-      [8, baseWidth * Math.pow(2, (8 - 8))]
-    ]
-  });
-
 // https://gis.stackexchange.com/a/259429
 const makeLineLayer =
   (
@@ -43,31 +23,31 @@ const makeLineLayer =
     lineColor: string,
     lineOffset: number = 0
   ): LineLayer => (
-      {
-        "id": name,
-        "type": "line",
-        "source": sourceLayer,
-        "source-layer": sourceLayer,
-        'layout': {
-          'line-join': 'round',
-          'line-cap': 'round',
+    {
+      "id": name,
+      "type": "line",
+      "source": sourceLayer,
+      "source-layer": sourceLayer,
+      'layout': {
+        'line-join': 'round',
+        'line-cap': 'round',
+      },
+      'paint': {
+        'line-color': lineColor,
+        // @ts-ignore
+        // "line-width": createLineWidthObj(baseWidth),
+        "line-width": 1,
+        'line-offset': {
+          "type": "exponential",
+          "base": 1.5,
+          "stops": [
+            [0, lineOffset * Math.pow(1.5, (0 - 8))],
+            [10, lineOffset * Math.pow(1.5, (10 - 8))]
+          ]
         },
-        'paint': {
-          'line-color': lineColor,
-          // @ts-ignore
-          // "line-width": createLineWidthObj(baseWidth),
-          "line-width": 1,
-          'line-offset': {
-            "type": "exponential",
-            "base": 1.5,
-            "stops": [
-              [0, lineOffset * Math.pow(1.5, (0 - 8))],
-              [10, lineOffset * Math.pow(1.5, (10 - 8))]
-            ]
-          },
-        },
-      }
-    )
+      },
+    }
+  )
 
 // FIXME: The Mapbox tiles are being cached.
 //        This throws off the ids of the conflation_map_qa source.
@@ -104,8 +84,10 @@ enum ConflationMapColors {
 }
 
 enum TargetMapColors {
-  active = 'navy',
-  inactive = 'cornflowerblue',
+  matchedActive = 'navy',
+  matchedInactive = 'cornflowerblue',
+  unmatchedActive = 'darkred',
+  unmatchedInactive = 'salmon',
 }
 
 export class ConflationAnalysisLayer extends MapLayer {
@@ -171,6 +153,7 @@ export class ConflationAnalysisLayer extends MapLayer {
     this.mapReadyEventEmitter = new EventEmitter()
 
     this.getMatchedConflationMapIdsFn = () => console.warn('this.getMatchedConflationMapIdsFn is not set')
+
   }
 
   onAdd(map: Map) {
@@ -194,7 +177,7 @@ export class ConflationAnalysisLayer extends MapLayer {
       makeLineLayer(
         'target_map',
         this.targetMapSource.id,
-        TargetMapColors.inactive,
+        TargetMapColors.matchedInactive,
         this.targetMapLineOffset
       )
     )
@@ -204,6 +187,8 @@ export class ConflationAnalysisLayer extends MapLayer {
     this.setTargetMapVisible(false)
 
     this.mapReadyEventEmitter.emit('ready')
+
+    this.enableShowHoveredTargetMapConflationMatches()
   }
 
   private setConflationMapVisible(visible: boolean) {
@@ -218,7 +203,7 @@ export class ConflationAnalysisLayer extends MapLayer {
     this.map.setFilter('conflation_map', [
       'in',
       ['id'],
-      ['literal', ids],
+      ['literal', _.isEmpty(ids) ? [-1] : ids],
     ])
   }
 
@@ -243,12 +228,16 @@ export class ConflationAnalysisLayer extends MapLayer {
     ])
   }
 
-  get showingMatched() {
-    return this.activeTargetMapIds === this.conflationAnalysis.directionalMatchedTargetMapIds
+  get showingUnmatched() {
+    return (
+      (this.activeTargetMapIds === this.conflationAnalysis.directionalUnmatchedTargetMapIds)
+      || (this.activeTargetMapIds === this.conflationAnalysis.forwardUnmatchedTargetMapIds)
+      || (this.activeTargetMapIds === this.conflationAnalysis.backwardUnmatchedTargetMapIds)
+    )
   }
 
-  get showingUnmatched() {
-    return this.activeTargetMapIds === this.conflationAnalysis.directionalUnmatchedTargetMapIds
+  get showingMatched() {
+    return !this.showingUnmatched
   }
 
   showSetDifferenceTargetMapSegments() {
@@ -335,7 +324,7 @@ export class ConflationAnalysisLayer extends MapLayer {
     this.targetMapShow(this.conflationAnalysis.directionalUnmatchedTargetMapIds)
     this.setTargetMapLineColor('red')
 
-    this.disableShowHoveredTargetMapConflationMatches()
+    this.updateMapColors()
   }
 
   showTargetMapForwardMatchedSegments() {
@@ -353,7 +342,7 @@ export class ConflationAnalysisLayer extends MapLayer {
     this.targetMapShow(this.conflationAnalysis.forwardUnmatchedTargetMapIds)
     this.setTargetMapLineColor('red')
 
-    this.disableShowHoveredTargetMapConflationMatches()
+    // this.disableShowHoveredTargetMapConflationMatches()
   }
 
   showTargetMapBackwardMatchedSegments() {
@@ -370,8 +359,6 @@ export class ConflationAnalysisLayer extends MapLayer {
     this.setTargetMapVisible(true)
     this.targetMapShow(this.conflationAnalysis.backwardUnmatchedTargetMapIds ?? [])
     this.setTargetMapLineColor('red')
-
-    this.disableShowHoveredTargetMapConflationMatches()
   }
 
   private resetMinAndMaxLenDiffs() {
@@ -394,9 +381,10 @@ export class ConflationAnalysisLayer extends MapLayer {
       this.conflationAnalysis.getMatchedConflationMapIds(this.activeTargetMapIds)
     )
 
-    this.enableShowHoveredTargetMapConflationMatches(
+    this.getMatchedConflationMapIdsFn =
       this.conflationAnalysis.getMatchedConflationMapIds.bind(this.conflationAnalysis)
-    )
+
+    this.updateMapColors()
   }
 
   showTargetMapFowardMatchedSegmentsInLengthDifferenceRange(minLenDiff: number | null, maxLenDiff: number | null) {
@@ -414,9 +402,10 @@ export class ConflationAnalysisLayer extends MapLayer {
       this.conflationAnalysis.getForwardMatchedConflationMapIds(this.activeTargetMapIds)
     )
 
-    this.enableShowHoveredTargetMapConflationMatches(
+    this.getMatchedConflationMapIdsFn =
       this.conflationAnalysis.getForwardMatchedConflationMapIds.bind(this.conflationAnalysis)
-    )
+
+    this.updateMapColors()
   }
 
   selectTargetMapId(targetMapId: TargetMapId) {
@@ -437,14 +426,24 @@ export class ConflationAnalysisLayer extends MapLayer {
       conflationMapIds = [-1]
     }
 
+    const [activeColor, inactiveColor] =
+      this.showingMatched
+        ? [
+          TargetMapColors.matchedActive,
+          TargetMapColors.matchedInactive,
+        ] : [
+          TargetMapColors.unmatchedActive,
+          TargetMapColors.unmatchedInactive,
+        ]
+
     this.map.setPaintProperty(
       'target_map',
       'line-color',
       ["match",
         ["get", "id"],
         [this.selectedTargetMapId ?? -1],
-        TargetMapColors.active,
-        TargetMapColors.inactive,
+        activeColor,
+        inactiveColor
       ]
     )
 
@@ -482,9 +481,7 @@ export class ConflationAnalysisLayer extends MapLayer {
     )
   }
 
-  private enableShowHoveredTargetMapConflationMatches(getMatchedConflationMapIdsFn: Function) {
-    this.getMatchedConflationMapIdsFn = getMatchedConflationMapIdsFn
-
+  private enableShowHoveredTargetMapConflationMatches() {
     // For idempotency
     if (this.targetMapMouseMoveListener) {
       return
@@ -494,7 +491,7 @@ export class ConflationAnalysisLayer extends MapLayer {
 
     // FIXME: May potentially break
     let currentActiveTargetMapIds = this.activeTargetMapIds
-    this.conflationMapShow(getMatchedConflationMapIdsFn(currentActiveTargetMapIds))
+    this.conflationMapShow(this.getMatchedConflationMapIdsFn(currentActiveTargetMapIds))
 
     // Run it once on entry.
     this.updateMapColors()
@@ -505,24 +502,17 @@ export class ConflationAnalysisLayer extends MapLayer {
         this.conflationMapShow(this.getMatchedConflationMapIdsFn(currentActiveTargetMapIds))
       }
 
+      if (_.isEmpty(e.features)) {
+        return
+      }
       // @ts-ignore
       const hoveredTargetMapIds = e.features.map(({properties}) => properties.id).slice(0, 1);
 
       const hoveredTargetMapId = hoveredTargetMapIds[0] ?? -1
-
       this.selectTargetMapId(hoveredTargetMapId)
     }
 
-    this.map.on('mousemove', 'target_map', this.targetMapMouseMoveListener)
-  }
-
-  disableShowHoveredTargetMapConflationMatches() {
-    this.setConflationMapVisible(false)
-
-    if (this.targetMapMouseMoveListener) {
-      this.map.off('mousemove', 'target_map', this.targetMapMouseMoveListener)
-      this.targetMapMouseMoveListener = null
-    }
+    this.map.on('mouseover', 'target_map', this.targetMapMouseMoveListener)
   }
 
   // Recreating the MBTiles requires clearing the cache.
