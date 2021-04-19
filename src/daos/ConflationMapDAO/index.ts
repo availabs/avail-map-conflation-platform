@@ -147,7 +147,9 @@ export default class ConflationMapDAO {
 
     this.preparedReadStatements = {};
     this.preparedWriteStatements = {};
+  }
 
+  initialize() {
     try {
       this.loadOsmWayChosenMatchesTable();
 
@@ -320,14 +322,20 @@ export default class ConflationMapDAO {
 
     console.time('loadTempAllOsmWaysWithShstReferencesTable');
 
-    const albanyCounty: turf.Feature<turf.Polygon> = JSON.parse(
+    const countyPolygon: turf.Feature<turf.Polygon> = JSON.parse(
       readFileSync(join(__dirname, './geojson/albanyCounty.geojson'), {
         encoding: 'utf8',
       }),
     );
 
+    // const countyPolygon: turf.Feature<turf.Polygon> = JSON.parse(
+    // readFileSync(join(__dirname, './geojson/kingsCounty.geojson'), {
+    // encoding: 'utf8',
+    // }),
+    // );
+
     // @ts-ignore
-    const boundingPolyHull = getGeometriesConcaveHull([albanyCounty]);
+    const boundingPolyHull = getGeometriesConcaveHull([countyPolygon]);
     const [boundingPolyCoords] = turf.getCoords(boundingPolyHull);
 
     this.dbWriteConnection

@@ -4,7 +4,7 @@ export const initializeConflationMapDatabase = {
   command: 'initialize_conflation_map_database',
   desc: 'Initialize the Conflation Map Database',
   builder: {},
-  handler: () => new ConflationMapDAO(),
+  handler: () => new ConflationMapDAO().initialize(),
 };
 
 export const outputConflationMapMBTiles = {
