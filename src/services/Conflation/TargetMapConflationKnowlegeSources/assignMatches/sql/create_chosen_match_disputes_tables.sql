@@ -56,7 +56,7 @@ CREATE TABLE chosen_match_dispute_claimants_initial (
   edge_shst_match_idx      INTEGER NOT NULL,
 
   section_start            REAL NOT NULL,
-  section_end              REAL NOT NULL
+  section_end              REAL NOT NULL,
 
   PRIMARY KEY (
     path_id,

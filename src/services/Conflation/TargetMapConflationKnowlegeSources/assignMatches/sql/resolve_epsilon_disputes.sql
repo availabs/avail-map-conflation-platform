@@ -1,5 +1,3 @@
-BEGIN;
-
 WITH cte_max_claim_length AS (
   SELECT
       dispute_id,
@@ -20,5 +18,3 @@ WITH cte_max_claim_length AS (
           ( ( a.section_end - a.section_start ) / b.max_section_len ) < 0.1
         )
     ) ;
-
-COMMIT;

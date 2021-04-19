@@ -87,7 +87,7 @@ export default class AssignerStrategy {
   }
 
   protected static readonly resolveEpsilonDisputesSql = readFileSync(
-    join(__dirname, './sql/resolve_preferred_unidirectional.sql'),
+    join(__dirname, './sql/resolve_epsilon_disputes.sql'),
     {
       encoding: 'utf8',
     },
