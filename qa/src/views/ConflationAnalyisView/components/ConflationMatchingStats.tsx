@@ -55,7 +55,7 @@ const getMatchingStatsTable = (layer: ConflationAnalysisLayer) =>
       filter(-Infinity, Infinity, MatchFilter.matched)
     }, []);
 
-    const borderColor = showingSetDifference ? 'salmon' : 'cornflowerblue'
+    const borderColor = showingSetDifference ? 'crimson' : 'cornflowerblue'
 
     return (
       <div>

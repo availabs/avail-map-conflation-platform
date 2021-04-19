@@ -87,7 +87,7 @@ enum TargetMapColors {
   matchedActive = 'navy',
   matchedInactive = 'cornflowerblue',
   unmatchedActive = 'darkred',
-  unmatchedInactive = 'salmon',
+  unmatchedInactive = 'crimson',
 }
 
 export class ConflationAnalysisLayer extends MapLayer {
