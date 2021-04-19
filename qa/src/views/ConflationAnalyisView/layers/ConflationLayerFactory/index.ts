@@ -23,31 +23,31 @@ const makeLineLayer =
     lineColor: string,
     lineOffset: number = 0
   ): LineLayer => (
-    {
-      "id": name,
-      "type": "line",
-      "source": sourceLayer,
-      "source-layer": sourceLayer,
-      'layout': {
-        'line-join': 'round',
-        'line-cap': 'round',
-      },
-      'paint': {
-        'line-color': lineColor,
-        // @ts-ignore
-        // "line-width": createLineWidthObj(baseWidth),
-        "line-width": 1,
-        'line-offset': {
-          "type": "exponential",
-          "base": 1.5,
-          "stops": [
-            [0, lineOffset * Math.pow(1.5, (0 - 8))],
-            [10, lineOffset * Math.pow(1.5, (10 - 8))]
-          ]
+      {
+        "id": name,
+        "type": "line",
+        "source": sourceLayer,
+        "source-layer": sourceLayer,
+        'layout': {
+          'line-join': 'round',
+          'line-cap': 'round',
         },
-      },
-    }
-  )
+        'paint': {
+          'line-color': lineColor,
+          // @ts-ignore
+          // "line-width": createLineWidthObj(baseWidth),
+          "line-width": 1,
+          'line-offset': {
+            "type": "exponential",
+            "base": 1.5,
+            "stops": [
+              [0, lineOffset * Math.pow(1.5, (0 - 8))],
+              [10, lineOffset * Math.pow(1.5, (10 - 8))]
+            ]
+          },
+        },
+      }
+    )
 
 // FIXME: The Mapbox tiles are being cached.
 //        This throws off the ids of the conflation_map_qa source.
@@ -182,9 +182,9 @@ export class ConflationAnalysisLayer extends MapLayer {
       )
     )
 
-    this.setConflationMapVisible(false)
+    this.setConflationMapVisible(true)
 
-    this.setTargetMapVisible(false)
+    this.setTargetMapVisible(true)
 
     this.mapReadyEventEmitter.emit('ready')
 
@@ -265,39 +265,11 @@ export class ConflationAnalysisLayer extends MapLayer {
     this.setMapLineColor('conflation_map', color)
   }
 
-  private setTargetMapLineColor(color: string) {
-    this.setMapLineColor('target_map', color)
-  }
-
-  hideConflationMap() {
-    this.setConflationMapVisible(false)
-  }
-
-  hideTargetMap() {
-    this.setTargetMapVisible(false)
-  }
-
   showConflationMapMatchedSegments() {
     this.resetMinAndMaxLenDiffs()
 
     this.setConflationMapVisible(true)
     this.conflationMapShow(this.conflationAnalysis.matchedConflationMapIds)
-    this.setConflationMapLineColor('black')
-  }
-
-  showConflationMapForwardMatchedSegments() {
-    this.resetMinAndMaxLenDiffs()
-
-    this.setConflationMapVisible(true)
-    this.conflationMapShow(this.conflationAnalysis.forwardMatchedConflationMapIds)
-    this.setConflationMapLineColor('black')
-  }
-
-  showConflationMapSegmentsBackwardMatched() {
-    this.resetMinAndMaxLenDiffs()
-
-    this.setConflationMapVisible(true)
-    this.conflationMapShow(this.conflationAnalysis.backwardMatchedConflationMapIds)
     this.setConflationMapLineColor('black')
   }
 
@@ -312,53 +284,24 @@ export class ConflationAnalysisLayer extends MapLayer {
   showTargetMapMatchedSegments() {
     this.resetMinAndMaxLenDiffs()
 
-    this.setTargetMapVisible(true)
     this.targetMapShow(this.conflationAnalysis.directionalMatchedTargetMapIds)
-    this.setTargetMapLineColor('blue')
+
+    this.getMatchedConflationMapIdsFn =
+      this.conflationAnalysis.getMatchedConflationMapIds.bind(this.conflationAnalysis)
+
+    this.updateMapColors()
   }
 
   showTargetMapUnmatchedSegments() {
     this.resetMinAndMaxLenDiffs()
 
-    this.setTargetMapVisible(true)
     this.targetMapShow(this.conflationAnalysis.directionalUnmatchedTargetMapIds)
-    this.setTargetMapLineColor('red')
+
+    this.conflationMapShow(
+      this.conflationAnalysis.getMatchedConflationMapIds(this.activeTargetMapIds)
+    )
 
     this.updateMapColors()
-  }
-
-  showTargetMapForwardMatchedSegments() {
-    this.resetMinAndMaxLenDiffs()
-
-    this.setTargetMapVisible(true)
-    this.targetMapShow(this.conflationAnalysis.forwardMatchedTargetMapIds)
-    this.setTargetMapLineColor('blue')
-  }
-
-  showTargetMapForwardUnmatchedSegments() {
-    this.resetMinAndMaxLenDiffs()
-
-    this.setTargetMapVisible(true)
-    this.targetMapShow(this.conflationAnalysis.forwardUnmatchedTargetMapIds)
-    this.setTargetMapLineColor('red')
-
-    // this.disableShowHoveredTargetMapConflationMatches()
-  }
-
-  showTargetMapBackwardMatchedSegments() {
-    this.resetMinAndMaxLenDiffs()
-
-    this.setTargetMapVisible(true)
-    this.targetMapShow(this.conflationAnalysis.backwardMatchedTargetMapIds ?? [])
-    this.setTargetMapLineColor('blue')
-  }
-
-  showTargetMapBackwardUnmatchedSegments() {
-    this.resetMinAndMaxLenDiffs()
-
-    this.setTargetMapVisible(true)
-    this.targetMapShow(this.conflationAnalysis.backwardUnmatchedTargetMapIds ?? [])
-    this.setTargetMapLineColor('red')
   }
 
   private resetMinAndMaxLenDiffs() {
@@ -369,8 +312,6 @@ export class ConflationAnalysisLayer extends MapLayer {
   showTargetMapMatchedSegmentsInLengthDifferenceRange(minLenDiff: number | null, maxLenDiff: number | null) {
     this.minLenDiff = minLenDiff;
     this.maxLenDiff = maxLenDiff;
-
-    this.setTargetMapVisible(true)
 
     const targetMapIds =
       this.conflationAnalysis.getLengthDifferenceFilteredMatchedTargetMapIds(minLenDiff, maxLenDiff)
@@ -383,27 +324,6 @@ export class ConflationAnalysisLayer extends MapLayer {
 
     this.getMatchedConflationMapIdsFn =
       this.conflationAnalysis.getMatchedConflationMapIds.bind(this.conflationAnalysis)
-
-    this.updateMapColors()
-  }
-
-  showTargetMapFowardMatchedSegmentsInLengthDifferenceRange(minLenDiff: number | null, maxLenDiff: number | null) {
-    this.minLenDiff = minLenDiff;
-    this.maxLenDiff = maxLenDiff;
-
-    this.setTargetMapVisible(true)
-
-    const targetMapIds =
-      this.conflationAnalysis.getLengthDifferenceFilteredForwardMatchedTargetMapIds(minLenDiff, maxLenDiff)
-
-    this.targetMapShow(targetMapIds)
-
-    this.conflationMapShow(
-      this.conflationAnalysis.getForwardMatchedConflationMapIds(this.activeTargetMapIds)
-    )
-
-    this.getMatchedConflationMapIdsFn =
-      this.conflationAnalysis.getForwardMatchedConflationMapIds.bind(this.conflationAnalysis)
 
     this.updateMapColors()
   }

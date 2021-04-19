@@ -8,11 +8,8 @@ import AvlMap from 'AvlMap';
 import ConflationAnalysisFactory, { ConflationAnalysis } from './store/ConflationAnalysisFactory'
 import ConflationLayerFactory, { ConflationAnalysisLayer } from './layers/ConflationLayerFactory'
 
-// import ConflationMatchingStatsTable from './components/ConflationMatchingStats'
-
 export default function ConflationAnalysisView() {
   const [ready, setPageReady] = useState(false);
-  const [mapReady, setMapReady] = useState(false)
 
   // @ts-ignore
   const {targetMap} = useParams()
@@ -29,8 +26,6 @@ export default function ConflationAnalysisView() {
       conflationAnalysisLayer.current = ConflationLayerFactory
         .createConflationAnalysisLayer(conflationAnalysis.current)
 
-      conflationAnalysisLayer.current.mapReadyEventEmitter.once('ready', () => setMapReady(true))
-
       // So we can manipulate the map from the console.
       //   E.G.: conflationAnalysisLayer.selectTargetMapId('120+25135')
       // @ts-ignore
@@ -45,19 +40,9 @@ export default function ConflationAnalysisView() {
     })();
   }, []);
 
-  useEffect(() => {
-    if (mapReady) {
-      // @ts-ignore
-      conflationAnalysisLayer.current.showTargetMapMatchedSegmentsInLengthDifferenceRange(0.005);
-    }
-  }, [mapReady])
-
   if (!ready) {
     return <div>Waiting...</div>;
   }
-
-  // const statsTable = <ConflationMatchingStatsTable conflationAnalysis={conflationAnalysis.current}/>
-
 
   return <AvlMap
     layers={[conflationAnalysisLayer.current]}
