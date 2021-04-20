@@ -59,16 +59,10 @@ CREATE TABLE chosen_match_dispute_claimants_initial (
   section_start            REAL NOT NULL,
   section_end              REAL NOT NULL,
 
-  -- PRIMARY KEY (
-  --   path_id,
-  --   path_edge_idx,
-  --   is_forward,
-  --   edge_shst_match_idx
-  -- )
   PRIMARY KEY (
-    dispute_id,
     path_id,
     path_edge_idx,
-    is_forward
+    is_forward,
+    edge_shst_match_idx
   )
 ) WITHOUT ROWID ;
