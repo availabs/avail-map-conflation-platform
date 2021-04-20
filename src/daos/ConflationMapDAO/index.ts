@@ -67,6 +67,20 @@ const NYS_RIS_BB = TargetMapConflationBlackboardDao.getBlackboardSchemaName(
   NYS_RIS,
 );
 
+const getCountyBoundingPolyCoords = (countyName: string) => {
+  const countyPolygon: turf.Feature<turf.Polygon> = JSON.parse(
+    readFileSync(join(__dirname, '/geojson/', `${countyName}County.geojson`), {
+      encoding: 'utf8',
+    }),
+  );
+
+  // @ts-ignore
+  const boundingPolyHull = getGeometriesConcaveHull([countyPolygon]);
+  const [boundingPolyCoords] = turf.getCoords(boundingPolyHull);
+
+  return boundingPolyCoords;
+};
+
 function createDbReadConnection(): SQLiteDatbase {
   const dbReadConnection = db.openConnectionToDb(SCHEMA);
 
@@ -313,7 +327,9 @@ export default class ConflationMapDAO {
     );
   }
 
-  private loadTempAllOsmWaysWithShstReferencesTable() {
+  private loadTempAllOsmWaysWithShstReferencesTable(
+    countyName: string | null = null,
+  ) {
     console.log('loadTempAllOsmWaysWithShstReferencesTable');
 
     this.beginWriteTransaction();
@@ -322,21 +338,22 @@ export default class ConflationMapDAO {
 
     console.time('loadTempAllOsmWaysWithShstReferencesTable');
 
-    const countyPolygon: turf.Feature<turf.Polygon> = JSON.parse(
-      readFileSync(join(__dirname, './geojson/albanyCounty.geojson'), {
-        encoding: 'utf8',
-      }),
-    );
+    const boundingPolyCoords =
+      countyName && getCountyBoundingPolyCoords(countyName);
 
-    // const countyPolygon: turf.Feature<turf.Polygon> = JSON.parse(
-    // readFileSync(join(__dirname, './geojson/kingsCounty.geojson'), {
-    // encoding: 'utf8',
-    // }),
-    // );
+    const countyFilter = countyName
+      ? `
+                    INNER JOIN (
+                      SELECT
+                          shst_reference_id
+                        FROM ${SOURCE_MAP}.shst_reference_features_geopoly_idx
+                        WHERE geopoly_overlap(_shape, ?)
+                    ) USING ( shst_reference_id )`
+      : '';
 
-    // @ts-ignore
-    const boundingPolyHull = getGeometriesConcaveHull([countyPolygon]);
-    const [boundingPolyCoords] = turf.getCoords(boundingPolyHull);
+    const queryParams = boundingPolyCoords
+      ? [JSON.stringify(boundingPolyCoords)]
+      : null;
 
     this.dbWriteConnection
       .prepare(
@@ -350,19 +367,12 @@ export default class ConflationMapDAO {
                 ) AS shst_refs
 
             FROM ${SOURCE_MAP}.osm_ways AS a
-
               INNER JOIN(
                 SELECT
                     json_extract(t.value, '$.way_id') AS osm_way_id,
                     feature
-
                   FROM ${SOURCE_MAP}.shst_reference_features
-                    INNER JOIN (
-                      SELECT
-                          shst_reference_id
-                        FROM ${SOURCE_MAP}.shst_reference_features_geopoly_idx
-                        WHERE geopoly_overlap(_shape, ?)
-                    ) USING ( shst_reference_id )
+                    ${countyFilter}
                     , json_each(
                       json_extract(feature, '$.properties.osmMetadataWaySections')
                     ) AS t
@@ -373,7 +383,7 @@ export default class ConflationMapDAO {
 
             GROUP BY osm_way_id ; `,
       )
-      .run([JSON.stringify(boundingPolyCoords)]);
+      .run(queryParams);
 
     this.commitWriteTransaction();
 
@@ -450,7 +460,7 @@ export default class ConflationMapDAO {
     }
 
     try {
-      this.loadTempAllOsmWaysWithShstReferencesTable();
+      this.loadTempAllOsmWaysWithShstReferencesTable('newYork');
 
       console.log('loadOsmWayChosenMatchesTable');
       console.time('loadOsmWayChosenMatchesTable');
