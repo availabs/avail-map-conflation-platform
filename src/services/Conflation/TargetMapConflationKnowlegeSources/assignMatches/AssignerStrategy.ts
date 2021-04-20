@@ -7,9 +7,11 @@ import { Database as SqliteDatabase, Statement } from 'better-sqlite3';
 
 export default class AssignerStrategy {
   private preparedStatements: {
+    numAssignedMatchesStmt?: Statement;
     resolvePreferredUnidirectionalStmt?: Statement;
     resolveTrimmableUntrimmableStmt?: Statement;
     resolveEpsilonDisputesStmt?: Statement;
+    resolveEpsilonOverlapDisputesStmt?: Statement;
   };
 
   constructor(private readonly db: SqliteDatabase) {
@@ -17,19 +19,49 @@ export default class AssignerStrategy {
   }
 
   resolveDisputes() {
-    this.settleDisputes();
+    let curNumAssignedMatches = this.numAssignedMatches;
 
-    this.resolveSameEdgeDisputes();
-    this.settleDisputes();
+    while (true) {
+      console.log('==> curNumAssignedMatches:', curNumAssignedMatches);
 
-    this.resolvePreferredUnidirectional();
-    this.settleDisputes();
+      this.settleDisputes();
 
-    this.resolveTrimmableUntrimmable();
-    this.settleDisputes();
+      this.resolveSameEdgeDisputes();
+      this.settleDisputes();
 
-    this.resolveEpsilonDisputes();
-    this.settleDisputes();
+      this.resolvePreferredUnidirectional();
+      this.settleDisputes();
+
+      this.resolveTrimmableUntrimmable();
+      this.settleDisputes();
+
+      this.resolveEpsilonDisputes();
+      this.settleDisputes();
+
+      if (curNumAssignedMatches === this.numAssignedMatches) {
+        break;
+      }
+
+      curNumAssignedMatches = this.numAssignedMatches;
+    }
+
+    this.resolveEpsilonOverlapDisputes();
+  }
+
+  protected get numAssignedMatchesStmt() {
+    this.preparedStatements.numAssignedMatchesStmt =
+      this.preparedStatements.numAssignedMatchesStmt ||
+      this.db.prepare(`
+        SELECT
+            COUNT(1)
+          FROM assigned_matches
+      `);
+
+    return this.preparedStatements.numAssignedMatchesStmt;
+  }
+
+  get numAssignedMatches() {
+    return this.numAssignedMatchesStmt.pluck().get();
   }
 
   static readonly settleDisputesSql = readFileSync(
@@ -41,7 +73,17 @@ export default class AssignerStrategy {
 
   protected settleDisputes() {
     // Multiple statements so cannot use db.prepare
-    this.db.exec(AssignerStrategy.settleDisputesSql);
+    let curNumAssignedMatches = this.numAssignedMatches;
+
+    while (true) {
+      this.db.exec(AssignerStrategy.settleDisputesSql);
+
+      if (curNumAssignedMatches === this.numAssignedMatches) {
+        break;
+      }
+
+      curNumAssignedMatches = this.numAssignedMatches;
+    }
   }
 
   protected static readonly resolveSameEdgeDisputesSql = readFileSync(
@@ -103,5 +145,24 @@ export default class AssignerStrategy {
 
   protected resolveEpsilonDisputes() {
     this.resolveEpsilonDisputesStmt.run();
+  }
+
+  protected static readonly resolveEpsilonOverlapDisputesSql = readFileSync(
+    join(__dirname, './sql/resolve_epsilon_overlap_disputes.sql'),
+    {
+      encoding: 'utf8',
+    },
+  );
+
+  protected get resolveEpsilonOverlapDisputesStmt() {
+    this.preparedStatements.resolveEpsilonOverlapDisputesStmt =
+      this.preparedStatements.resolveEpsilonOverlapDisputesStmt ||
+      this.db.prepare(AssignerStrategy.resolveEpsilonOverlapDisputesSql);
+
+    return this.preparedStatements.resolveEpsilonOverlapDisputesStmt;
+  }
+
+  protected resolveEpsilonOverlapDisputes() {
+    this.resolveEpsilonOverlapDisputesStmt.run();
   }
 }

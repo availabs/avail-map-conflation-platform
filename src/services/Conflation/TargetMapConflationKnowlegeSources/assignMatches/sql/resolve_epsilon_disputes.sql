@@ -1,3 +1,7 @@
+/*
+    Cases where one claim less than 10% the length an another's
+*/
+
 WITH cte_max_claim_length AS (
   SELECT
       dispute_id,

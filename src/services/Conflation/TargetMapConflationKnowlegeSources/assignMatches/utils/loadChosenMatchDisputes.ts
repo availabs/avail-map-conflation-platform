@@ -60,8 +60,8 @@ export default function loadChosenMatchDisputes(db: SqliteDatabase) {
         SELECT
             c.geometry_id AS shst_geometry_id,
             a.shst_reference AS shst_reference_id,
-            MAX(a.section_start, b.section_start) AS disputed_section_start,
-            MIN(a.section_end, b.section_end) AS disputed_section_end,
+            MIN(a.section_start, b.section_start) AS disputed_section_start,
+            MAX(a.section_end, b.section_end) AS disputed_section_end,
             (
               '[' ||
                 group_concat( DISTINCT
@@ -102,7 +102,7 @@ export default function loadChosenMatchDisputes(db: SqliteDatabase) {
               ( b.section_start < a.section_end )
             )
           )
-          GROUP BY 1, 2, 3
+          GROUP BY 1, 2
         ;
       `,
     )
@@ -147,6 +147,7 @@ export default function loadChosenMatchDisputes(db: SqliteDatabase) {
 
   db.exec(`
     INSERT OR IGNORE INTO chosen_match_dispute_claimants_initial (
+      dispute_id,
       path_id,
       path_edge_idx,
 
@@ -159,6 +160,7 @@ export default function loadChosenMatchDisputes(db: SqliteDatabase) {
       section_end
     )
       SELECT
+          dispute_id,
           path_id,
           path_edge_idx,
 
