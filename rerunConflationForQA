@@ -8,7 +8,7 @@ const yargs = require("yargs");
 
 const runModule = join(__dirname, './run')
 
-const {targetMap, skipChooser} = yargs.command(
+const {targetMap, rerunChooser} = yargs.command(
   '$0 [targetMap]',
   'Rerun Chooser, Assigner, and ConflationMap for the targetMap',
   (yargs) => {
@@ -19,12 +19,25 @@ const {targetMap, skipChooser} = yargs.command(
         demand: false,
         choices: ['nys_ris', 'npmrds']
       })
-      .option('skipChooser', {
+      .option('rerunChooser', {
         describe: 'Rerun the TargetMap conflation chooser step',
         type: 'boolean',
         demand: false,
         default: false,
       })
+    // TODO: Add automation of NysRis and NPMRDS MBTiles generation.
+    // .option('skipCreateNysRisMBtiles', {
+    //   describe: 'Skip creating the NYS RIS TargetMap MBTiles',
+    //   type: 'boolean',
+    //   demand: false,
+    //   default: false,
+    // })
+    // .option('skipCreateNpmrdsMBtiles', {
+    //   describe: 'Skip creating the NPMRDS TargetMap MBTiles',
+    //   type: 'boolean',
+    //   demand: false,
+    //   default: false,
+    // })
   }
 )
   .help()
@@ -42,9 +55,9 @@ function resetTargetMapDatabaseTables(tgtMap) {
   console.log()
   console.log(`=== clear the ${tgtMap} database tables ===`)
 
-  const dropChosenMatches = skipChooser
-    ? ''
-    : 'DROP TABLE IF EXISTS target_map_bb.target_map_edge_chosen_matches ;'
+  const dropChosenMatches = rerunChooser
+    ? 'DROP TABLE IF EXISTS target_map_bb.target_map_edge_chosen_matches ;'
+    : ''
 
   db.exec(`
     BEGIN;
@@ -60,7 +73,7 @@ function resetTargetMapDatabaseTables(tgtMap) {
 
 function rerunConflationSteps(tgtMap) {
   console.log()
-  console.log(`=== re-run${skipChooser ? '' : ' chooser and '} assigner for ${tgtMap} ===`)
+  console.log(`=== re-run${rerunChooser ? ' chooser and' : ''} assigner for ${tgtMap} ===`)
 
   return new Promise((resolve, reject) =>
     fork(runModule, [`${tgtMap}_shst_match`])
