@@ -3,8 +3,8 @@
 
 BEGIN;
 
--- Remove from chosen_match_dispute_claimants edge self-disputes.
-DELETE FROM chosen_match_dispute_claimants
+-- Remove from chosen_match_unresolved_disputes_claimants edge self-disputes.
+DELETE FROM chosen_match_unresolved_disputes_claimants
   WHERE (
     ( dispute_id, path_id, path_edge_idx, edge_id, is_forward )
     IN (
@@ -29,7 +29,7 @@ DELETE FROM chosen_match_dispute_claimants
                   path_edge_idx,
                   path_id
               ) AS row_num
-            FROM chosen_match_dispute_claimants
+            FROM chosen_match_unresolved_disputes_claimants
         )
         WHERE ( row_num > 1 )
     )

@@ -4,7 +4,7 @@
     How to store so that assignments/compromises currently blocked by an eventually dropped claim
       can eventually make their way through?
 
-    Is it safe to mutate the segment_start and segment_ends of chosen_match_dispute_claimants?
+    Is it safe to mutate the segment_start and segment_ends of chosen_match_unresolved_disputes_claimants?
       Would prefer not to, but how else to do it?
 
     NOTE: We don't want to give a pass to Knaves. Some disputes are red flags.
@@ -29,8 +29,8 @@ WITH cte_epsilon_overlaps AS (
       ( ( a.section_end + b.section_start ) / 2 ) AS section_start_b,
       b.section_end AS section_end_b
 
-    FROM chosen_match_dispute_claimants AS a
-      INNER JOIN chosen_match_dispute_claimants AS b
+    FROM chosen_match_unresolved_disputes_claimants AS a
+      INNER JOIN chosen_match_unresolved_disputes_claimants AS b
         USING ( dispute_id )
     WHERE (
       ( a.section_start < b.section_start )
@@ -81,7 +81,7 @@ SELECT
     a.section_start,
     a.section_end
   FROM cte_epsilon_overlaps_resolutions AS a
-    INNER JOIN chosen_match_dispute_claimants AS b
+    INNER JOIN chosen_match_unresolved_disputes_claimants AS b
       USING (
         dispute_id,
         path_id,

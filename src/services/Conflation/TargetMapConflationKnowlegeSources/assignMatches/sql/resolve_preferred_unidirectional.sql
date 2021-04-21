@@ -1,4 +1,4 @@
-DELETE FROM chosen_match_dispute_claimants
+DELETE FROM chosen_match_unresolved_disputes_claimants
   WHERE (edge_id, is_forward)
   IN (
     SELECT

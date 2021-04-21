@@ -61,7 +61,7 @@ INSERT INTO disputed_chosen_match_trimmability
       NULL AS start_trimmable,
       NULL AS end_trimmable
     FROM target_map_bb.target_map_edge_chosen_matches
-      INNER JOIN chosen_match_dispute_claimants
+      INNER JOIN chosen_match_unresolved_disputes_claimants
         USING (
           path_id,
           path_edge_idx,
@@ -93,7 +93,7 @@ INSERT OR IGNORE INTO disputed_chosen_match_trimmability
           edge_shst_match_idx,
           row_number() OVER win1 as row_num
         FROM target_map_bb.target_map_edge_chosen_matches
-          INNER JOIN chosen_match_dispute_claimants
+          INNER JOIN chosen_match_unresolved_disputes_claimants
             USING (
               path_id,
               path_edge_idx,
@@ -129,7 +129,7 @@ INSERT OR IGNORE INTO disputed_chosen_match_trimmability
       -- All but the last ChosenMatch for the TMPathEdge (keep connected to TMPath)
       1 AS end_trimmable
     FROM target_map_bb.target_map_edge_chosen_matches
-      INNER JOIN chosen_match_dispute_claimants
+      INNER JOIN chosen_match_unresolved_disputes_claimants
         USING (
           path_id,
           path_edge_idx,
@@ -159,7 +159,7 @@ INSERT OR IGNORE INTO disputed_chosen_match_trimmability
       ( edge_shst_match_idx > 0 ) AS start_trimmable,
       1 AS end_trimmable
     FROM target_map_bb.target_map_edge_chosen_matches
-      INNER JOIN chosen_match_dispute_claimants
+      INNER JOIN chosen_match_unresolved_disputes_claimants
         USING (
           path_id,
           path_edge_idx,
@@ -196,7 +196,7 @@ INSERT OR IGNORE INTO disputed_chosen_match_trimmability
           edge_shst_match_idx,
           row_number() OVER win1 as row_num
         FROM target_map_bb.target_map_edge_chosen_matches
-          INNER JOIN chosen_match_dispute_claimants
+          INNER JOIN chosen_match_unresolved_disputes_claimants
             USING (
               path_id,
               path_edge_idx,
@@ -230,7 +230,7 @@ INSERT OR IGNORE INTO disputed_chosen_match_trimmability
       0 AS start_trimmable,
       0 AS end_trimmable
     FROM target_map_bb.target_map_edge_chosen_matches
-      INNER JOIN chosen_match_dispute_claimants
+      INNER JOIN chosen_match_unresolved_disputes_claimants
         USING (
           path_id,
           path_edge_idx,

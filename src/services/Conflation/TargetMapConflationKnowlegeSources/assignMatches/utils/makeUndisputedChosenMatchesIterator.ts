@@ -22,7 +22,7 @@ export default function* makeUndisputedChosenMatchesIterator(
           FROM source_map.shst_reference_features AS a
             INNER JOIN target_map_bb.target_map_edge_chosen_matches AS b
               ON (a.shst_reference_id = b.shst_reference)
-            LEFT OUTER JOIN chosen_match_dispute_claimants_initial AS c
+            LEFT OUTER JOIN chosen_match_initial_disputes_claimants AS c
               USING (
                 path_id,
                 path_edge_idx,

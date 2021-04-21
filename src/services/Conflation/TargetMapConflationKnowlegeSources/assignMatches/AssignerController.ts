@@ -109,7 +109,7 @@ export default class AssignerController {
               a.section_start   AS sectionStart,
               a.section_end     AS sectionEnd
             FROM target_map_bb.target_map_edge_chosen_matches AS a
-              LEFT OUTER JOIN chosen_match_dispute_claimants_initial AS b
+              LEFT OUTER JOIN chosen_match_initial_disputes_claimants AS b
                 USING (
                   path_id,
                   path_edge_idx,

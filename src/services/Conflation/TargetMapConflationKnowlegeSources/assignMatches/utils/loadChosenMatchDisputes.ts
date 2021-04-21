@@ -18,7 +18,7 @@ export default function loadChosenMatchDisputes(db: SqliteDatabase) {
   db.exec(createTablesSql);
 
   const disputeInsertStmt = db.prepare(`
-    INSERT INTO chosen_match_disputed_sections (
+    INSERT INTO chosen_match_initial_disputes_sections (
       dispute_id,
       shst_geometry_id,
       shst_reference_id,
@@ -28,7 +28,7 @@ export default function loadChosenMatchDisputes(db: SqliteDatabase) {
   `);
 
   const claimantInsertStmt = db.prepare(`
-    INSERT INTO chosen_match_dispute_claimants (
+    INSERT INTO chosen_match_initial_disputes_claimants (
       dispute_id,
       path_id,
       path_edge_idx,
@@ -139,14 +139,28 @@ export default function loadChosenMatchDisputes(db: SqliteDatabase) {
     }
   }
 
-  console.warn();
-  console.warn(
-    'FIXME: Why is "OR IGNORE" required in INSERT OR IGNORE INTO chosen_match_dispute_claimants_initial',
-  );
-  console.warn();
-
   db.exec(`
-    INSERT OR IGNORE INTO chosen_match_dispute_claimants_initial (
+    INSERT OR IGNORE INTO chosen_match_unresolved_disputes_sections (
+      dispute_id,
+
+      shst_geometry_id,
+      shst_reference_id,
+
+      disputed_section_start,
+      disputed_section_end
+    )
+      SELECT
+          dispute_id,
+
+          shst_geometry_id,
+          shst_reference_id,
+
+          disputed_section_start,
+          disputed_section_end
+        FROM chosen_match_initial_disputes_sections
+    ;
+
+    INSERT OR IGNORE INTO chosen_match_unresolved_disputes_claimants (
       dispute_id,
       path_id,
       path_edge_idx,
@@ -171,7 +185,7 @@ export default function loadChosenMatchDisputes(db: SqliteDatabase) {
 
           section_start,
           section_end
-        FROM chosen_match_dispute_claimants
+        FROM chosen_match_initial_disputes_claimants
     ;
   `);
 

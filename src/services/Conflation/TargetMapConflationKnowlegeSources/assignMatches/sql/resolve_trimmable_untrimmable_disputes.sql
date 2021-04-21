@@ -10,7 +10,7 @@
 BEGIN;
 
 /*
-  \d chosen_match_dispute_claimants
+  \d chosen_match_unresolved_disputes_claimants
   +-----+---------------------+---------+---------+------------+----+
   | cid | name                | type    | notnull | dflt_value | pk |
   +-----+---------------------+---------+---------+------------+----+
@@ -46,7 +46,7 @@ WITH cte_disputes_with_untrimmable_edges AS (
       is_forward,
       section_start,
       section_end
-    FROM chosen_match_dispute_claimants AS a
+    FROM chosen_match_unresolved_disputes_claimants AS a
       INNER JOIN disputed_chosen_match_trimmability AS b
         USING (
           path_id,
@@ -88,12 +88,12 @@ WITH cte_disputes_with_untrimmable_edges AS (
       ) = 1
     )
 )
-  DELETE FROM chosen_match_dispute_claimants
+  DELETE FROM chosen_match_unresolved_disputes_claimants
     WHERE (dispute_id, path_id) IN (
       SELECT
           dispute_id,
           a.path_id
-        FROM chosen_match_dispute_claimants AS a
+        FROM chosen_match_unresolved_disputes_claimants AS a
           INNER JOIN cte_disputes_with_single_path_dir_untrimmable_claimants AS b
             USING (dispute_id)
         WHERE ( a.path_id <> b.path_id )

@@ -1,9 +1,9 @@
-DROP TABLE IF EXISTS chosen_match_disputed_sections;
-DROP TABLE IF EXISTS chosen_match_dispute_claimants;
+DROP TABLE IF EXISTS chosen_match_unresolved_disputes_sections;
+DROP TABLE IF EXISTS chosen_match_unresolved_disputes_claimants;
 
--- DROP TABLE IF EXISTS chosen_match_dispute_shst_references_metadata;
+-- THESE ARE IMMUTABLE
 
-CREATE TABLE chosen_match_disputed_sections (
+CREATE TABLE chosen_match_initial_disputes_sections (
   dispute_id               INTEGER NOT NULL PRIMARY KEY,
 
   shst_geometry_id         TEXT NOT NULL,
@@ -19,7 +19,50 @@ CREATE TABLE chosen_match_disputed_sections (
   )
 ) WITHOUT ROWID ;
 
-CREATE TABLE chosen_match_dispute_claimants (
+CREATE TABLE chosen_match_initial_disputes_claimants (
+  dispute_id               INTEGER NOT NULL,
+  path_id                  INTEGER NOT NULL,
+  path_edge_idx            INTEGER NOT NULL,
+
+  edge_id                  INTEGER NOT NULL,
+
+  is_forward               INTEGER NOT NULL,
+  edge_shst_match_idx      INTEGER NOT NULL,
+
+  section_start            REAL NOT NULL,
+  section_end              REAL NOT NULL,
+
+  PRIMARY KEY (
+    path_id,
+    path_edge_idx,
+    is_forward,
+    edge_shst_match_idx
+  ),
+
+  FOREIGN KEY ( dispute_id )
+    REFERENCES chosen_match_initial_disputes_sections
+    ON DELETE CASCADE
+) WITHOUT ROWID ;
+
+CREATE TABLE chosen_match_unresolved_disputes_sections (
+  dispute_id               INTEGER NOT NULL PRIMARY KEY,
+
+  shst_geometry_id         TEXT NOT NULL,
+  shst_reference_id        TEXT NOT NULL,
+
+  disputed_section_start   REAL NOT NULL,
+  disputed_section_end     REAL NOT NULL,
+
+  UNIQUE (
+    shst_reference_id,
+    disputed_section_start,
+    disputed_section_end
+  )
+) WITHOUT ROWID ;
+
+-- THESE ARE MUTABLE
+
+CREATE TABLE chosen_match_unresolved_disputes_claimants (
   dispute_id               INTEGER NOT NULL,
 
   path_id                  INTEGER NOT NULL,
@@ -42,27 +85,140 @@ CREATE TABLE chosen_match_dispute_claimants (
   ),
 
   FOREIGN KEY ( dispute_id )
-    REFERENCES chosen_match_disputed_sections
+    REFERENCES chosen_match_unresolved_disputes_sections
     ON DELETE CASCADE
 ) WITHOUT ROWID ;
 
-CREATE TABLE chosen_match_dispute_claimants_initial (
-  dispute_id               INTEGER NOT NULL,
-  path_id                  INTEGER NOT NULL,
-  path_edge_idx            INTEGER NOT NULL,
+--
 
-  edge_id                  INTEGER NOT NULL,
+CREATE VIEW chosen_match_resolved_disputes_sections
+  AS
+    SELECT
+        dispute_id,
 
-  is_forward               INTEGER NOT NULL,
-  edge_shst_match_idx      INTEGER NOT NULL,
+        shst_geometry_id,
+        shst_reference_id,
 
-  section_start            REAL NOT NULL,
-  section_end              REAL NOT NULL,
+        disputed_section_start,
+        disputed_section_end
+      FROM chosen_match_initial_disputes_sections
+    EXCEPT
+    SELECT
+        dispute_id,
 
-  PRIMARY KEY (
-    path_id,
-    path_edge_idx,
-    is_forward,
-    edge_shst_match_idx
-  )
-) WITHOUT ROWID ;
+        shst_geometry_id,
+        shst_reference_id,
+
+        disputed_section_start,
+        disputed_section_end
+      FROM chosen_match_unresolved_disputes_sections
+  ;
+
+CREATE VIEW chosen_match_resolved_disputes_claimants
+  AS
+    SELECT
+        dispute_id,
+        path_id,
+        path_edge_idx,
+
+        edge_id,
+
+        is_forward,
+        edge_shst_match_idx,
+
+        section_start,
+        section_end
+      FROM chosen_match_initial_disputes_claimants
+    EXCEPT
+    SELECT
+        dispute_id,
+        path_id,
+        path_edge_idx,
+
+        edge_id,
+
+        is_forward,
+        edge_shst_match_idx,
+
+        section_start,
+        section_end
+      FROM chosen_match_unresolved_disputes_claimants
+  ;
+
+CREATE VIEW chosen_match_initial_disputes
+  AS
+    SELECT
+      dispute_id,
+
+      shst_geometry_id,
+      shst_reference_id,
+
+      disputed_section_start,
+      disputed_section_end,
+
+      path_id,
+      path_edge_idx,
+
+      edge_id,
+
+      is_forward,
+      edge_shst_match_idx,
+
+      section_start,
+      section_end
+    FROM chosen_match_initial_disputes_sections
+      INNER JOIN chosen_match_initial_disputes_claimants
+        USING ( dispute_id )
+  ;
+
+CREATE VIEW chosen_match_unresolved_disputes
+  AS
+    SELECT
+      dispute_id,
+
+      shst_geometry_id,
+      shst_reference_id,
+
+      disputed_section_start,
+      disputed_section_end,
+
+      path_id,
+      path_edge_idx,
+
+      edge_id,
+
+      is_forward,
+      edge_shst_match_idx,
+
+      section_start,
+      section_end
+    FROM chosen_match_unresolved_disputes_sections
+      INNER JOIN chosen_match_unresolved_disputes_claimants
+        USING ( dispute_id )
+  ;
+
+CREATE VIEW chosen_match_resolved_disputes
+  AS
+    SELECT
+      dispute_id,
+
+      shst_geometry_id,
+      shst_reference_id,
+
+      disputed_section_start,
+      disputed_section_end,
+
+      path_id,
+      path_edge_idx,
+
+      edge_id,
+
+      is_forward,
+      edge_shst_match_idx,
+
+      section_start,
+      section_end
+    FROM chosen_match_resolved_disputes_sections
+      INNER JOIN chosen_match_resolved_disputes_claimants
+        USING ( dispute_id )
+  ;

@@ -1,4 +1,4 @@
-/* eslint-disable no-restricted-syntax */
+/* eslint-disable no-restricted-syntax, no-constant-condition */
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -6,8 +6,14 @@ import { join } from 'path';
 import { Database as SqliteDatabase, Statement } from 'better-sqlite3';
 
 export default class AssignerStrategy {
+  protected static getSql(fName: string) {
+    return readFileSync(join(__dirname, './sql/', fName), {
+      encoding: 'utf8',
+    });
+  }
+
   private preparedStatements: {
-    numAssignedMatchesStmt?: Statement;
+    disputeClaimantsCountStmt?: Statement;
     resolvePreferredUnidirectionalStmt?: Statement;
     resolveTrimmableUntrimmableStmt?: Statement;
     resolveEpsilonDisputesStmt?: Statement;
@@ -19,10 +25,11 @@ export default class AssignerStrategy {
   }
 
   resolveDisputes() {
-    let curNumAssignedMatches = this.numAssignedMatches;
+    let curDisputeClaimantsCount = this.disputeClaimantsCount;
 
+    // let i = 0;
     while (true) {
-      console.log('==> curNumAssignedMatches:', curNumAssignedMatches);
+      console.log('==> curDisputeClaimantsCount:', curDisputeClaimantsCount);
 
       this.settleDisputes();
 
@@ -32,137 +39,100 @@ export default class AssignerStrategy {
       this.resolvePreferredUnidirectional();
       this.settleDisputes();
 
+      // if (!i) {
+      // this.resolveReverseDirections();
+      // }
+
       this.resolveTrimmableUntrimmable();
       this.settleDisputes();
 
       this.resolveEpsilonDisputes();
       this.settleDisputes();
 
-      if (curNumAssignedMatches === this.numAssignedMatches) {
+      if (curDisputeClaimantsCount === this.disputeClaimantsCount) {
         break;
       }
 
-      curNumAssignedMatches = this.numAssignedMatches;
+      curDisputeClaimantsCount = this.disputeClaimantsCount;
+
+      // ++i;
     }
 
-    this.resolveEpsilonOverlapDisputes();
+    // Currently, this just creates a table for analysis of the method's potential
+    // this.resolveEpsilonOverlapDisputes();
   }
 
-  protected get numAssignedMatchesStmt() {
-    this.preparedStatements.numAssignedMatchesStmt =
-      this.preparedStatements.numAssignedMatchesStmt ||
+  protected get disputeClaimantsCountStmt() {
+    this.preparedStatements.disputeClaimantsCountStmt =
+      this.preparedStatements.disputeClaimantsCountStmt ||
       this.db.prepare(`
         SELECT
             COUNT(1)
-          FROM assigned_matches
+          FROM chosen_match_unresolved_disputes_claimants
       `);
 
-    return this.preparedStatements.numAssignedMatchesStmt;
+    return this.preparedStatements.disputeClaimantsCountStmt;
   }
 
-  get numAssignedMatches() {
-    return this.numAssignedMatchesStmt.pluck().get();
+  get disputeClaimantsCount() {
+    return this.disputeClaimantsCountStmt.pluck().get();
   }
-
-  static readonly settleDisputesSql = readFileSync(
-    join(__dirname, './sql/drop_disputes_and_assign.sql'),
-    {
-      encoding: 'utf8',
-    },
-  );
 
   protected settleDisputes() {
-    // Multiple statements so cannot use db.prepare
-    let curNumAssignedMatches = this.numAssignedMatches;
+    const sql = AssignerStrategy.getSql('drop_disputes_and_assign.sql');
+
+    let curDisputeClaimantsCount = this.disputeClaimantsCount;
 
     while (true) {
-      this.db.exec(AssignerStrategy.settleDisputesSql);
+      console.log(
+        'settleDisputes curDisputeClaimantsCount:',
+        curDisputeClaimantsCount,
+      );
+      this.db.exec(sql);
 
-      if (curNumAssignedMatches === this.numAssignedMatches) {
+      if (curDisputeClaimantsCount === this.disputeClaimantsCount) {
         break;
       }
 
-      curNumAssignedMatches = this.numAssignedMatches;
+      curDisputeClaimantsCount = this.disputeClaimantsCount;
     }
   }
 
-  protected static readonly resolveSameEdgeDisputesSql = readFileSync(
-    join(__dirname, './sql/resolve_same_edge_disputes.sql'),
-    {
-      encoding: 'utf8',
-    },
-  );
-
   protected resolveSameEdgeDisputes() {
-    // Multiple statements so cannot use db.prepare
-    this.db.exec(AssignerStrategy.resolveSameEdgeDisputesSql);
-  }
+    const sql = AssignerStrategy.getSql('resolve_same_edge_disputes.sql');
 
-  protected static readonly resolvePreferredUnidirectionalSql = readFileSync(
-    join(__dirname, './sql/resolve_preferred_unidirectional.sql'),
-    {
-      encoding: 'utf8',
-    },
-  );
-
-  protected get resolvePreferredUnidirectionalStmt() {
-    this.preparedStatements.resolvePreferredUnidirectionalStmt =
-      this.preparedStatements.resolvePreferredUnidirectionalStmt ||
-      this.db.prepare(AssignerStrategy.resolvePreferredUnidirectionalSql);
-
-    return this.preparedStatements.resolvePreferredUnidirectionalStmt;
+    this.db.exec(sql);
   }
 
   protected resolvePreferredUnidirectional() {
-    this.resolvePreferredUnidirectionalStmt.run();
+    const sql = AssignerStrategy.getSql('resolve_preferred_unidirectional.sql');
+
+    this.db.exec(sql);
   }
 
-  protected static readonly resolveTrimmableUntrimmableSql = readFileSync(
-    join(__dirname, './sql/resolve_trimmable_untrimmable_disputes.sql'),
-    {
-      encoding: 'utf8',
-    },
-  );
+  protected resolveReverseDirections() {
+    const sql = AssignerStrategy.getSql('resolve_reverse_directions.sql');
+
+    this.db.exec(sql);
+  }
 
   protected resolveTrimmableUntrimmable() {
-    this.db.exec(AssignerStrategy.resolveTrimmableUntrimmableSql);
-  }
+    const sql = AssignerStrategy.getSql(
+      'resolve_trimmable_untrimmable_disputes.sql',
+    );
 
-  protected static readonly resolveEpsilonDisputesSql = readFileSync(
-    join(__dirname, './sql/resolve_epsilon_disputes.sql'),
-    {
-      encoding: 'utf8',
-    },
-  );
-
-  protected get resolveEpsilonDisputesStmt() {
-    this.preparedStatements.resolveEpsilonDisputesStmt =
-      this.preparedStatements.resolveEpsilonDisputesStmt ||
-      this.db.prepare(AssignerStrategy.resolveEpsilonDisputesSql);
-
-    return this.preparedStatements.resolveEpsilonDisputesStmt;
+    this.db.exec(sql);
   }
 
   protected resolveEpsilonDisputes() {
-    this.resolveEpsilonDisputesStmt.run();
-  }
+    const sql = AssignerStrategy.getSql('resolve_epsilon_disputes.sql');
 
-  protected static readonly resolveEpsilonOverlapDisputesSql = readFileSync(
-    join(__dirname, './sql/resolve_epsilon_overlap_disputes.sql'),
-    {
-      encoding: 'utf8',
-    },
-  );
-
-  protected get resolveEpsilonOverlapDisputesStmt() {
-    this.preparedStatements.resolveEpsilonOverlapDisputesStmt =
-      this.preparedStatements.resolveEpsilonOverlapDisputesStmt ||
-      this.db.prepare(AssignerStrategy.resolveEpsilonOverlapDisputesSql);
-
-    return this.preparedStatements.resolveEpsilonOverlapDisputesStmt;
+    this.db.exec(sql);
   }
 
   protected resolveEpsilonOverlapDisputes() {
-    this.resolveEpsilonOverlapDisputesStmt.run();
+    const sql = AssignerStrategy.getSql('resolve_epsilon_overlap_disputes.sql');
+
+    this.db.exec(sql);
   }
 }

@@ -20,9 +20,9 @@ export default function* makeDisputedMatchesIterator(db: SqliteDatabase) {
             c.edge_shst_match_idx,
             a.feature
           FROM source_map.shst_reference_features AS a
-            INNER JOIN chosen_match_disputed_sections AS b
+            INNER JOIN chosen_match_unresolved_disputes_sections AS b
               USING (shst_reference_id)
-            INNER JOIN chosen_match_dispute_claimants AS c
+            INNER JOIN chosen_match_unresolved_disputes_claimants AS c
               USING (dispute_id)
       `,
     )

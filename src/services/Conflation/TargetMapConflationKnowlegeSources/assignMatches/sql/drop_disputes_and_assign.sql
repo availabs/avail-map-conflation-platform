@@ -10,7 +10,7 @@ CREATE TEMPORARY TABLE tmp_disputes_with_single_path_claimants
           || '|'
           || CAST(is_forward AS TEXT)
         ) AS num_paths_with_claimants
-      FROM chosen_match_dispute_claimants
+      FROM chosen_match_unresolved_disputes_claimants
       GROUP BY dispute_id ;
 
 INSERT OR IGNORE INTO assigned_matches
@@ -20,7 +20,7 @@ INSERT OR IGNORE INTO assigned_matches
       is_forward,
       section_start,
       section_end
-    FROM chosen_match_disputed_sections
+    FROM chosen_match_unresolved_disputes_sections
       INNER JOIN (
         SELECT
             dispute_id,
@@ -28,7 +28,7 @@ INSERT OR IGNORE INTO assigned_matches
             is_forward,
             section_start,
             section_end
-          FROM chosen_match_dispute_claimants
+          FROM chosen_match_unresolved_disputes_claimants
             INNER JOIN tmp_disputes_with_single_path_claimants
               USING (dispute_id)
           WHERE ( num_paths_with_claimants = 1 )
@@ -36,7 +36,7 @@ INSERT OR IGNORE INTO assigned_matches
 ;
 
 -- These were just added to assigned.
-DELETE FROM chosen_match_disputed_sections
+DELETE FROM chosen_match_unresolved_disputes_sections
   WHERE dispute_id IN (
     SELECT
         dispute_id
@@ -50,8 +50,8 @@ CREATE TEMPORARY TABLE tmp_no_more_disputes
   AS
     SELECT
         a.*
-      FROM chosen_match_dispute_claimants as a
-        LEFT OUTER JOIN chosen_match_dispute_claimants as b
+      FROM chosen_match_unresolved_disputes_claimants as a
+        LEFT OUTER JOIN chosen_match_unresolved_disputes_claimants as b
           ON (
             ( a.dispute_id = b.dispute_id )
             AND
@@ -70,7 +70,7 @@ INSERT OR IGNORE INTO assigned_matches
       is_forward,
       section_start,
       section_end
-    FROM chosen_match_disputed_sections
+    FROM chosen_match_unresolved_disputes_sections
       INNER JOIN (
         SELECT
             a.dispute_id,
@@ -78,7 +78,7 @@ INSERT OR IGNORE INTO assigned_matches
             a.is_forward,
             a.section_start,
             a.section_end
-          FROM chosen_match_dispute_claimants AS a
+          FROM chosen_match_unresolved_disputes_claimants AS a
             INNER JOIN tmp_no_more_disputes AS b
               USING (
                 dispute_id,
@@ -89,7 +89,7 @@ INSERT OR IGNORE INTO assigned_matches
       ) USING ( dispute_id ) ;
 
 -- These were just added to assigned.
-DELETE FROM chosen_match_dispute_claimants
+DELETE FROM chosen_match_unresolved_disputes_claimants
   WHERE ( dispute_id, path_id, path_edge_idx, is_forward ) IN (
     SELECT
         dispute_id,
@@ -100,12 +100,12 @@ DELETE FROM chosen_match_dispute_claimants
   )
 ;
 
-DELETE FROM chosen_match_disputed_sections
+DELETE FROM chosen_match_unresolved_disputes_sections
   WHERE ( dispute_id ) IN (
     SELECT
         dispute_id
-      FROM chosen_match_disputed_sections AS a
-        INNER JOIN chosen_match_dispute_claimants AS b
+      FROM chosen_match_unresolved_disputes_sections AS a
+        INNER JOIN chosen_match_unresolved_disputes_claimants AS b
           USING (dispute_id)
         WHERE ( b.path_id IS NULL ) -- No more dispute claimants
   ) ;
@@ -120,7 +120,7 @@ COMMIT;
     How to store so that assignments/compromises currently blocked by an eventually dropped claim
       can eventually make their way through?
 
-    Is it safe to mutate the segment_start and segment_ends of chosen_match_dispute_claimants?
+    Is it safe to mutate the segment_start and segment_ends of chosen_match_unresolved_disputes_claimants?
       Would prefer not to, but how else to do it?
 
     NOTE: We don't want to give a pass to Knaves. Some disputes are red flags.
@@ -144,8 +144,8 @@ WITH cte_epsilon_overlaps AS (
       ( ( a.section_end + b.section_start ) / 2 ) AS section_start_b,
       b.section_end AS section_end_b
 
-    FROM chosen_match_dispute_claimants AS a
-      INNER JOIN chosen_match_dispute_claimants AS b
+    FROM chosen_match_unresolved_disputes_claimants AS a
+      INNER JOIN chosen_match_unresolved_disputes_claimants AS b
         USING ( dispute_id )
     WHERE (
       ( a.section_start < b.section_start )
@@ -196,7 +196,7 @@ SELECT
     a.section_start,
     a.section_end
   FROM cte_epsilon_overlaps_resolutions AS a
-    INNER JOIN chosen_match_dispute_claimants AS b
+    INNER JOIN chosen_match_unresolved_disputes_claimants AS b
       USING (
         dispute_id,
         path_id,
