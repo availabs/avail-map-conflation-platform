@@ -1,42 +1,13 @@
+-- TODO: Delete from trimmable boundaries inward to preserve contiguousness
+
+-- NOTE: ??? Add actual section_start and section_end mutations ???
+
+BEGIN;
+
 -- If there is a single untrimmable in a dispute, it wins.
 --   Single path may have multiple untrimmable sections in a dispute.
 --     If there is a single path with untrimmables in the dispute,
 --       then all untrimmables for that path win their section.
-
--- TODO: Delete from trimmable boundaries inward to preserve contiguousness
-
--- FIXME: NEED TO STUDY CLOSELY. HAVE NOT YET CRITIQUED.
-
-BEGIN;
-
-/*
-  \d chosen_match_unresolved_disputes_claimants
-  +-----+---------------------+---------+---------+------------+----+
-  | cid | name                | type    | notnull | dflt_value | pk |
-  +-----+---------------------+---------+---------+------------+----+
-  | 0   | dispute_id          | INTEGER | 1       | <null>     | 1  |
-  | 1   | path_id             | INTEGER | 1       | <null>     | 2  |
-  | 2   | path_edge_idx       | INTEGER | 1       | <null>     | 3  |
-  | 3   | edge_id             | INTEGER | 1       | <null>     | 0  |
-  | 4   | is_forward          | INTEGER | 1       | <null>     | 4  |
-  | 5   | edge_shst_match_idx | INTEGER | 1       | <null>     | 0  |
-  | 6   | section_start       | REAL    | 1       | <null>     | 0  |
-  | 7   | section_end         | REAL    | 1       | <null>     | 0  |
-  +-----+---------------------+---------+---------+------------+----+
-
-  > \d disputed_chosen_match_trimmability
-  +-----+---------------------+---------+---------+------------+----+
-  | cid | name                | type    | notnull | dflt_value | pk |
-  +-----+---------------------+---------+---------+------------+----+
-  | 0   | path_id             | INTEGER | 1       | <null>     | 1  |
-  | 1   | path_edge_idx       | INTEGER | 1       | <null>     | 2  |
-  | 2   | is_forward          | INTEGER | 1       | <null>     | 3  |
-  | 3   | edge_shst_match_idx | INTEGER | 1       | <null>     | 4  |
-  | 4   | start_trimmable     | INTEGER | 0       | <null>     | 0  |
-  | 5   | end_trimmable       | INTEGER | 0       | <null>     | 0  |
-  +-----+---------------------+---------+---------+------------+----+
-*/
-
 WITH cte_disputes_with_untrimmable_edges AS (
   SELECT
       dispute_id,
@@ -82,9 +53,11 @@ WITH cte_disputes_with_untrimmable_edges AS (
     GROUP BY dispute_id, path_id
     HAVING (
       COUNT( DISTINCT
+        -- NOTE: ShstRefences are directional, so is_forward should be consistent for a TargetMapPath.
+        --       If is_forward is inconsistent, that's a red flag.
         CAST(path_id AS TEXT)
         || '|'
-        || CAST(a.is_forward AS TEXT) -- FIXME: What about b.is_forward ???
+        || CAST(a.is_forward AS TEXT)
       ) = 1
     )
 )
@@ -98,5 +71,57 @@ WITH cte_disputes_with_untrimmable_edges AS (
             USING (dispute_id)
         WHERE ( a.path_id <> b.path_id )
     ) ;
+
+-- Untrimmables beat trimmables.
+DELETE FROM chosen_match_unresolved_disputes_claimants
+  WHERE (dispute_id, path_id, path_edge_idx, edge_id ) IN (
+    SELECT
+        sub_trimmables.dispute_id,
+        sub_trimmables.path_id,
+        sub_trimmables.path_edge_idx,
+        sub_trimmables.edge_id
+      FROM (
+        SELECT
+            dispute_id,
+            path_id,
+            path_edge_idx,
+            edge_id,
+            is_forward,
+            section_start,
+            section_end
+          FROM chosen_match_unresolved_disputes_claimants AS x
+            INNER JOIN disputed_chosen_match_trimmability AS y
+              USING (
+                path_id,
+                path_edge_idx,
+                is_forward,
+                edge_shst_match_idx
+              )
+          WHERE ( y.start_trimmable AND y.end_trimmable )
+      ) AS sub_trimmables INNER JOIN (
+        SELECT
+            dispute_id,
+            path_id,
+            path_edge_idx,
+            edge_id,
+            is_forward,
+            section_start,
+            section_end
+          FROM chosen_match_unresolved_disputes_claimants AS x
+            INNER JOIN disputed_chosen_match_trimmability AS y
+              USING (
+                path_id,
+                path_edge_idx,
+                is_forward,
+                edge_shst_match_idx
+              )
+          WHERE ( NOT ( y.start_trimmable OR y.end_trimmable ) )
+        ) AS sub_untrimmables USING ( dispute_id )
+      WHERE (
+        ( sub_trimmables.section_start < sub_untrimmables.section_end )
+        AND
+        ( sub_untrimmables.section_start < sub_trimmables.section_end )
+      )
+  ) ;
 
 COMMIT;
