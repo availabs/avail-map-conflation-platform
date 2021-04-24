@@ -3,6 +3,8 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
+import _ from 'lodash';
+
 import { Database as SqliteDatabase, Statement } from 'better-sqlite3';
 
 export default class AssignerStrategy {
@@ -11,6 +13,10 @@ export default class AssignerStrategy {
       encoding: 'utf8',
     });
   }
+
+  protected superStep: number;
+
+  protected previousConstraintsViolationTableNames: string[];
 
   private preparedStatements: {
     assignedMatchesCountStmt?: Statement;
@@ -23,22 +29,88 @@ export default class AssignerStrategy {
 
   constructor(private readonly db: SqliteDatabase) {
     this.preparedStatements = {};
+
+    this.superStep = 0;
+    this.previousConstraintsViolationTableNames = [];
+  }
+
+  createConstraintViolationsTable(stepLabel: string) {
+    const n = _.padStart(this.superStep, 3, '0');
+
+    const tableName = `new_constraint_violations_superstep_${n}_${stepLabel}`;
+
+    const previousViolationsUnionsClause = this.previousConstraintsViolationTableNames.map(
+      (prevTableName) => `
+              SELECT * FROM ${prevTableName}`,
+    ).join(`
+
+              UNION ALL
+      `);
+
+    const exceptClause = previousViolationsUnionsClause
+      ? `
+          EXCEPT
+
+          SELECT
+              *
+            FROM (${previousViolationsUnionsClause}
+            )
+      `
+      : '';
+
+    const sql = `
+      CREATE TABLE ${tableName}
+        AS
+          SELECT
+              *
+            FROM constraint_violations_in_assigned_matches
+          ${exceptClause}
+    `;
+
+    this.db.exec(sql);
+
+    const numNewConstraintViolations = this.db
+      .prepare(
+        `
+      SELECT COUNT(1) FROM ${tableName};
+    `,
+      )
+      .pluck()
+      .get();
+
+    console.log();
+    console.log(
+      stepLabel,
+      'added',
+      numNewConstraintViolations,
+      'constraint violations.',
+    );
+    console.log();
+
+    this.previousConstraintsViolationTableNames.push(tableName);
   }
 
   resolveDisputes() {
     let curDisputeClaimantsCount = this.disputeClaimantsCount;
+
+    this.createConstraintViolationsTable('initial');
 
     // let i = 0;
     while (true) {
       console.log('==> curDisputeClaimantsCount:', curDisputeClaimantsCount);
 
       this.settleDisputes();
+      this.createConstraintViolationsTable('loop_start_settle_disputes');
 
+      ++this.superStep;
       this.resolveSameEdgeDisputes();
       this.settleDisputes();
+      this.createConstraintViolationsTable('resolve_same_edge_disputes');
 
       this.resolvePreferredUnidirectional();
       this.settleDisputes();
+      ++this.superStep;
+      this.createConstraintViolationsTable('resolve_preferred_unidirectional');
 
       // if (!i) {
       // this.resolveReverseDirections();
@@ -46,9 +118,15 @@ export default class AssignerStrategy {
 
       this.resolveTrimmableUntrimmable();
       this.settleDisputes();
+      ++this.superStep;
+      this.createConstraintViolationsTable(
+        'resolve_trimmable_untrimmable_disputes',
+      );
 
       this.resolveEpsilonDisputes();
       this.settleDisputes();
+      ++this.superStep;
+      this.createConstraintViolationsTable('resolve_epsilon_disputes');
 
       // this.resolveUsingViableShstMatches();
       // this.settleDisputes();

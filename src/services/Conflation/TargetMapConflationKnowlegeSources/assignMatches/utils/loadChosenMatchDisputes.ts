@@ -12,6 +12,8 @@ const createTablesSql = readFileSync(
   { encoding: 'utf-8' },
 );
 
+const PRECISION = 4;
+
 export default function loadChosenMatchDisputes(db: SqliteDatabase) {
   db.exec('BEGIN;');
 
@@ -37,7 +39,7 @@ export default function loadChosenMatchDisputes(db: SqliteDatabase) {
       edge_shst_match_idx,
       section_start,
       section_end
-    ) 
+    )
       SELECT
           ? AS dispute_id,
           json_extract(value, '$.path_id'),
@@ -60,8 +62,14 @@ export default function loadChosenMatchDisputes(db: SqliteDatabase) {
         SELECT
             c.geometry_id AS shst_geometry_id,
             a.shst_reference AS shst_reference_id,
-            MIN(a.section_start, b.section_start) AS disputed_section_start,
-            MAX(a.section_end, b.section_end) AS disputed_section_end,
+            ROUND(
+              MIN(a.section_start, b.section_start),
+              ${PRECISION}
+            ) AS disputed_section_start,
+            ROUND(
+              MAX(a.section_end, b.section_end),
+              ${PRECISION}
+            ) AS disputed_section_end,
             (
               '[' ||
                 group_concat( DISTINCT
@@ -71,8 +79,8 @@ export default function loadChosenMatchDisputes(db: SqliteDatabase) {
                     'edge_id',              a.edge_id,
                     'is_forward',           a.is_forward,
                     'edge_shst_match_idx',  a.edge_shst_match_idx,
-                    'section_start',        a.section_start,
-                    'section_end',          a.section_end
+                    'section_start',        ROUND(a.section_start, ${PRECISION}),
+                    'section_end',          ROUND(a.section_end, ${PRECISION})
                   )
                   || ',' ||
                   json_object(
@@ -81,8 +89,8 @@ export default function loadChosenMatchDisputes(db: SqliteDatabase) {
                     'edge_id',              b.edge_id,
                     'is_forward',           b.is_forward,
                     'edge_shst_match_idx',  b.edge_shst_match_idx,
-                    'section_start',        b.section_start,
-                    'section_end',          b.section_end
+                    'section_start',        ROUND(b.section_start, ${PRECISION}),
+                    'section_end',          ROUND(b.section_end, ${PRECISION})
                   )
                 ) ||
               ']'
@@ -97,9 +105,9 @@ export default function loadChosenMatchDisputes(db: SqliteDatabase) {
             ( a.path_id < b.path_id )
             AND
             (
-              ( a.section_start < b.section_end )
+              ( ROUND(a.section_start, ${PRECISION}) < ROUND(b.section_end, ${PRECISION}) )
               AND
-              ( b.section_start < a.section_end )
+              ( ROUND(b.section_start, ${PRECISION}) < ROUND(a.section_end, ${PRECISION}) )
             )
           )
           GROUP BY 1, 2
@@ -187,6 +195,85 @@ export default function loadChosenMatchDisputes(db: SqliteDatabase) {
           section_end
         FROM chosen_match_initial_disputes_claimants
     ;
+  `);
+
+  /*
+      tmp-20494-uv5wiN6zia8h> \d chosen_match_initial_disputes_sections
+      +-----+------------------------+---------+---------+------------+----+
+      | cid | name                   | type    | notnull | dflt_value | pk |
+      +-----+------------------------+---------+---------+------------+----+
+      | 0   | dispute_id             | INTEGER | 1       | <null>     | 1  |
+      | 1   | shst_geometry_id       | TEXT    | 1       | <null>     | 0  |
+      | 2   | shst_reference_id      | TEXT    | 1       | <null>     | 0  |
+      | 3   | disputed_section_start | REAL    | 1       | <null>     | 0  |
+      | 4   | disputed_section_end   | REAL    | 1       | <null>     | 0  |
+      +-----+------------------------+---------+---------+------------+----+
+
+      tmp-20494-uv5wiN6zia8h> \d chosen_match_initial_disputes_claimants
+      +-----+---------------------+---------+---------+------------+----+
+      | cid | name                | type    | notnull | dflt_value | pk |
+      +-----+---------------------+---------+---------+------------+----+
+      | 0   | dispute_id          | INTEGER | 1       | <null>     | 0  |
+      | 1   | path_id             | INTEGER | 1       | <null>     | 1  |
+      | 2   | path_edge_idx       | INTEGER | 1       | <null>     | 2  |
+      | 3   | edge_id             | INTEGER | 1       | <null>     | 0  |
+      | 4   | is_forward          | INTEGER | 1       | <null>     | 3  |
+      | ${PRECISION}   | edge_shst_match_idx | INTEGER | 1       | <null>     | 4  |
+      | 6   | section_start       | REAL    | 1       | <null>     | 0  |
+      | 7   | section_end         | REAL    | 1       | <null>     | 0  |
+      +-----+---------------------+---------+---------+------------+----+
+*/
+
+  db.exec(`
+    INSERT INTO chosen_match_initial_undisputed_claims (
+      path_id,
+      path_edge_idx,
+
+      edge_id,
+      is_forward,
+
+      edge_shst_match_idx,
+
+      shst_reference_id,
+
+      section_start,
+      section_end
+    )
+      SELECT
+          path_id,
+          path_edge_idx,
+
+          edge_id,
+          is_forward,
+
+          edge_shst_match_idx,
+
+          shst_reference AS shst_reference_id,
+
+          ROUND(section_start, ${PRECISION}) AS section_start,
+          ROUND(section_end, ${PRECISION}) AS section_end
+        FROM target_map_bb.target_map_edge_chosen_matches
+        WHERE ( ROUND(section_end, ${PRECISION}) > ROUND(section_start, ${PRECISION}) )
+
+      EXCEPT
+
+      SELECT
+          path_id,
+          path_edge_idx,
+
+          edge_id,
+          is_forward,
+
+          edge_shst_match_idx,
+
+          shst_reference_id,
+
+          section_start,
+          section_end
+
+          FROM chosen_match_initial_disputes_sections AS a
+            INNER JOIN chosen_match_initial_disputes_claimants
+              USING (dispute_id) ;
   `);
 
   db.exec('COMMIT;');

@@ -34,22 +34,22 @@ CREATE VIEW cstrvio_assigned_matches_positive_length AS
     FROM assigned_matches_view
     WHERE ( section_end <= section_start ) ;
 
--- NOTE: These SHOULD be redundant. After proof, remove.
-CREATE VIEW cstrvio_assigned_matches_shstref_start_uniq AS
-  SELECT
-      shst_reference_id,
-      section_start
-    FROM assigned_matches_view
-    GROUP BY shst_reference_id, section_start
-    HAVING COUNT(1) > 1 ;
-
-CREATE VIEW cstrvio_assigned_matches_shstref_end_uniq AS
-  SELECT
-      shst_reference_id,
-      section_end
-    FROM assigned_matches_view
-    GROUP BY shst_reference_id, section_end
-    HAVING COUNT(1) > 1 ;
+-- -- NOTE: These SHOULD be redundant. After proof, remove.
+-- CREATE VIEW cstrvio_assigned_matches_shstref_start_uniq AS
+--   SELECT
+--       shst_reference_id,
+--       section_start
+--     FROM assigned_matches_view
+--     GROUP BY shst_reference_id, section_start
+--     HAVING COUNT(1) > 1 ;
+--
+-- CREATE VIEW cstrvio_assigned_matches_shstref_end_uniq AS
+--   SELECT
+--       shst_reference_id,
+--       section_end
+--     FROM assigned_matches_view
+--     GROUP BY shst_reference_id, section_end
+--     HAVING COUNT(1) > 1 ;
 
 CREATE VIEW constraint_violations_in_assigned_matches AS
   SELECT
@@ -77,22 +77,22 @@ CREATE VIEW constraint_violations_in_assigned_matches AS
       INNER JOIN cstrvio_assigned_matches_pkey AS b
         USING (shst_reference_id, edge_id )
 
-  UNION ALL
+  -- UNION ALL
 
-  SELECT
-      a.*,
-      'assigned_matches_shstref_start_uniq' AS rule
-    FROM assigned_matches_view AS a
-      INNER JOIN cstrvio_assigned_matches_shstref_start_uniq AS b
-        USING (shst_reference_id, section_start)
+  -- SELECT
+  --     a.*,
+  --     'assigned_matches_shstref_start_uniq' AS rule
+  --   FROM assigned_matches_view AS a
+  --     INNER JOIN cstrvio_assigned_matches_shstref_start_uniq AS b
+  --       USING (shst_reference_id, section_start)
 
-  UNION ALL
-  SELECT
-      a.*,
-      'assigned_matches_shstref_end_uniq' AS rule
-    FROM assigned_matches_view AS a
-      INNER JOIN cstrvio_assigned_matches_shstref_end_uniq AS b
-        USING (shst_reference_id, section_end)
+  -- UNION ALL
+  -- SELECT
+  --     a.*,
+  --     'assigned_matches_shstref_end_uniq' AS rule
+  --   FROM assigned_matches_view AS a
+  --     INNER JOIN cstrvio_assigned_matches_shstref_end_uniq AS b
+  --       USING (shst_reference_id, section_end)
 ;
 
 CREATE VIEW constraint_satisfaction_assigned_matches AS
