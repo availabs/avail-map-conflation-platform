@@ -1,6 +1,6 @@
-DROP TABLE IF EXISTS assigned_matches;
+DROP TABLE IF EXISTS awarded_matches;
 
-CREATE TABLE assigned_matches (
+CREATE TABLE awarded_matches (
   shst_reference_id   INTEGER NOT NULL,
 
   edge_id             INTEGER NOT NULL,
@@ -43,5 +43,16 @@ CREATE TABLE assigned_matches (
   )
 ) WITHOUT ROWID;
 
-CREATE INDEX assigned_matches_shst_ref_idx
-  ON assigned_matches(shst_reference_id);
+CREATE INDEX awarded_matches_shst_ref_idx
+  ON awarded_matches(shst_reference_id);
+
+CREATE INDEX awarded_matches_sections_idx
+  ON awarded_matches(
+    shst_reference_id,
+    section_start,
+    section_end
+  );
+
+CREATE INDEX awarded_matches_edge_idx
+  ON awarded_matches (edge_id) ;
+

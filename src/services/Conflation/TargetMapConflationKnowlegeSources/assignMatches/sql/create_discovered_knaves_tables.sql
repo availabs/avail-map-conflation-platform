@@ -25,3 +25,10 @@ CREATE TABLE discovered_knaves (
     section_end
   )
 ) WITHOUT ROWID ;
+
+CREATE INDEX discovered_knaves_sections_idx
+  ON discovered_knaves (
+    shst_reference_id,
+    section_start,
+    section_end
+  ) ;

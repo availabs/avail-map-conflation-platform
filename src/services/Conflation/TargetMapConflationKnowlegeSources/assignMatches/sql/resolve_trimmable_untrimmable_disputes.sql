@@ -53,7 +53,7 @@ WITH cte_disputes_with_untrimmable_edges AS (
     GROUP BY dispute_id, path_id
     HAVING (
       COUNT( DISTINCT
-        -- NOTE: ShstRefences are directional, so is_forward should be consistent for a TargetMapPath.
+        -- NOTE: ShstReferences are directional, so is_forward should be consistent for a TargetMapPath.
         --       If is_forward is inconsistent, that's a red flag.
         CAST(path_id AS TEXT)
         || '|'

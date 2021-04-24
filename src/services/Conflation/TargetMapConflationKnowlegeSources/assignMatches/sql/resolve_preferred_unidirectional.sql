@@ -1,3 +1,8 @@
+-- FIXME:
+--        * Rotaries are instances where UnidirectionalTMEdges may
+--            legitimately have an opposite direction. Better to
+--            flip the direction than drop.
+
 DELETE FROM chosen_match_unresolved_disputes_claimants
   WHERE (edge_id, is_forward)
   IN (

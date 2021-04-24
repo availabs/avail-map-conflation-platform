@@ -13,13 +13,13 @@ import AssignerStrategy from './AssignerStrategy';
 import { TargetMapSchema } from '../../../../utils/TargetMapDatabases/TargetMapDAO';
 import { AssignedMatch } from '../../domain/types';
 
-export default class AssignerController {
-  protected static getSql(fName: string) {
-    return readFileSync(join(__dirname, './sql/', fName), {
-      encoding: 'utf8',
-    });
-  }
+function getSql(fName: string) {
+  return readFileSync(join(__dirname, './sql/', fName), {
+    encoding: 'utf8',
+  });
+}
 
+export default class AssignerController {
   readonly db: SqliteDatabase;
 
   private readonly assignerStrategy: AssignerStrategy;
@@ -50,27 +50,30 @@ export default class AssignerController {
     this.createTargetMapUnidirectionalEdgePreferredDirectionTable();
     this.loadTrimmabilityTable();
     this.createAssignedMatchesTable();
+
+    this.createShstMatchesViews();
+    this.createShstReferencesMetadataView();
+    this.createAssignedMatchesView();
+
+    this.createConstraintSatisfactionViews();
+
     console.timeEnd('initializeCoreDatabaseTables');
   }
 
   protected createDiscoveredKnavesTables() {
-    const sql = AssignerController.getSql(
-      'create_discovered_knaves_tables.sql',
-    );
+    const sql = getSql('create_discovered_knaves_tables.sql');
 
     this.db.exec(sql);
   }
 
   protected createTargetMapPathLastEdgeTable() {
-    const sql = AssignerController.getSql(
-      'create_target_map_path_last_edge_table.sql',
-    );
+    const sql = getSql('create_target_map_path_last_edge_table.sql');
 
     this.db.exec(sql);
   }
 
   protected createTargetMapPathEdgeChosenMatchesAggregateStats() {
-    const sql = AssignerController.getSql(
+    const sql = getSql(
       'create_target_map_path_edge_chosen_matches_aggregate_stats_table.sql',
     );
 
@@ -78,7 +81,7 @@ export default class AssignerController {
   }
 
   protected createTargetMapUnidirectionalEdgePreferredDirectionTable() {
-    const sql = AssignerController.getSql(
+    const sql = getSql(
       'create_target_map_unidirectional_edge_preferred_direction_table.sql',
     );
 
@@ -86,63 +89,44 @@ export default class AssignerController {
   }
 
   protected loadTrimmabilityTable() {
-    const sql = AssignerController.getSql('initialize_trimmability_table.sql');
+    const sql = getSql('initialize_trimmability_table.sql');
 
     this.db.exec(sql);
   }
 
   protected createAssignedMatchesTable() {
-    const sql = AssignerController.getSql('create_assigned_matches_table.sql');
+    const sql = getSql('create_awarded_matches_table.sql');
+
+    this.db.exec(sql);
+  }
+
+  protected createShstMatchesViews() {
+    const sql = getSql('create_shst_matches_temporary_views.sql');
+
+    this.db.exec(sql);
+  }
+
+  protected createShstReferencesMetadataView() {
+    const sql = getSql('create_shst_reference_metadata_view.sql');
+
+    this.db.exec(sql);
+  }
+
+  protected createAssignedMatchesView() {
+    const sql = getSql('create_assigned_matches_view.sql');
+
+    this.db.exec(sql);
+  }
+
+  protected createConstraintSatisfactionViews() {
+    const sql = getSql('constraint_satisfaction_views.sql');
 
     this.db.exec(sql);
   }
 
   *makeMatchesIterator(): Generator<AssignedMatch> {
     // Undisputed ChosenMatches
-    const undisputedChosenMatchesIter = this.db
-      .prepare(
-        `
-          SELECT
-              a.shst_reference  AS shstReferenceId,
-              a.edge_id         AS targetMapEdgeId,
-              a.is_forward      AS isForward,
-              a.section_start   AS sectionStart,
-              a.section_end     AS sectionEnd
-            FROM target_map_bb.target_map_edge_chosen_matches AS a
-              LEFT OUTER JOIN chosen_match_initial_disputes_claimants AS b
-                USING (
-                  path_id,
-                  path_edge_idx,
-                  is_forward,
-                  edge_shst_match_idx
-                )
-              LEFT OUTER JOIN discovered_knaves AS c
-                ON (
-                  ( a.shst_reference = c.shst_reference_id )
-                  AND
-                  ( a.edge_id = c.edge_id )
-                  AND
-                  ( a.is_forward = c.is_forward )
-                  AND
-                  ( a.section_start < c.section_end )
-                  AND
-                  ( a.section_end > c.section_start )
-                )
-            WHERE (
-              ( b.path_id IS NULL )
-              AND
-              ( c.shst_reference_id IS NULL )
-            )
-      `,
-      )
-      .iterate();
-
-    for (const row of undisputedChosenMatchesIter) {
-      yield row;
-    }
-
-    // Disputed ChosenMatches Resolutions
-    const assignedMatchIter = this.db
+    const iter = this.db
       .prepare(
         `
           SELECT
@@ -151,14 +135,12 @@ export default class AssignerController {
               is_forward          AS isForward,
               section_start       AS sectionStart,
               section_end         AS sectionEnd
-            FROM assigned_matches
-
-            ORDER BY shst_reference_id, section_start ;
-        `,
+            FROM assigned_matches_view ;
+      `,
       )
       .iterate();
 
-    for (const row of assignedMatchIter) {
+    for (const row of iter) {
       yield row;
     }
   }

@@ -13,6 +13,7 @@ export default class AssignerStrategy {
   }
 
   private preparedStatements: {
+    assignedMatchesCountStmt?: Statement;
     disputeClaimantsCountStmt?: Statement;
     resolvePreferredUnidirectionalStmt?: Statement;
     resolveTrimmableUntrimmableStmt?: Statement;
@@ -49,6 +50,9 @@ export default class AssignerStrategy {
       this.resolveEpsilonDisputes();
       this.settleDisputes();
 
+      // this.resolveUsingViableShstMatches();
+      // this.settleDisputes();
+
       if (curDisputeClaimantsCount === this.disputeClaimantsCount) {
         break;
       }
@@ -78,16 +82,38 @@ export default class AssignerStrategy {
     return this.disputeClaimantsCountStmt.pluck().get();
   }
 
+  protected get assignedMatchesCountStmt() {
+    this.preparedStatements.assignedMatchesCountStmt =
+      this.preparedStatements.assignedMatchesCountStmt ||
+      this.db.prepare(`
+        SELECT
+            COUNT(1)
+          FROM awarded_matches
+      `);
+
+    return this.preparedStatements.assignedMatchesCountStmt;
+  }
+
+  get assignedMatchesCount() {
+    return this.assignedMatchesCountStmt.pluck().get();
+  }
+
   protected settleDisputes() {
     const sql = AssignerStrategy.getSql('drop_disputes_and_assign.sql');
 
     let curDisputeClaimantsCount = this.disputeClaimantsCount;
+
+    console.log(
+      'settleDisputes before assignedMatchesCount:',
+      this.assignedMatchesCount,
+    );
 
     while (true) {
       console.log(
         'settleDisputes curDisputeClaimantsCount:',
         curDisputeClaimantsCount,
       );
+
       this.db.exec(sql);
 
       if (curDisputeClaimantsCount === this.disputeClaimantsCount) {
@@ -96,6 +122,11 @@ export default class AssignerStrategy {
 
       curDisputeClaimantsCount = this.disputeClaimantsCount;
     }
+
+    console.log(
+      'settleDisputes after assignedMatchesCount:',
+      this.assignedMatchesCount,
+    );
   }
 
   protected resolveSameEdgeDisputes() {
@@ -135,4 +166,13 @@ export default class AssignerStrategy {
 
     this.db.exec(sql);
   }
+
+  // FIXME: This needs work.
+  // protected resolveUsingViableShstMatches() {
+  // const sql = AssignerStrategy.getSql(
+  // 'resolve_using_viable_shst_matches.sql',
+  // );
+
+  // this.db.exec(sql);
+  // }
 }

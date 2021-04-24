@@ -1,7 +1,12 @@
+/*
+    TODO: Classification of disputes.
+            Views such as trimmable/untrimmable, epsilon_overlap, etc
+*/
+
 DROP TABLE IF EXISTS chosen_match_unresolved_disputes_sections;
 DROP TABLE IF EXISTS chosen_match_unresolved_disputes_claimants;
 
--- THESE ARE IMMUTABLE
+-- THESE TABLES ARE IMMUTABLE
 
 CREATE TABLE chosen_match_initial_disputes_sections (
   dispute_id               INTEGER NOT NULL PRIMARY KEY,
@@ -18,6 +23,7 @@ CREATE TABLE chosen_match_initial_disputes_sections (
     disputed_section_end
   )
 ) WITHOUT ROWID ;
+
 
 CREATE TABLE chosen_match_initial_disputes_claimants (
   dispute_id               INTEGER NOT NULL,
@@ -44,6 +50,37 @@ CREATE TABLE chosen_match_initial_disputes_claimants (
     ON DELETE CASCADE
 ) WITHOUT ROWID ;
 
+CREATE TABLE chosen_match_initial_undisputed_claims (
+  path_id                 INTEGER NOT NULL,
+  path_edge_idx           INTEGER NOT NULL,
+
+  edge_id                 INTEGER NOT NULL,
+  is_forward              INTEGER NOT NULL,
+
+  edge_shst_match_idx     INTEGER NOT NULL,
+
+  shst_reference_id       TEXT NOT NULL,
+
+  section_start           REAL NOT NULL,
+  section_end             REAL NOT NULL,
+
+  PRIMARY KEY(
+    path_id,
+    path_edge_idx,
+    is_forward,
+    shst_reference_id
+  )
+) WITHOUT ROWID ;
+
+CREATE INDEX chosen_match_initial_undisputed_claims_idx
+  ON chosen_match_initial_undisputed_claims (shst_reference_id, section_start, section_end ) ;
+
+CREATE INDEX chosen_match_initial_undisputed_claims_edge_idx
+  ON chosen_match_initial_undisputed_claims (edge_id) ;
+
+
+-- THE BELOW TABLES ARE MUTABLE
+
 CREATE TABLE chosen_match_unresolved_disputes_sections (
   dispute_id               INTEGER NOT NULL PRIMARY KEY,
 
@@ -60,7 +97,12 @@ CREATE TABLE chosen_match_unresolved_disputes_sections (
   )
 ) WITHOUT ROWID ;
 
--- THESE ARE MUTABLE
+CREATE INDEX chosen_match_unresolved_disputes_sections_idx
+  ON chosen_match_unresolved_disputes_sections (
+    shst_reference_id,
+    disputed_section_start,
+    disputed_section_end
+  ) ;
 
 CREATE TABLE chosen_match_unresolved_disputes_claimants (
   dispute_id               INTEGER NOT NULL,
@@ -89,7 +131,10 @@ CREATE TABLE chosen_match_unresolved_disputes_claimants (
     ON DELETE CASCADE
 ) WITHOUT ROWID ;
 
---
+CREATE INDEX chosen_match_unresolved_disputes_claimants_edge_idx
+  ON chosen_match_unresolved_disputes_claimants (edge_id) ;
+
+-- VIEWS
 
 CREATE VIEW chosen_match_resolved_disputes_sections
   AS
@@ -222,3 +267,4 @@ CREATE VIEW chosen_match_resolved_disputes
       INNER JOIN chosen_match_resolved_disputes_claimants
         USING ( dispute_id )
   ;
+
