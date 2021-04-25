@@ -34,6 +34,7 @@ CREATE VIEW assigned_matches_view
           section_end
         FROM awarded_matches
   ), cte_assignment_consolidations AS (
+    -- RECURSIVE because accumulating sections is transitive.
     SELECT 
         shst_reference_id,
         edge_id,
@@ -63,6 +64,7 @@ CREATE VIEW assigned_matches_view
         ( ( a.section_end - b.section_start ) < 0.00001 ) -- 1cm
       )
   )
+    -- Collect the largest sections created in the recursive query above.
     SELECT DISTINCT
         a.shst_reference_id,
         a.edge_id,

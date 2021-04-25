@@ -46,6 +46,7 @@ export default class AssignerController {
     loadChosenMatchDisputes(this.db);
     this.createDiscoveredKnavesTables();
     this.createTargetMapPathLastEdgeTable();
+    this.createTargetMapEdgeMetadataTable();
     this.createTargetMapPathEdgeChosenMatchesAggregateStats();
     this.createTargetMapUnidirectionalEdgePreferredDirectionTable();
     this.loadTrimmabilityTable();
@@ -56,6 +57,7 @@ export default class AssignerController {
     this.createAssignedMatchesView();
 
     this.createConstraintSatisfactionViews();
+    this.createAssigmentMetricsViews();
 
     console.timeEnd('initializeCoreDatabaseTables');
   }
@@ -68,6 +70,12 @@ export default class AssignerController {
 
   protected createTargetMapPathLastEdgeTable() {
     const sql = getSql('create_target_map_path_last_edge_table.sql');
+
+    this.db.exec(sql);
+  }
+
+  protected createTargetMapEdgeMetadataTable() {
+    const sql = getSql('create_target_map_edge_metadata.sql');
 
     this.db.exec(sql);
   }
@@ -120,6 +128,12 @@ export default class AssignerController {
 
   protected createConstraintSatisfactionViews() {
     const sql = getSql('constraint_satisfaction_views.sql');
+
+    this.db.exec(sql);
+  }
+
+  protected createAssigmentMetricsViews() {
+    const sql = getSql('create_assignment_metrics_views.sql');
 
     this.db.exec(sql);
   }
