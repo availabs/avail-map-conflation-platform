@@ -43,9 +43,12 @@ export default class AssignerController {
   // These tables simply hold information. They do not assign matches.
   initializeCoreDatabaseTables() {
     console.time('initializeCoreDatabaseTables');
-    loadChosenMatchDisputes(this.db);
-    this.createDiscoveredKnavesTables();
+
     this.createTargetMapPathLastEdgeTable();
+    this.createDiscoveredKnavesTables();
+
+    loadChosenMatchDisputes(this.db);
+
     this.createTargetMapEdgeMetadataTable();
     this.createTargetMapPathEdgeChosenMatchesAggregateStats();
     this.createTargetMapUnidirectionalEdgePreferredDirectionTable();

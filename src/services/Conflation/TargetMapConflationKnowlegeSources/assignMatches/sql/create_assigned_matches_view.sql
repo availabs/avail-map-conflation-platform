@@ -20,7 +20,7 @@ CREATE VIEW assigned_matches_view
               AND
               ( a.section_start < b.section_end )
               AND
-              ( b.section_start > a.section_end )
+              ( b.section_start < a.section_end )
             )
         WHERE ( b.shst_reference_id IS NULL )
 
@@ -85,7 +85,7 @@ CREATE VIEW assigned_matches_view
               AND
               ( b.section_start < a.section_end )
             )
-            AND
+            AND -- Take the largest from the sections build recursively.
             (
               ( b.section_end - b.section_start ) >= ( a.section_end - a.section_start )
               -- The above doesn't work by itself due to due to Floating Point error.
@@ -96,6 +96,8 @@ CREATE VIEW assigned_matches_view
                 ( a.section_end <> b.section_end )
               )
             )
+            AND
+            ( a.section_end > a.section_start )
           )
       WHERE ( b.shst_reference_id IS NULL )
 

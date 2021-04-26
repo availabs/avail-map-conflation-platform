@@ -42,13 +42,13 @@ export default function loadChosenMatchDisputes(db: SqliteDatabase) {
     )
       SELECT
           ? AS dispute_id,
-          json_extract(value, '$.path_id'),
-          json_extract(value, '$.path_edge_idx'),
-          json_extract(value, '$.edge_id'),
-          json_extract(value, '$.is_forward'),
-          json_extract(value, '$.edge_shst_match_idx'),
-          json_extract(value, '$.section_start'),
-          json_extract(value, '$.section_end')
+          json_extract(value, '$.path_id')              AS path_id,
+          json_extract(value, '$.path_edge_idx')        AS path_edge_idx,
+          json_extract(value, '$.edge_id')              AS edge_id,
+          json_extract(value, '$.is_forward')           AS is_forward,
+          json_extract(value, '$.edge_shst_match_idx')  AS edge_shst_match_idx,
+          json_extract(value, '$.section_start')        AS section_start,
+          json_extract(value, '$.section_end')          AS section_end
         FROM (
             SELECT json(?) AS claimants
           ) AS t, json_each(t.claimants)
@@ -100,7 +100,35 @@ export default function loadChosenMatchDisputes(db: SqliteDatabase) {
               USING (shst_reference)
             INNER JOIN source_map.shst_references AS c
               ON ( a.shst_reference = c.id )
+            LEFT OUTER JOIN discovered_knaves AS x
+              ON (
+                a.shst_reference = x.shst_reference_id
+                AND
+                a.edge_id = x.edge_id
+                AND
+                a.is_forward = x.is_forward
+                AND
+                a.section_start = x.section_start
+                AND
+                a.section_end = x.section_end
+              )
+            LEFT OUTER JOIN discovered_knaves AS y
+              ON (
+                b.shst_reference = y.shst_reference_id
+                AND
+                b.edge_id = y.edge_id
+                AND
+                b.is_forward = y.is_forward
+                AND
+                b.section_start = y.section_start
+                AND
+                b.section_end = y.section_end
+              )
           WHERE (
+            ( x.shst_reference_id IS NULL )
+            AND
+            ( y.shst_reference_id IS NULL )
+            AND
             -- Assumes no disputes within path
             ( a.path_id < b.path_id )
             AND
@@ -240,20 +268,37 @@ export default function loadChosenMatchDisputes(db: SqliteDatabase) {
       section_end
     )
       SELECT
-          path_id,
-          path_edge_idx,
+          a.path_id,
+          a.path_edge_idx,
 
-          edge_id,
-          is_forward,
+          a.edge_id,
+          a.is_forward,
 
-          edge_shst_match_idx,
+          a.edge_shst_match_idx,
 
-          shst_reference AS shst_reference_id,
+          a.shst_reference AS shst_reference_id,
 
-          ROUND(section_start, ${PRECISION}) AS section_start,
-          ROUND(section_end, ${PRECISION}) AS section_end
-        FROM target_map_bb.target_map_edge_chosen_matches
-        WHERE ( ROUND(section_end, ${PRECISION}) > ROUND(section_start, ${PRECISION}) )
+          ROUND(a.section_start, ${PRECISION}) AS section_start,
+          ROUND(a.section_end, ${PRECISION}) AS section_end
+        FROM target_map_bb.target_map_edge_chosen_matches AS a
+          LEFT OUTER JOIN discovered_knaves AS x
+            ON (
+              ( a.shst_reference = x.shst_reference_id )
+              AND
+              ( a.edge_id = x.edge_id )
+              AND
+              ( a.is_forward = x.is_forward )
+              AND (
+                ( a.section_start < x.section_end )
+                AND
+                ( x.section_start < a.section_end )
+              )
+            )
+        WHERE (
+          ( ROUND(a.section_end, ${PRECISION}) > ROUND(a.section_start, ${PRECISION}) )
+          AND
+          ( x.shst_reference_id IS NULL )
+        )
 
       EXCEPT
 
@@ -271,9 +316,8 @@ export default function loadChosenMatchDisputes(db: SqliteDatabase) {
           section_start,
           section_end
 
-          FROM chosen_match_initial_disputes_sections AS a
-            INNER JOIN chosen_match_initial_disputes_claimants
-              USING (dispute_id) ;
+          FROM chosen_match_initial_disputes
+      ;
   `);
 
   db.exec('COMMIT;');

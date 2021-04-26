@@ -107,8 +107,9 @@ export default class AssignerStrategy {
     while (true) {
       console.log('==> curDisputeClaimantsCount:', curDisputeClaimantsCount);
 
+      this.resolveSameEdgeMultiplePathsDisputes();
       this.settleDisputes();
-      this.createConstraintViolationsTable('loop_start_settle_disputes');
+      this.createConstraintViolationsTable('resolve_multi_path_edges');
 
       ++this.superStep;
       this.resolveSameEdgeDisputes();
@@ -213,16 +214,16 @@ export default class AssignerStrategy {
 
     let curDisputeClaimantsCount = this.disputeClaimantsCount;
 
-    console.log(
-      'settleDisputes before assignedMatchesCount:',
-      this.assignedMatchesCount,
-    );
+    // console.log(
+    // 'settleDisputes before assignedMatchesCount:',
+    // this.assignedMatchesCount,
+    // );
 
     while (true) {
-      console.log(
-        'settleDisputes curDisputeClaimantsCount:',
-        curDisputeClaimantsCount,
-      );
+      // console.log(
+      // 'settleDisputes curDisputeClaimantsCount:',
+      // curDisputeClaimantsCount,
+      // );
 
       this.db.exec(sql);
 
@@ -233,10 +234,16 @@ export default class AssignerStrategy {
       curDisputeClaimantsCount = this.disputeClaimantsCount;
     }
 
-    console.log(
-      'settleDisputes after assignedMatchesCount:',
-      this.assignedMatchesCount,
-    );
+    // console.log(
+    // 'settleDisputes after assignedMatchesCount:',
+    // this.assignedMatchesCount,
+    // );
+  }
+
+  protected resolveSameEdgeMultiplePathsDisputes() {
+    const sql = AssignerStrategy.getSql('resolve_multi_path_edges.sql');
+
+    this.db.exec(sql);
   }
 
   protected resolveSameEdgeDisputes() {
@@ -278,15 +285,14 @@ export default class AssignerStrategy {
   }
 
   protected resolveUsingShstReferenceMetadata() {
-    console.log('### targetMapIsCenterline:', this.targetMapIsCenterline);
     if (this.targetMapIsCenterline) {
       const sql = AssignerStrategy.getSql(
         'resolve_using_shst_reference_metadata.sql',
       );
 
-      console.time('resolveUsingShstReferenceMetadata');
+      // console.time('resolveUsingShstReferenceMetadata');
       this.db.exec(sql);
-      console.timeEnd('resolveUsingShstReferenceMetadata');
+      // console.timeEnd('resolveUsingShstReferenceMetadata');
     }
   }
 

@@ -5,6 +5,8 @@
 --   only high confidence hypotheses should be inserted, and not deleted
 --   to allow further inductions/decisions based on these tables.
 
+BEGIN;
+
 DROP TABLE IF EXISTS discovered_knaves;
 
 CREATE TABLE discovered_knaves (
@@ -32,3 +34,5 @@ CREATE INDEX discovered_knaves_sections_idx
     section_start,
     section_end
   ) ;
+
+COMMIT;
