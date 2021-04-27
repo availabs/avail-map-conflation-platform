@@ -98,34 +98,56 @@ export default class AssignerStrategy {
     this.previousConstraintsViolationTableNames.push(tableName);
   }
 
-  resolveDisputes() {
-    let curDisputeClaimantsCount = this.disputeClaimantsCount;
+  // The logic of these depends on them being run before all others.
+  handlePreliminaries() {
+    // FIXME: This condition is a workaround. It passes only for NPMRDS.
+    //          The resolve_multi_path_edges script uses a RawTargetMapFeature property
+    //          only found on NPMRDS TMCs--namely, isprimary.
+    //          TODO: Add isprimary to the TargetMapEdge properties.
+    if (!this.targetMapIsCenterline) {
+      this.resolveIsPrimary();
+      this.settleDisputes();
+      ++this.superStep;
+      this.createConstraintViolationsTable('resolve_is_primary');
+    } else {
+      ++this.superStep;
+    }
+  }
 
+  resolveDisputes() {
     this.createConstraintViolationsTable('initial');
 
-    this.resolveIsPrimary();
+    let curDisputeClaimantsCount = this.disputeClaimantsCount;
 
-    // let i = 0;
+    this.handlePreliminaries();
+
     while (true) {
       console.log('==> curDisputeClaimantsCount:', curDisputeClaimantsCount);
 
-      this.resolveSameEdgeMultiplePathsDisputes();
-      this.settleDisputes();
-      this.createConstraintViolationsTable('resolve_multi_path_edges');
+      // FIXME: This condition is a workaround. It passes only for NPMRDS.
+      //          NPMRDS has a many-to-many relationship between TargetMapEdges and TargetMapPaths.
+      //          NYS_RIS has a many-to-one relationship between TargetMapEdges and TargetMapPaths.
+      //
+      //          TODO: Add a VIEW to the TargetMapDatabases that shows the cardinality
+      //                of the TargetMapEdge/TargetMapPath relationship. (GROUP BY ... HAVING)
+      if (!this.targetMapIsCenterline) {
+        this.resolveSameEdgeMultiplePathsDisputes();
+        this.settleDisputes();
+        ++this.superStep;
+        this.createConstraintViolationsTable('resolve_multi_path_edges');
+      } else {
+        ++this.superStep;
+      }
 
-      ++this.superStep;
       this.resolveSameEdgeDisputes();
       this.settleDisputes();
+      ++this.superStep;
       this.createConstraintViolationsTable('resolve_same_edge_disputes');
 
       this.resolvePreferredUnidirectional();
       this.settleDisputes();
       ++this.superStep;
       this.createConstraintViolationsTable('resolve_preferred_unidirectional');
-
-      // if (!i) {
-      // this.resolveReverseDirections();
-      // }
 
       this.resolveTrimmableUntrimmable();
       this.settleDisputes();
@@ -148,15 +170,14 @@ export default class AssignerStrategy {
 
       curDisputeClaimantsCount = this.disputeClaimantsCount;
 
-      // ++i;
+      if (this.targetMapIsCenterline) {
+        this.resolveAssignedReverseDirectionsDisputed();
+      }
     }
 
-    this.resolveUsingShstReferenceMetadata();
+    // this.resolveUsingShstReferenceMetadata();
 
     this.outputAssignmentAggregateStats();
-
-    // Currently, this just creates a table for analysis of the method's potential
-    // this.resolveEpsilonOverlapDisputes();
   }
 
   protected get targetMapIsCenterlineStmt() {
@@ -266,8 +287,10 @@ export default class AssignerStrategy {
     this.db.exec(sql);
   }
 
-  protected resolveReverseDirections() {
-    const sql = AssignerStrategy.getSql('resolve_reverse_directions.sql');
+  protected resolveAssignedReverseDirectionsDisputed() {
+    const sql = AssignerStrategy.getSql(
+      'resolve_assigned_reverse_dir_disputed.sql',
+    );
 
     this.db.exec(sql);
   }
@@ -292,17 +315,17 @@ export default class AssignerStrategy {
     this.db.exec(sql);
   }
 
-  protected resolveUsingShstReferenceMetadata() {
-    if (this.targetMapIsCenterline) {
-      const sql = AssignerStrategy.getSql(
-        'resolve_using_shst_reference_metadata.sql',
-      );
+  // protected resolveUsingShstReferenceMetadata() {
+  // if (this.targetMapIsCenterline) {
+  // const sql = AssignerStrategy.getSql(
+  // 'resolve_using_shst_reference_metadata.sql',
+  // );
 
-      // console.time('resolveUsingShstReferenceMetadata');
-      this.db.exec(sql);
-      // console.timeEnd('resolveUsingShstReferenceMetadata');
-    }
-  }
+  // // console.time('resolveUsingShstReferenceMetadata');
+  // this.db.exec(sql);
+  // // console.timeEnd('resolveUsingShstReferenceMetadata');
+  // }
+  // }
 
   protected get assignmentAggregateStatsStmt() {
     this.preparedStatements.assignmentAggregateStatsStmt =
