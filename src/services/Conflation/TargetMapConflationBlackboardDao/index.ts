@@ -383,9 +383,7 @@ export default class TargetMapConflationBlackboardDao<
     return this.preparedReadStatements.allShstMatchFeaturesStmt;
   }
 
-  *makeAllShstMatchesIterator(): Generator<
-    turf.Feature<turf.LineString | turf.MultiLineString>
-  > {
+  *makeAllShstMatchesIterator(): Generator<turf.Feature<turf.LineString>> {
     const iter = this.allShstMatchFeaturesStmt.raw().iterate();
 
     for (const [featureStr] of iter) {
@@ -1041,8 +1039,8 @@ export default class TargetMapConflationBlackboardDao<
 
     // @ts-ignore
     if (insertResult.changes < 1 && sectionStart < sectionEnd) {
-      console.log('AssignedMatch INSERT FAILED.');
-      console.log(JSON.stringify({ assignedMatch }, null, 4));
+      // console.log('AssignedMatch INSERT FAILED.');
+      // console.log(JSON.stringify({ assignedMatch }, null, 4));
     }
 
     return insertResult.changes > 0;

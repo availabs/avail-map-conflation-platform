@@ -15,14 +15,14 @@ export default function partitionShstReference(
   // When doing a geographic subset of the SourceMap, some ShstRefences may be outside
   //   the geographic boundary yet in the results for the TargetMap conflations.
   // This breaks the invariant of every ShstRefence having complete OSM coverage.
-  if (!assignments.osm) {
-    console.warn(
-      'ShstRefence',
-      shstReference.id,
-      'omitted because no OSM assignments.',
-    );
-    return [];
-  }
+  // if (!assignments.osm) {
+  // console.warn(
+  // 'ShstReference',
+  // shstReference.id,
+  // 'omitted because no OSM assignments.',
+  // );
+  // return [];
+  // }
 
   const {
     id: shstReferenceId,
