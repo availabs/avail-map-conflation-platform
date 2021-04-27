@@ -103,6 +103,8 @@ export default class AssignerStrategy {
 
     this.createConstraintViolationsTable('initial');
 
+    this.resolveIsPrimary();
+
     // let i = 0;
     while (true) {
       console.log('==> curDisputeClaimantsCount:', curDisputeClaimantsCount);
@@ -242,6 +244,12 @@ export default class AssignerStrategy {
 
   protected resolveSameEdgeMultiplePathsDisputes() {
     const sql = AssignerStrategy.getSql('resolve_multi_path_edges.sql');
+
+    this.db.exec(sql);
+  }
+
+  protected resolveIsPrimary() {
+    const sql = AssignerStrategy.getSql('resolve_is_primary.sql');
 
     this.db.exec(sql);
   }
