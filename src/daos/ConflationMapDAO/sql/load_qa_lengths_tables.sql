@@ -101,9 +101,11 @@ INSERT INTO __SCHEMA__.qa_npmrds_lengths (
       
       json_extract(a.properties, '$.targetMapEdgeLength') AS target_map_edge_length,
 
-      b.confl_segs_len_sum AS forward_conflation_segments_length_sum
+      c.confl_segs_len_sum AS forward_conflation_segments_length_sum
 
     FROM __NPMRDS__.target_map_ppg_edges AS a
+      INNER JOIN __NPMRDS__.raw_target_map_features AS b
+        ON ( json_extract(a.properties, '$.targetMapId') = b.target_map_id )
       LEFT OUTER JOIN (
         SELECT
             json_extract(npmrds, '$.targetMapId') AS target_map_id,
@@ -113,8 +115,9 @@ INSERT INTO __SCHEMA__.qa_npmrds_lengths (
             ) AS confl_segs_len_sum
           FROM __SCHEMA__.conflation_map_segments
           GROUP BY target_map_id
-      ) AS b
-        ON ( json_extract(a.properties, '$.targetMapId') = b.target_map_id )
+      ) AS c
+        ON ( json_extract(a.properties, '$.targetMapId') = c.target_map_id )
+    WHERE ( IFNULL(json_extract(b.feature, '$.properties.isprimary'), 1) )
 ;
 
 COMMIT;
