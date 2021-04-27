@@ -54,6 +54,24 @@ CREATE TABLE tmp_edge_pairs
           ( b.isprimary )
         ) ;
 
+INSERT OR IGNORE INTO discovered_knaves (
+  shst_reference_id,
+  edge_id,
+  is_forward,
+  section_start,
+  section_end
+)
+  SELECT
+      a.shst_reference AS shst_reference_id,
+      a.edge_id,
+      a.is_forward,
+      ROUND(a.section_start, 4) AS section_start,
+      ROUND(a.section_end, 4) AS section_end
+    FROM target_map_bb.target_map_edge_chosen_matches AS a
+      INNER JOIN tmp_edge_pairs AS b
+        ON ( a.edge_id = b. nonprimary_edge_id )
+;
+
 DELETE FROM chosen_match_unresolved_disputes_claimants
   WHERE edge_id IN (
     SELECT
