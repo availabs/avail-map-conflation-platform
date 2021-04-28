@@ -23,6 +23,7 @@ CREATE TEMPORARY VIEW shst_reference_metadata
         json_extract(a.feature, '$.properties.fromIntersectionId') AS from_intersection_id,
         json_extract(a.feature, '$.properties.toIntersectionId') AS to_intersection_id,
         json_extract(a.feature, '$.properties.isUnidirectional') AS is_unidirectional,
+
         CASE a.shst_reference_id
           WHEN b.forward_reference_id THEN b.back_reference_id
           WHEN b.back_reference_id THEN b.forward_reference_id

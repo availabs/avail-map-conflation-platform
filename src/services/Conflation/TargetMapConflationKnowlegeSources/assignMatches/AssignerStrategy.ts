@@ -172,10 +172,17 @@ export default class AssignerStrategy {
 
       if (this.targetMapIsCenterline) {
         this.resolveAssignedReverseDirectionsDisputed();
+        this.settleDisputes();
+        ++this.superStep;
       }
-    }
 
-    // this.resolveUsingShstReferenceMetadata();
+      console.log('start resolveRoadClassConsistency');
+      console.time('resolveRoadClassConsistency');
+      this.resolveRoadClassConsistency();
+      this.settleDisputes();
+      ++this.superStep;
+      console.timeEnd('resolveRoadClassConsistency');
+    }
 
     this.outputAssignmentAggregateStats();
   }
@@ -311,6 +318,12 @@ export default class AssignerStrategy {
 
   protected resolveEpsilonOverlapDisputes() {
     const sql = AssignerStrategy.getSql('resolve_epsilon_overlap_disputes.sql');
+
+    this.db.exec(sql);
+  }
+
+  protected resolveRoadClassConsistency() {
+    const sql = AssignerStrategy.getSql('resolve_road_class_consistency.sql');
 
     this.db.exec(sql);
   }

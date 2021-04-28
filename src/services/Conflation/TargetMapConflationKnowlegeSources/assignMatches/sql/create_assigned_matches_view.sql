@@ -3,13 +3,33 @@ BEGIN;
 CREATE VIEW assigned_matches_view
   AS
     WITH RECURSIVE cte_raw_assignments AS (
+
       SELECT
           a.shst_reference_id,
           a.edge_id,
           a.is_forward,
           a.section_start,
           a.section_end
-        FROM chosen_match_initial_undisputed_claims AS a
+        FROM (
+          SELECT
+              shst_reference_id,
+              edge_id,
+              is_forward,
+              section_start,
+              section_end
+            FROM chosen_match_initial_undisputed_claims
+
+          UNION
+
+          SELECT
+              shst_reference_id,
+              edge_id,
+              is_forward,
+              section_start,
+              section_end
+            FROM awarded_matches
+
+        ) AS a
           LEFT OUTER JOIN discovered_knaves AS b
             ON (
               ( a.shst_reference_id = b.shst_reference_id )
@@ -24,18 +44,9 @@ CREATE VIEW assigned_matches_view
             )
         WHERE ( b.shst_reference_id IS NULL )
 
-      UNION
-
-      SELECT
-          shst_reference_id,
-          edge_id,
-          is_forward,
-          section_start,
-          section_end
-        FROM awarded_matches
   ), cte_assignment_consolidations AS (
     -- RECURSIVE because accumulating sections is transitive.
-    SELECT 
+    SELECT
         shst_reference_id,
         edge_id,
         is_forward,
