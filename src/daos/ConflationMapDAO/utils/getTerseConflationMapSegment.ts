@@ -13,6 +13,7 @@ export default function getTerseConflationMapSegment(
       tdsFederalDirection: dir,
       roadNumber: rdnum,
       roadNumberFederalDirection: rdnumdir,
+      osmHighway: h,
     },
   } = conflationMapSegment;
 
@@ -26,7 +27,7 @@ export default function getTerseConflationMapSegment(
   const feature = {
     ...conflationMapSegment,
     id,
-    properties: { id, shst, osm, ris, tmc, n, dir, rdnum, rdnumdir },
+    properties: { id, shst, osm, ris, tmc, n, h, dir, rdnum, rdnumdir },
   };
 
   // @ts-ignore

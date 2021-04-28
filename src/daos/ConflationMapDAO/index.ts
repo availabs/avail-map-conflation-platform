@@ -460,7 +460,7 @@ export default class ConflationMapDAO {
     }
 
     try {
-      this.loadTempAllOsmWaysWithShstReferencesTable('newYork');
+      this.loadTempAllOsmWaysWithShstReferencesTable('albany');
 
       console.log('loadOsmWayChosenMatchesTable');
       console.time('loadOsmWayChosenMatchesTable');
@@ -859,7 +859,7 @@ export default class ConflationMapDAO {
       this.preparedWriteStatements.insertConflationMapSegmentStmt ||
       this.dbWriteConnection.prepare(
         `
-          INSERT INTO ${SCHEMA}.conflation_map_segments(
+          INSERT OR IGNORE INTO ${SCHEMA}.conflation_map_segments(
             id,
             shst,
             shst_reference_length,
@@ -1084,9 +1084,9 @@ export default class ConflationMapDAO {
                   'partitionStartDist',           partition_start_dist,
                   'partitionStopDist',            partition_end_dist,
                   'osm',                          json(osm),
+                  'osmHighway',                  json_extract(d.tags, '$.highway'),
                   'nys_ris',                      json(b.nys_ris),
                   'npmrds',                       json(npmrds),
-
                   'tdsRcStation',                 tds_rc_station,
                   'tdsFederalDirection',          tds_federal_direction,
                   'roadNumber',                   road_number,
@@ -1103,6 +1103,10 @@ export default class ConflationMapDAO {
                   ( json_extract(b.nys_ris, '$.targetMapId') = c.nys_ris )
                   AND
                   ( json_extract(b.nys_ris, '$.isForward') = c.is_forward )
+                )
+              LEFT OUTER JOIN source_map.osm_ways AS d
+                ON (
+                  ( json_extract(b.osm, '$.targetMapId') = d.osm_way_id )
                 )
 
             GROUP BY shst_reference_id

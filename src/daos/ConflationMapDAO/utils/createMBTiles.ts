@@ -19,13 +19,14 @@ tmp.setGracefulCleanup();
 
 const tippecanoeDetails = {
   0: { layer: 'interstate' },
-  1: { minzoom: 7, layer: 'highway' },
-  2: { minzoom: 8, layer: 'arterial' },
-  3: { minzoom: 9, layer: 'arterial' },
-  4: { minzoom: 10, layer: 'collector' },
+  1: { minzoom: 5, layer: 'major' },
+  2: { minzoom: 5, layer: 'major' },
+  3: { minzoom: 5, layer: 'major' },
+  4: { minzoom: 5, layer: 'major' },
   5: { minzoom: 11, layer: 'local' },
-  6: { minzoom: 12, layer: 'local' },
-  7: { minzoom: 14, layer: 'service' },
+  6: { minzoom: 11, layer: 'local' },
+  7: { minzoom: 11, layer: 'local' },
+  8: { minzoom: 14, layer: 'paths' },
 };
 
 const mbtilesOutputFile = join(
@@ -48,6 +49,8 @@ const outputSegmentsAsNDJSON = async (
       conflationMapSegment,
     );
 
+    // console.log(JSON.stringify(terseConflationMapSegment, null, 4));
+
     const {
       properties: { n },
     } = terseConflationMapSegment;
@@ -58,7 +61,7 @@ const outputSegmentsAsNDJSON = async (
     // @ts-ignore
     terseConflationMapSegment.properties = _.pick(
       terseConflationMapSegment.properties,
-      ['id', 'osm', 'ris', 'tmc', 'n', 'dir'],
+      ['id', 'osm', 'ris', 'tmc', 'n', 'h', 'dir'],
     );
 
     const good = writeStream.write(
@@ -100,11 +103,13 @@ export default async function createMBTiles(
 
     const tmpFilePath = tmpobj.name;
 
+    console.log('tmpFilePath:', tmpFilePath);
+
     await outputSegmentsAsNDJSON(conflationMapSegmentIter, tmpFilePath);
 
     generateTileSet(tmpFilePath);
 
-    tmpobj.removeCallback();
+    // tmpobj.removeCallback();
   } catch (err) {
     console.error(err);
     process.exit(1);
