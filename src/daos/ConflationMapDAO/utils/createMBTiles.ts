@@ -18,7 +18,7 @@ mkdirSync(tmpDir, { recursive: true });
 tmp.setGracefulCleanup();
 
 const tippecanoeDetails = {
-  0: { layer: 'interstate' },
+  0: { layer: 'major' },
   1: { minzoom: 5, layer: 'major' },
   2: { minzoom: 5, layer: 'major' },
   3: { minzoom: 5, layer: 'major' },
