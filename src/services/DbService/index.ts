@@ -113,13 +113,14 @@ const detachDatabaseFromConnection = (
 const openConnectionToDb = (
   databaseSchemaName: DatabaseSchemaName,
   databaseDirectory: DatabaseDirectory | null = null,
+  alias: string | null = null,
   config?: SqliteDatabaseConnectionOptions,
 ): SqliteDatabase => {
   // const xdb = new Database(IN_MEMORY, { verbose: console.log });
   const xdb = new Database(IN_MEMORY, config);
   xdb.pragma('foreign_keys=ON');
 
-  attachDatabaseToConnection(xdb, databaseSchemaName, databaseDirectory);
+  attachDatabaseToConnection(xdb, databaseSchemaName, databaseDirectory, alias);
 
   return xdb;
 };

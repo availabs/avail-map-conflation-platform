@@ -127,6 +127,7 @@ export default class TargetMapConflationBlackboardDao<
       this.connections.dbReadConnection = db.openConnectionToDb(
         this.blkbrdDbSchema,
         // null,
+        // null,
         // { verbose: console.log.bind(console) },
       );
 
@@ -150,6 +151,7 @@ export default class TargetMapConflationBlackboardDao<
     if (!this.connections.dbWriteConnection) {
       this.connections.dbWriteConnection = db.openConnectionToDb(
         this.blkbrdDbSchema,
+        // null,
         // null,
         // { verbose: console.log.bind(console) },
       );

@@ -82,20 +82,43 @@ const getCountyBoundingPolyCoords = (countyName: string) => {
 };
 
 function createDbReadConnection(): SQLiteDatbase {
-  const dbReadConnection = db.openConnectionToDb(SCHEMA);
+  const dbReadConnection = db.openConnectionToDb(
+    SCHEMA,
+    null,
+    'conflation_map',
+  );
 
-  db.attachDatabaseToConnection(dbReadConnection, SOURCE_MAP);
+  db.attachDatabaseToConnection(
+    dbReadConnection,
+    SOURCE_MAP,
+    null,
+    'source_map',
+  );
 
   return dbReadConnection;
 }
 
 function createDbWriteConnection(): SQLiteDatbase {
-  const dbWriteConnection = db.openConnectionToDb(SCHEMA);
+  const dbWriteConnection = db.openConnectionToDb(
+    SCHEMA,
+    null,
+    'conflation_map',
+  );
 
-  db.attachDatabaseToConnection(dbWriteConnection, SOURCE_MAP);
-  db.attachDatabaseToConnection(dbWriteConnection, NYS_RIS);
-  db.attachDatabaseToConnection(dbWriteConnection, NYS_RIS_BB);
-  db.attachDatabaseToConnection(dbWriteConnection, NPMRDS);
+  db.attachDatabaseToConnection(
+    dbWriteConnection,
+    SOURCE_MAP,
+    null,
+    'source_map',
+  );
+  db.attachDatabaseToConnection(dbWriteConnection, NYS_RIS, null, 'nys_ris');
+  db.attachDatabaseToConnection(
+    dbWriteConnection,
+    NYS_RIS_BB,
+    null,
+    'nys_ris_bb',
+  );
+  db.attachDatabaseToConnection(dbWriteConnection, NPMRDS, null, 'npmrds');
 
   dbWriteConnection.function(
     'getFederalDirection',
@@ -184,7 +207,7 @@ export default class ConflationMapDAO {
   }
 
   beginWriteTransaction() {
-    this.dbWriteConnection.pragma(`${SCHEMA}.journal_mode = WAL`);
+    this.dbWriteConnection.pragma(`conflation_map.journal_mode = WAL`);
     this.dbWriteConnection.exec('BEGIN');
   }
 
@@ -219,9 +242,9 @@ export default class ConflationMapDAO {
 
   private createTempAllOsmWaysWithShstReferencesTable() {
     this.dbWriteConnection.exec(`
-      DROP TABLE IF EXISTS ${SCHEMA}.tmp_all_osm_ways_with_shst_references ;
+      DROP TABLE IF EXISTS conflation_map.tmp_all_osm_ways_with_shst_references ;
 
-      CREATE TABLE ${SCHEMA}.tmp_all_osm_ways_with_shst_references (
+      CREATE TABLE conflation_map.tmp_all_osm_ways_with_shst_references (
         osm_way_id    INTEGER PRIMARY KEY,
         osm_node_ids  TEXT NOT NULL, -- JSON
         shst_refs     TEXT NOT NULL
@@ -244,17 +267,14 @@ export default class ConflationMapDAO {
   createRisAssignedMatchFederalDirectionsTable() {
     this.dbWriteConnection.exec(
       `
-        DROP TABLE IF EXISTS ${SCHEMA}.ris_assigned_match_federal_directions ;
+        DROP TABLE IF EXISTS conflation_map.ris_assigned_match_federal_directions ;
 
-        CREATE TABLE ${SCHEMA}.ris_assigned_match_federal_directions (
+        CREATE TABLE conflation_map.ris_assigned_match_federal_directions (
           nys_ris                         TEXT,
           is_forward                      INTEGER,
 
           tds_rc_station                  TEXT,
           tds_federal_direction           INTEGER,
-
-          road_number                     INTEGER,
-          road_number_federal_direction   INTEGER,
 
           PRIMARY KEY(nys_ris, is_forward)
         ) ;
@@ -292,7 +312,7 @@ export default class ConflationMapDAO {
         `
           SELECT EXISTS(
             SELECT 1
-              FROM ${SCHEMA}.sqlite_master
+              FROM conflation_map.sqlite_master
               WHERE(
                 (type = 'table')
                 AND
@@ -312,7 +332,7 @@ export default class ConflationMapDAO {
         `
           SELECT EXISTS(
             SELECT 1
-              FROM ${SCHEMA}.osm_way_chosen_matches
+              FROM conflation_map.osm_way_chosen_matches
           );
         `,
       );
@@ -346,7 +366,7 @@ export default class ConflationMapDAO {
                     INNER JOIN (
                       SELECT
                           shst_reference_id
-                        FROM ${SOURCE_MAP}.shst_reference_features_geopoly_idx
+                        FROM source_map.shst_reference_features_geopoly_idx
                         WHERE geopoly_overlap(_shape, ?)
                     ) USING ( shst_reference_id )`
       : '';
@@ -358,7 +378,7 @@ export default class ConflationMapDAO {
     this.dbWriteConnection
       .prepare(
         `
-          INSERT INTO ${SCHEMA}.tmp_all_osm_ways_with_shst_references
+          INSERT INTO conflation_map.tmp_all_osm_ways_with_shst_references
             SELECT
                 a.osm_way_id,
                 a.osm_node_ids,
@@ -366,12 +386,12 @@ export default class ConflationMapDAO {
                   DISTINCT json(b.feature)
                 ) AS shst_refs
 
-            FROM ${SOURCE_MAP}.osm_ways AS a
+            FROM source_map.osm_ways AS a
               INNER JOIN(
                 SELECT
                     json_extract(t.value, '$.way_id') AS osm_way_id,
                     feature
-                  FROM ${SOURCE_MAP}.shst_reference_features
+                  FROM source_map.shst_reference_features
                     ${countyFilter}
                     , json_each(
                       json_extract(feature, '$.properties.osmMetadataWaySections')
@@ -435,7 +455,7 @@ export default class ConflationMapDAO {
         .insertChosenShstReferenceSegmentForOsmWayStmt ||
       this.dbWriteConnection.prepare(
         `
-          INSERT INTO ${SCHEMA}.osm_way_chosen_matches(
+          INSERT INTO conflation_map.osm_way_chosen_matches(
             osm_way_id,
             is_forward,
 
@@ -460,7 +480,7 @@ export default class ConflationMapDAO {
     }
 
     try {
-      this.loadTempAllOsmWaysWithShstReferencesTable('albany');
+      this.loadTempAllOsmWaysWithShstReferencesTable('westchester');
 
       console.log('loadOsmWayChosenMatchesTable');
       console.time('loadOsmWayChosenMatchesTable');
@@ -551,7 +571,7 @@ export default class ConflationMapDAO {
         `
           SELECT EXISTS(
             SELECT 1
-                  FROM ${SCHEMA}.sqlite_master
+                  FROM conflation_map.sqlite_master
                   WHERE(
               (type = 'table')
                     AND
@@ -572,7 +592,7 @@ export default class ConflationMapDAO {
           SELECT EXISTS(
             SELECT
                     1
-                  FROM ${SCHEMA}.target_maps_assigned_matches
+                  FROM conflation_map.target_maps_assigned_matches
           );
         `,
       );
@@ -592,7 +612,7 @@ export default class ConflationMapDAO {
       this.preparedWriteStatements.loadOsmWayAssignedMatchesTableStmt ||
       this.dbWriteConnection.prepare(
         `
-          INSERT INTO ${SCHEMA}.target_maps_assigned_matches (
+          INSERT INTO conflation_map.target_maps_assigned_matches (
             shst_reference_id,
             target_map,
             target_map_id,
@@ -608,7 +628,7 @@ export default class ConflationMapDAO {
                 section_start,
                 section_end
 
-              FROM ${SCHEMA}.osm_way_chosen_matches ;
+              FROM conflation_map.osm_way_chosen_matches ;
         `,
       );
 
@@ -624,7 +644,7 @@ export default class ConflationMapDAO {
       this.preparedWriteStatements.insertTargetMapAssignedMatchStmt ||
       this.dbWriteConnection.prepare(
         `
-          INSERT INTO ${SCHEMA}.target_maps_assigned_matches (
+          INSERT INTO conflation_map.target_maps_assigned_matches (
             shst_reference_id,
             target_map,
             target_map_id,
@@ -713,7 +733,7 @@ export default class ConflationMapDAO {
                 target_map,
                 json(asgmts)
               ) as target_map_asgmts
-            FROM ${SOURCE_MAP}.shst_reference_features
+            FROM source_map.shst_reference_features
               INNER JOIN (
                 SELECT
                     shst_reference_id,
@@ -727,7 +747,7 @@ export default class ConflationMapDAO {
                       )
                     ) AS asgmts
 
-                  FROM ${SCHEMA}.target_maps_assigned_matches
+                  FROM conflation_map.target_maps_assigned_matches
 
                   WHERE ( (section_end - section_start) > 0.0001 )
 
@@ -819,7 +839,7 @@ export default class ConflationMapDAO {
         `
           SELECT EXISTS(
             SELECT 1
-              FROM ${SCHEMA}.sqlite_master
+              FROM conflation_map.sqlite_master
               WHERE(
                 (type = 'table')
                 AND
@@ -839,7 +859,7 @@ export default class ConflationMapDAO {
         `
           SELECT EXISTS(
             SELECT 1
-              FROM ${SCHEMA}.conflation_map_segments
+              FROM conflation_map.conflation_map_segments
           );
         `,
       );
@@ -859,7 +879,7 @@ export default class ConflationMapDAO {
       this.preparedWriteStatements.insertConflationMapSegmentStmt ||
       this.dbWriteConnection.prepare(
         `
-          INSERT OR IGNORE INTO ${SCHEMA}.conflation_map_segments(
+          INSERT OR IGNORE INTO conflation_map.conflation_map_segments(
             id,
             shst,
             shst_reference_length,
@@ -934,8 +954,8 @@ export default class ConflationMapDAO {
               a.id,
               json_extract(a.nys_ris, '$.targetMapId') AS targetMapId,
               b.is_forward AS isForward
-            FROM ${SCHEMA}.conflation_map_segments AS a
-              INNER JOIN ${SCHEMA}.target_maps_assigned_matches AS b
+            FROM conflation_map.conflation_map_segments AS a
+              INNER JOIN conflation_map.target_maps_assigned_matches AS b
                 ON (
                   ( CAST(json_extract(a.nys_ris, '$.targetMapId') AS INTEGER) = b.target_map_id )
                   AND
@@ -965,7 +985,7 @@ export default class ConflationMapDAO {
               is_unidirectional,
               forward_conflation_segments_length_sum,
               backward_conflation_segments_length_sum
-            FROM ${SCHEMA}.qa_nys_ris_lengths ;
+            FROM conflation_map.qa_nys_ris_lengths ;
         `,
       );
 
@@ -1013,7 +1033,7 @@ export default class ConflationMapDAO {
               id,
               json_extract(npmrds, '$.targetMapId') AS targetMapId,
               1 AS isForward
-            FROM ${SCHEMA}.conflation_map_segments
+            FROM conflation_map.conflation_map_segments
             WHERE ( npmrds IS NOT NULL )
         `,
       );
@@ -1034,7 +1054,7 @@ export default class ConflationMapDAO {
               tmc AS targetMapId,
               target_map_edge_length,
               forward_conflation_segments_length_sum
-            FROM ${SCHEMA}.qa_npmrds_lengths ;
+            FROM conflation_map.qa_npmrds_lengths ;
         `,
       );
 
@@ -1084,7 +1104,7 @@ export default class ConflationMapDAO {
                   'partitionStartDist',           partition_start_dist,
                   'partitionStopDist',            partition_end_dist,
                   'osm',                          json(osm),
-                  'osmHighway',                  json_extract(d.tags, '$.highway'),
+                  'osmHighway',                   json_extract(d.tags, '$.highway'),
                   'nys_ris',                      json(b.nys_ris),
                   'npmrds',                       json(npmrds),
                   'tdsRcStation',                 tds_rc_station,
@@ -1096,9 +1116,9 @@ export default class ConflationMapDAO {
               feature AS shst_reference
 
             FROM source_map.shst_reference_features AS a
-              INNER JOIN ${SCHEMA}.conflation_map_segments AS b
+              INNER JOIN conflation_map.conflation_map_segments AS b
                 ON ( a.shst_reference_id = b.shst )
-              LEFT OUTER JOIN ${SCHEMA}.ris_assigned_match_federal_directions AS c
+              LEFT OUTER JOIN conflation_map.ris_assigned_match_federal_directions AS c
                 ON (
                   ( json_extract(b.nys_ris, '$.targetMapId') = c.nys_ris )
                   AND
@@ -1153,7 +1173,7 @@ export default class ConflationMapDAO {
         `
           SELECT EXISTS(
             SELECT 1
-              FROM ${SCHEMA}.sqlite_master
+              FROM conflation_map.sqlite_master
               WHERE(
                 (type = 'table')
                 AND
@@ -1175,7 +1195,7 @@ export default class ConflationMapDAO {
         `
           SELECT EXISTS(
             SELECT 1
-              FROM ${SCHEMA}.ris_assigned_match_federal_directions
+              FROM conflation_map.ris_assigned_match_federal_directions
           );
         `,
       );
@@ -1203,43 +1223,38 @@ export default class ConflationMapDAO {
 
     this.dbWriteConnection.exec(
       `
-        INSERT INTO ${SCHEMA}.ris_assigned_match_federal_directions (
+        INSERT INTO conflation_map.ris_assigned_match_federal_directions (
             nys_ris,
             is_forward,
             tds_rc_station,
-            tds_federal_direction,
-            road_number,
-            road_number_federal_direction
+            tds_federal_direction
           )
           SELECT
                target_map_id AS nys_ris,
                is_forward,
 
                tds_rc_station,
+
                getFederalDirection(
                  target_map_path_bearing,
                  is_forward,
                  tds_federal_directions
-               ) AS tds_federal_direction,
+               ) AS tds_federal_direction
 
-               road_number,
-               getFederalDirection(
-                 target_map_path_bearing,
-                 is_forward,
-                 CASE
-                   WHEN ( road_number % 2 = 1) THEN '[1,5]'
-                   WHEN ( road_number % 2 = 0) THEN '[3,7]'
-                   ELSE NULL
-                 END
-               ) AS road_number_federal_direction
              FROM (
                SELECT DISTINCT
                    e.target_map_id,
+
                    d.is_forward,
+
                    json_extract(a.properties, '$.targetMapPathBearing') AS target_map_path_bearing,
+
                    json_extract(feature, '$.properties.tds_rc_station') AS tds_rc_station,
+
                    json_extract(feature, '$.properties.tds_federal_directions') AS tds_federal_directions,
+
                    NULLIF(json_extract(feature, '$.properties.route_no'), 0) AS road_number,
+
                    rank() OVER (
                      PARTITION BY
                        e.target_map_id,
@@ -1247,12 +1262,13 @@ export default class ConflationMapDAO {
                      ORDER BY
                        b.path_edge_idx DESC
                    ) AS path_len_rnk
-                 FROM ${NYS_RIS}.target_map_ppg_paths AS a
-                   INNER JOIN ${NYS_RIS}.target_map_ppg_path_last_edges AS b
+
+                 FROM nys_ris.target_map_ppg_paths AS a
+                   INNER JOIN nys_ris.target_map_ppg_path_last_edges AS b
                      USING (path_id)
-                   INNER JOIN ${NYS_RIS_BB}.target_map_edge_chosen_matches AS c
+                   INNER JOIN nys_ris_bb.target_map_edge_chosen_matches AS c
                      USING (path_id)
-                   INNER JOIN ${NYS_RIS_BB}.target_map_edge_assigned_matches AS d
+                   INNER JOIN nys_ris_bb.target_map_edge_assigned_matches AS d
                      ON (
                        ( c.edge_id = d.edge_id )
                        AND
@@ -1260,9 +1276,9 @@ export default class ConflationMapDAO {
                        AND
                        ( c.shst_reference = d.shst_reference_id)
                      )
-                   INNER JOIN ${NYS_RIS}.target_map_ppg_edge_id_to_target_map_id AS e
+                   INNER JOIN nys_ris.target_map_ppg_edge_id_to_target_map_id AS e
                      ON ( d.edge_id = e.edge_id )
-                   INNER JOIN ${NYS_RIS}.raw_target_map_features AS f
+                   INNER JOIN nys_ris.raw_target_map_features AS f
                      USING (target_map_id)
              )
              WHERE ( path_len_rnk = 1 ) ; `,
@@ -1288,6 +1304,6 @@ export default class ConflationMapDAO {
   }
 
   vacuumDatabase() {
-    this.dbWriteConnection.exec(`VACUUM ${SCHEMA};`);
+    this.dbWriteConnection.exec(`VACUUM conflation_map;`);
   }
 }
