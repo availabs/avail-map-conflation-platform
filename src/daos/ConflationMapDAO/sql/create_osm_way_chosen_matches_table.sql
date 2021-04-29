@@ -1,6 +1,6 @@
-DROP TABLE IF EXISTS __SCHEMA__.osm_way_chosen_matches;
+DROP TABLE IF EXISTS conflation_map.osm_way_chosen_matches;
 
-CREATE TABLE __SCHEMA__.osm_way_chosen_matches (
+CREATE TABLE conflation_map.osm_way_chosen_matches (
   osm_way_id                INTEGER NOT NULL,
   is_forward                INTEGER NOT NULL,
 
@@ -21,8 +21,8 @@ CREATE TABLE __SCHEMA__.osm_way_chosen_matches (
   CHECK(section_start < section_end)
 ) WITHOUT ROWID ;
 
-CREATE INDEX __SCHEMA__.osm_way_chosen_matches_way_id_idx
- ON osm_way_chosen_matches (osm_way_id, is_forward) ;
+CREATE INDEX conflation_map.osm_way_chosen_matches_way_id_idx
+  ON osm_way_chosen_matches (osm_way_id, is_forward) ;
 
-CREATE INDEX __SCHEMA__.osm_way_chosen_matches_shst_ref_sections_idx
- ON osm_way_chosen_matches (shst_reference_id, section_start, section_end) ;
+CREATE INDEX conflation_map.osm_way_chosen_matches_shst_ref_sections_idx
+  ON osm_way_chosen_matches (shst_reference_id, section_start, section_end) ;

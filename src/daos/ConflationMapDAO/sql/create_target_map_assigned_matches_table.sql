@@ -1,6 +1,6 @@
-DROP TABLE IF EXISTS __SCHEMA__.target_maps_assigned_matches;
+DROP TABLE IF EXISTS conflation_map.target_maps_assigned_matches;
 
-CREATE TABLE __SCHEMA__.target_maps_assigned_matches (
+CREATE TABLE conflation_map.target_maps_assigned_matches (
   shst_reference_id   INTEGER NOT NULL,
 
   target_map          TEXT NOT NULL,

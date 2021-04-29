@@ -1,6 +1,6 @@
-DROP TABLE IF EXISTS __SCHEMA__.conflation_map_segments;
+DROP TABLE IF EXISTS conflation_map.conflation_map_segments;
 
-CREATE TABLE __SCHEMA__.conflation_map_segments (
+CREATE TABLE conflation_map.conflation_map_segments (
   id                              INTEGER PRIMARY KEY AUTOINCREMENT,
 
   shst                            TEXT NOT NULL,
@@ -72,14 +72,14 @@ CREATE TABLE __SCHEMA__.conflation_map_segments (
   )
 ) ;
 
-CREATE INDEX __SCHEMA__.conflation_map_segments_shst_ref_idx
+CREATE INDEX conflation_map.conflation_map_segments_shst_ref_idx
   ON conflation_map_segments (shst);
 
-CREATE INDEX __SCHEMA__.conflation_map_segments_osm_idx
+CREATE INDEX conflation_map.conflation_map_segments_osm_idx
   ON conflation_map_segments (osm);
 
-CREATE INDEX __SCHEMA__.conflation_map_segments_nys_ris_idx
+CREATE INDEX conflation_map.conflation_map_segments_nys_ris_idx
   ON conflation_map_segments (nys_ris);
 
-CREATE INDEX __SCHEMA__.conflation_map_segments_npmrds_idx
+CREATE INDEX conflation_map.conflation_map_segments_npmrds_idx
   ON conflation_map_segments (npmrds);

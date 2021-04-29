@@ -67,6 +67,12 @@ const NYS_RIS_BB = TargetMapConflationBlackboardDao.getBlackboardSchemaName(
   NYS_RIS,
 );
 
+function getSql(fName: string) {
+  return readFileSync(join(__dirname, './sql/', fName), {
+    encoding: 'utf8',
+  });
+}
+
 const getCountyBoundingPolyCoords = (countyName: string) => {
   const countyPolygon: turf.Feature<turf.Polygon> = JSON.parse(
     readFileSync(join(__dirname, '/geojson/', `${countyName}County.geojson`), {
@@ -120,12 +126,6 @@ function createDbWriteConnection(): SQLiteDatbase {
   );
   db.attachDatabaseToConnection(dbWriteConnection, NPMRDS, null, 'npmrds');
 
-  dbWriteConnection.function(
-    'getFederalDirection',
-    { deterministic: true },
-    getFederalDirection,
-  );
-
   return dbWriteConnection;
 }
 
@@ -170,14 +170,6 @@ export default class ConflationMapDAO {
     insertConflationMapSegmentStmt?: Statement;
   };
 
-  protected static loadQALengthsTablesSql = readFileSync(
-    join(__dirname, './sql/load_qa_lengths_tables.sql'),
-    { encoding: 'utf8' },
-  )
-    .replace(/__SCHEMA__/g, SCHEMA)
-    .replace(/__NYS_RIS__/g, NYS_RIS)
-    .replace(/__NPMRDS__/g, NPMRDS);
-
   constructor() {
     this.dbReadConnection = createDbReadConnection();
     this.dbWriteConnection = createDbWriteConnection();
@@ -220,20 +212,14 @@ export default class ConflationMapDAO {
   }
 
   protected createOsmChosenMatchesTable() {
-    const createOsmWayChosenMatchesTableSQL = readFileSync(
-      join(__dirname, './sql/create_osm_way_chosen_matches_table.sql'),
-      { encoding: 'utf-8' },
-    ).replace(/__SCHEMA__/g, SCHEMA);
+    const sql = getSql('create_osm_way_chosen_matches_table.sql');
 
-    this.dbWriteConnection.exec(createOsmWayChosenMatchesTableSQL);
+    this.dbWriteConnection.exec(sql);
     this.createTargetMapsAssignedMatchesTable();
   }
 
   protected createTargetMapsAssignedMatchesTable() {
-    const sql = readFileSync(
-      join(__dirname, './sql/create_target_map_assigned_matches_table.sql'),
-      { encoding: 'utf-8' },
-    ).replace(/__SCHEMA__/g, SCHEMA);
+    const sql = getSql('create_target_map_assigned_matches_table.sql');
 
     this.dbWriteConnection.exec(sql);
 
@@ -253,33 +239,15 @@ export default class ConflationMapDAO {
   }
 
   protected createConflationMapSegmentsTable() {
-    const createConflationMapSegmentsTableSQL = readFileSync(
-      join(__dirname, './sql/create_conflation_map_segments_table.sql'),
-      { encoding: 'utf-8' },
-    ).replace(/__SCHEMA__/g, SCHEMA);
+    const sql = getSql('create_conflation_map_segments_table.sql');
 
-    this.dbWriteConnection.exec(createConflationMapSegmentsTableSQL);
+    this.dbWriteConnection.exec(sql);
 
     this.createTempAllOsmWaysWithShstReferencesTable();
-    this.createRisAssignedMatchFederalDirectionsTable();
-  }
 
-  createRisAssignedMatchFederalDirectionsTable() {
-    this.dbWriteConnection.exec(
-      `
-        DROP TABLE IF EXISTS conflation_map.ris_assigned_match_federal_directions ;
-
-        CREATE TABLE conflation_map.ris_assigned_match_federal_directions (
-          nys_ris                         TEXT,
-          is_forward                      INTEGER,
-
-          tds_rc_station                  TEXT,
-          tds_federal_direction           INTEGER,
-
-          PRIMARY KEY(nys_ris, is_forward)
-        ) ;
-      `,
-    );
+    // FIXME: Moved this into ./sql/load_ris_assigned_match_federal_directions
+    //        Need to handle CASCADING dependency deletion.
+    // this.createRisAssignedMatchFederalDirectionsTable();
   }
 
   verifyTargetMapsConflationComplete(): void | never {
@@ -1108,9 +1076,7 @@ export default class ConflationMapDAO {
                   'nys_ris',                      json(b.nys_ris),
                   'npmrds',                       json(npmrds),
                   'tdsRcStation',                 tds_rc_station,
-                  'tdsFederalDirection',          tds_federal_direction,
-                  'roadNumber',                   road_number,
-                  'roadNumberFederalDirection',   road_number_federal_direction
+                  'tdsFederalDirection',          tds_federal_direction
                 )
               ) AS segments,
               feature AS shst_reference
@@ -1217,78 +1183,20 @@ export default class ConflationMapDAO {
       return;
     }
 
-    this.beginWriteTransaction();
-
-    this.createRisAssignedMatchFederalDirectionsTable();
-
-    this.dbWriteConnection.exec(
-      `
-        INSERT INTO conflation_map.ris_assigned_match_federal_directions (
-            nys_ris,
-            is_forward,
-            tds_rc_station,
-            tds_federal_direction
-          )
-          SELECT
-               target_map_id AS nys_ris,
-               is_forward,
-
-               tds_rc_station,
-
-               getFederalDirection(
-                 target_map_path_bearing,
-                 is_forward,
-                 tds_federal_directions
-               ) AS tds_federal_direction
-
-             FROM (
-               SELECT DISTINCT
-                   e.target_map_id,
-
-                   d.is_forward,
-
-                   json_extract(a.properties, '$.targetMapPathBearing') AS target_map_path_bearing,
-
-                   json_extract(feature, '$.properties.tds_rc_station') AS tds_rc_station,
-
-                   json_extract(feature, '$.properties.tds_federal_directions') AS tds_federal_directions,
-
-                   NULLIF(json_extract(feature, '$.properties.route_no'), 0) AS road_number,
-
-                   rank() OVER (
-                     PARTITION BY
-                       e.target_map_id,
-                       d.is_forward
-                     ORDER BY
-                       b.path_edge_idx DESC
-                   ) AS path_len_rnk
-
-                 FROM nys_ris.target_map_ppg_paths AS a
-                   INNER JOIN nys_ris.target_map_ppg_path_last_edges AS b
-                     USING (path_id)
-                   INNER JOIN nys_ris_bb.target_map_edge_chosen_matches AS c
-                     USING (path_id)
-                   INNER JOIN nys_ris_bb.target_map_edge_assigned_matches AS d
-                     ON (
-                       ( c.edge_id = d.edge_id )
-                       AND
-                       ( c.is_forward = d.is_forward )
-                       AND
-                       ( c.shst_reference = d.shst_reference_id)
-                     )
-                   INNER JOIN nys_ris.target_map_ppg_edge_id_to_target_map_id AS e
-                     ON ( d.edge_id = e.edge_id )
-                   INNER JOIN nys_ris.raw_target_map_features AS f
-                     USING (target_map_id)
-             )
-             WHERE ( path_len_rnk = 1 ) ; `,
+    this.dbWriteConnection.function(
+      'getFederalDirection',
+      { deterministic: true },
+      getFederalDirection,
     );
 
-    this.commitWriteTransaction();
+    const sql = getSql('load_ris_assigned_match_federal_directions.sql');
+
+    this.dbWriteConnection.exec(sql);
   }
 
   loadQALengthsTables() {
-    this.dbWriteConnection.exec(ConflationMapDAO.loadQALengthsTablesSql);
+    const sql = getSql('load_qa_lengths_tables.sql');
+    this.dbWriteConnection.exec(sql);
   }
 
   createMBTiles() {

@@ -1,27 +1,8 @@
 BEGIN;
 
-/*
-CREATE TABLE __SCHEMA__.target_maps_assigned_matches (
-  shst_reference_id   INTEGER NOT NULL,
+DROP TABLE IF EXISTS conflation_map.qa_nys_ris_lengths ;
 
-  target_map          TEXT NOT NULL,
-  target_map_id       TEXT NOT NULL,
-
-  is_forward          INTEGER NOT NULL,
-
-  section_start       REAL NOT NULL,
-  section_end         REAL NOT NULL,
-
-  PRIMARY KEY (
-    shst_reference_id,
-    target_map,
-    target_map_id
-  )
-*/
-
-DROP TABLE IF EXISTS __SCHEMA__.qa_nys_ris_lengths ;
-
-CREATE TABLE __SCHEMA__.qa_nys_ris_lengths (
+CREATE TABLE conflation_map.qa_nys_ris_lengths (
   nys_ris                                   INTEGER PRIMARY KEY,
 
   target_map_edge_length                    REAL NOT NULL,
@@ -32,7 +13,7 @@ CREATE TABLE __SCHEMA__.qa_nys_ris_lengths (
   backward_conflation_segments_length_sum   REAL
 ) WITHOUT ROWID;
 
-INSERT INTO __SCHEMA__.qa_nys_ris_lengths (
+INSERT INTO conflation_map.qa_nys_ris_lengths (
     nys_ris,
     target_map_edge_length,
     is_unidirectional,
@@ -50,7 +31,7 @@ INSERT INTO __SCHEMA__.qa_nys_ris_lengths (
 
       c.confl_segs_len_sum AS backward_conflation_segments_length_sum
 
-    FROM __NYS_RIS__.target_map_ppg_edges AS a
+    FROM nys_ris.target_map_ppg_edges AS a
       LEFT OUTER JOIN (
         SELECT
             json_extract(nys_ris, '$.targetMapId') AS target_map_id,
@@ -58,7 +39,7 @@ INSERT INTO __SCHEMA__.qa_nys_ris_lengths (
             SUM(
               partition_end_dist - partition_start_dist
             ) AS confl_segs_len_sum
-          FROM __SCHEMA__.conflation_map_segments
+          FROM conflation_map.conflation_map_segments
           WHERE (
             ( json_extract(nys_ris, '$.isForward') = 1 )
           )
@@ -72,7 +53,7 @@ INSERT INTO __SCHEMA__.qa_nys_ris_lengths (
             SUM(
               partition_end_dist - partition_start_dist
             ) AS confl_segs_len_sum
-          FROM __SCHEMA__.conflation_map_segments
+          FROM conflation_map.conflation_map_segments
           WHERE (
             ( json_extract(nys_ris, '$.isForward') = 0 )
           )
@@ -81,9 +62,9 @@ INSERT INTO __SCHEMA__.qa_nys_ris_lengths (
         ON ( json_extract(a.properties, '$.targetMapId') = c.target_map_id )
 ;
 
-DROP TABLE IF EXISTS __SCHEMA__.qa_npmrds_lengths ;
+DROP TABLE IF EXISTS conflation_map.qa_npmrds_lengths ;
 
-CREATE TABLE __SCHEMA__.qa_npmrds_lengths (
+CREATE TABLE conflation_map.qa_npmrds_lengths (
   tmc                                       TEXT PRIMARY KEY,
 
   target_map_edge_length                    REAL NOT NULL,
@@ -91,7 +72,7 @@ CREATE TABLE __SCHEMA__.qa_npmrds_lengths (
   forward_conflation_segments_length_sum    REAL
 ) WITHOUT ROWID;
 
-INSERT INTO __SCHEMA__.qa_npmrds_lengths (
+INSERT INTO conflation_map.qa_npmrds_lengths (
     tmc,
     target_map_edge_length,
     forward_conflation_segments_length_sum
@@ -103,8 +84,8 @@ INSERT INTO __SCHEMA__.qa_npmrds_lengths (
 
       c.confl_segs_len_sum AS forward_conflation_segments_length_sum
 
-    FROM __NPMRDS__.target_map_ppg_edges AS a
-      INNER JOIN __NPMRDS__.raw_target_map_features AS b
+    FROM npmrds.target_map_ppg_edges AS a
+      INNER JOIN npmrds.raw_target_map_features AS b
         ON ( json_extract(a.properties, '$.targetMapId') = b.target_map_id )
       LEFT OUTER JOIN (
         SELECT
@@ -113,7 +94,7 @@ INSERT INTO __SCHEMA__.qa_npmrds_lengths (
             SUM(
               partition_end_dist - partition_start_dist
             ) AS confl_segs_len_sum
-          FROM __SCHEMA__.conflation_map_segments
+          FROM conflation_map.conflation_map_segments
           GROUP BY target_map_id
       ) AS c
         ON ( json_extract(a.properties, '$.targetMapId') = c.target_map_id )
