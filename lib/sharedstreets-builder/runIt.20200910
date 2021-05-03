@@ -1,0 +1,8 @@
+#!/bin/bash
+
+java \
+  -Xmx32g \
+  -jar sharedstreets-builder-0.3.2.jar \
+  --roadClass 8 \
+  --input 2020-09-10/new-york-200910.osm.pbf \
+  --output planet-200910
