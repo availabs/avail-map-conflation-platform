@@ -14,11 +14,12 @@ const yargs = require("yargs");
 //   their programmatic, camelCase names.
 require('ts-node').register()
 
-// OSM & SharedStreets Source Maps
+// SharedStreets Source Maps
 const source_map_load = require('./src/pipeline_transforms/source_map_load/yargs_wrapper')
 const {outputSourceMapShapefile} = require('./src/daos/SourceMapDao/outputShapefile/yargs_wrapper')
 
 
+const OsmCommands = require("./src/daos/OpenStreetMapDao/cli/yargs_wrapper")
 const NpmrdsCommands = require("./src/daos/NpmrdsDAO/cli/yarg_wrapper")
 const NysRisCommands = require('./src/daos/NysRisDAO/cli/yargs_wrapper');
 const ConflationMapCommands = require("./src/daos/ConflationMapDAO/cli")
@@ -59,6 +60,10 @@ const taskCommands = yargs
   .command(gtfs_conflation_map_join)
   .command(gtfs_conflation_schedule_join)
   .command(output);
+
+Object.keys(OsmCommands).forEach(cmd => {
+  taskCommands.command(OsmCommands[cmd])
+})
 
 Object.keys(NpmrdsCommands).forEach(cmd => {
   taskCommands.command(NpmrdsCommands[cmd])
