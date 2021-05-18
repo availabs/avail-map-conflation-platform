@@ -17,14 +17,20 @@ import {
 export { SharedStreetsFormOfWay };
 export { SharedStreetsRoadClass };
 
+export type SharedStreetsOsmTileSource = string;
+export type SharedStreetsBuilderVersion = string;
+
+export type SharedStreetsTilesetBuildMetadata = {
+  shst_osm_tile_source: SharedStreetsOsmTileSource;
+  shst_builder_version: SharedStreetsBuilderVersion;
+};
+
 export type SharedStreetsRoadwayRoadClass = Omit<
   SharedStreetsRoadClass,
   'Other'
 >;
-export type SharedStreetsIntersectionId = SharedStreetsIntersection['id'];
 
-export type OsmNodeId = number;
-export type OsmWayId = number;
+export type SharedStreetsIntersectionId = SharedStreetsIntersection['id'];
 
 export interface SharedStreetsLocationReference {
   sequence: number;

@@ -9,7 +9,7 @@ import _ from 'lodash';
 
 import { sync as rimrafSync } from 'rimraf';
 
-import { makeSharedStreetsReferenceFeaturesIterator } from '../generators';
+import SourceMapDao from '../index';
 
 import { SharedStreetsReferenceFeature } from '../domain/types';
 
@@ -106,7 +106,7 @@ export default function outputShapefile({
   const dataset = gdal.open(shpfileDirAbsolutePath, 'w', 'ESRI Shapefile');
   const getLayer = getDatasetLayer.bind(null, dataset);
 
-  const iter = makeSharedStreetsReferenceFeaturesIterator();
+  const iter = SourceMapDao.makeSharedStreetsReferenceFeaturesIterator();
 
   for (const shstReference of iter) {
     const layerName = // 'shared_streets';
