@@ -1,4 +1,4 @@
-/* eslint-disable no-restricted-syntax */
+/* eslint-disable no-restricted-syntax, class-methods-use-this */
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -11,16 +11,21 @@ import db from '../../services/DbService';
 
 import { OSM } from '../../constants/databaseSchemaNames';
 
-import { OsmNode, OsmWay } from './domain/types';
+import { OsmVersion, OsmNode, OsmWay } from './domain/types';
 
-class OsmDao {
+class OpenStreetMapDao {
   protected connections: {
     // Used for writes
+    dbReadConnection: Database | null;
     dbWriteConnection: Database | null;
   };
 
+  static validateOsmVersion(osmVersion: OsmVersion) {
+    return /^[a-z0-9-]+$/i.test(osmVersion);
+  }
+
   protected readonly preparedReadStatements!: {
-    osmNodesStmt?: Statement;
+    getOsmVersionStmt?: Statement;
   };
 
   protected readonly preparedWriteStatements!: {
@@ -29,10 +34,38 @@ class OsmDao {
   };
 
   constructor() {
-    this.connections = { dbWriteConnection: null };
+    this.connections = { dbReadConnection: null, dbWriteConnection: null };
 
     this.preparedReadStatements = {};
     this.preparedWriteStatements = {};
+  }
+
+  // These should be static, but because we export an instance of this class
+  //   as a singleton, they must be put in the instance.
+  getOsmVersionFromXmlGzFileName(osmXmlGzFileName: string) {
+    const osmVersion = osmXmlGzFileName.replace(/\.osm\.gz$/, '');
+
+    return OpenStreetMapDao.validateOsmVersion(osmVersion) ? osmVersion : null;
+  }
+
+  get osmXmlInputDirectory() {
+    return join(__dirname, '../../../input/osm/');
+  }
+
+  getExpectedOsmXmlGzFilePath(osmVersion: OsmVersion) {
+    return join(this.osmXmlInputDirectory, `${osmVersion}.osm.gz`);
+  }
+
+  get dbReadConnection(): Database {
+    if (!this.connections.dbReadConnection) {
+      this.connections.dbReadConnection = db.openConnectionToDb(
+        OSM,
+        null,
+        'osm',
+      );
+    }
+
+    return this.connections.dbReadConnection;
   }
 
   get dbWriteConnection(): Database {
@@ -57,6 +90,49 @@ class OsmDao {
     });
 
     this.dbWriteConnection.exec(sql);
+  }
+
+  protected get getOsmVersionStmt(): Statement {
+    this.preparedReadStatements.getOsmVersionStmt =
+      this.preparedReadStatements.getOsmVersionStmt ||
+      this.dbReadConnection.prepare(
+        `
+          SELECT
+              osm_version
+            FROM osm.osm_version ;
+        `,
+      );
+
+    return this.preparedReadStatements.getOsmVersionStmt;
+  }
+
+  get osmVersion(): OsmVersion {
+    const osmVersion = this.getOsmVersionStmt.pluck().get();
+
+    if (!OpenStreetMapDao.validateOsmVersion(osmVersion)) {
+      throw new Error('WARNING: Invalid OSM Version ID.');
+    }
+
+    return osmVersion;
+  }
+
+  setOsmVersion(osmVersion: OsmVersion) {
+    if (!OpenStreetMapDao.validateOsmVersion(osmVersion)) {
+      throw new Error('WARNING: Invalid OSM Version ID.');
+    }
+
+    this.dbWriteConnection.exec(
+      `
+        BEGIN;
+
+        DELETE FROM osm.osm_version;
+
+        INSERT INTO osm.osm_version
+          VALUES ('${osmVersion}') ;
+
+        COMMIT;
+      `,
+    );
   }
 
   get insertOsmNodeStmt(): Statement {
@@ -128,4 +204,4 @@ class OsmDao {
   }
 }
 
-export default new OsmDao();
+export default new OpenStreetMapDao();

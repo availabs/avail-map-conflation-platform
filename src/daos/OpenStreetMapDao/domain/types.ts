@@ -1,3 +1,5 @@
+export type OsmVersion = string;
+
 export type OsmNodeId = number;
 
 export type OsmNode = {

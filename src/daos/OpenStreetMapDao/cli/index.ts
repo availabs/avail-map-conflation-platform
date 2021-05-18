@@ -5,23 +5,28 @@
 
 import { EventEmitter } from 'events';
 import { createReadStream, existsSync } from 'fs';
+import { pipeline } from 'stream';
+import zlib from 'zlib';
 
 // @ts-ignore
 import XmlStream from 'xml-stream';
-import FileType from 'file-type';
 
 import pEvent from 'p-event';
 
 import OsmDao from '..';
 
-const main = async ({ osm_xml }: { osm_xml: string }) => {
-  if (!existsSync(osm_xml)) {
-    throw new Error(`${osm_xml} does not exist`);
-  } else if ((await FileType.fromFile(osm_xml))?.mime !== 'application/xml') {
-    throw new Error(`${osm_xml} is not an XML file.`);
+import { OsmVersion } from '../domain/types';
+
+const main = async ({ osm_version }: { osm_version: OsmVersion }) => {
+  const osm_xml_gz = OsmDao.getExpectedOsmXmlGzFilePath(osm_version);
+
+  if (!existsSync(osm_xml_gz)) {
+    throw new Error(`${osm_xml_gz} does not exist`);
   }
 
   OsmDao.initializeDatabase();
+
+  OsmDao.setOsmVersion(osm_version);
 
   let streamClosed: any;
   let streamError: any;
@@ -41,11 +46,19 @@ const main = async ({ osm_xml }: { osm_xml: string }) => {
   OsmDao.bulkLoadOsmWaysAsync(osmWaysIterator);
 
   try {
-    const xml = new XmlStream(
-      createReadStream(osm_xml)
-        .on('close', streamClosed)
-        .on('error', streamError),
+    const osmStream = pipeline(
+      createReadStream(osm_xml_gz),
+      zlib.createGunzip(),
+      (err) => {
+        if (err) {
+          return streamError(err);
+        }
+
+        return streamClosed();
+      },
     );
+
+    const xml = new XmlStream(osmStream);
 
     let nodeCt = 0;
     let wayCt = 0;
