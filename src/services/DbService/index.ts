@@ -10,8 +10,6 @@ import Database, {
 
 import tmp from 'tmp';
 
-import { SOURCE_MAP } from '../../constants/databaseSchemaNames';
-
 export type DatabaseSchemaName = string;
 export type DatabaseDirectory = string;
 
@@ -44,40 +42,10 @@ const tmpSqliteDir = join(__dirname, '../../../output/tmp/');
 
 mkdirpSync(tmpSqliteDir);
 
-const attachedDatabases = new Set();
-
-const getDatabaseFilePath = (databaseSchemaName: string) =>
-  join(sqliteDir, databaseSchemaName);
-
 const databaseFileExists = (
   databaseSchemaName: DatabaseSchemaName,
   databaseDirectory?: DatabaseDirectory | null,
 ) => existsSync(join(databaseDirectory || sqliteDir, databaseSchemaName));
-
-const attachDatabase = (databaseSchemaName: string) => {
-  if (attachedDatabases.has(databaseSchemaName)) {
-    return;
-  }
-
-  const databaseFilePath = getDatabaseFilePath(databaseSchemaName);
-
-  db.exec(`ATTACH DATABASE '${databaseFilePath}' AS ${databaseSchemaName};`);
-
-  attachedDatabases.add(databaseSchemaName);
-};
-
-// The SOURCE_MAP database is automatically ATTACHED.
-attachDatabase(SOURCE_MAP);
-
-const detachDatabase = (databaseSchemaName: string) => {
-  if (!attachedDatabases.has(databaseSchemaName)) {
-    return;
-  }
-
-  db.exec(`DETACH DATABASE ${databaseSchemaName};`);
-
-  attachedDatabases.delete(databaseSchemaName);
-};
 
 const getDatabaseFilePathForSchemaName = (
   databaseSchemaName: string,
@@ -151,42 +119,6 @@ const closeLoadingConnectionToDb = (xdb: SqliteDatabase) => {
   xdb.close();
 };
 
-// Prepared statements are memoized
-const preparedStmts = {};
-
-// Idempotent
-const prepare = (sql: string) => {
-  if (preparedStmts[sql]) {
-    return preparedStmts[sql];
-  }
-
-  const stmt = db.prepare(sql);
-
-  // https://stackoverflow.com/a/28841863/3970755
-  preparedStmts[sql] = stmt;
-  return stmt;
-};
-
-const makeDatabaseWritable = (databaseSchemaName: string) => {
-  detachDatabase(databaseSchemaName);
-
-  const databaseFilePath = getDatabaseFilePathForSchemaName(databaseSchemaName);
-
-  chmodSync(databaseFilePath, 0o777);
-
-  attachDatabase(databaseSchemaName);
-};
-
-const makeDatabaseReadOnly = (databaseSchemaName: string) => {
-  detachDatabase(databaseSchemaName);
-
-  const databaseFilePath = getDatabaseFilePathForSchemaName(databaseSchemaName);
-
-  chmodSync(databaseFilePath, 0o444);
-
-  attachDatabase(databaseSchemaName);
-};
-
 const tmpSqliteRemoveCallbacks: Map<
   SqliteDatabase,
   tmp.FileResult['removeCallback']
@@ -227,15 +159,39 @@ const createConnectionToDatabaseFile = (dbFilePath: string) => {
   return new Database(dbFilePath);
 };
 
+const makeDatabaseReadonly = (
+  databaseSchemaName: DatabaseSchemaName,
+  databaseDirectory: DatabaseDirectory | null = null,
+) => {
+  const dbFilePath = getDatabaseFilePathForSchemaName(
+    databaseSchemaName,
+    databaseDirectory,
+  );
+
+  chmodSync(dbFilePath, 0o444);
+};
+
+const shrinkwrapDatabase = (
+  databaseSchemaName: DatabaseSchemaName,
+  databaseDirectory: DatabaseDirectory | null = null,
+) => {
+  try {
+    const xdb = openConnectionToDb(databaseSchemaName, databaseDirectory);
+
+    xdb.pragma(`${databaseSchemaName}.journal_mode = DELETE;`);
+    xdb.close();
+
+    makeDatabaseReadonly(databaseSchemaName, databaseDirectory);
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }
+};
+
 // Can bind more db methods if they are needed.
 //   https://github.com/JoshuaWise/better-sqlite3/blob/master/docs/api.md
 export default {
   tmpSqliteDir,
-
-  attachDatabase,
-  prepare,
-  exec: db.exec.bind(db),
-  transaction: db.transaction.bind(db),
 
   attachDatabaseToConnection,
   detachDatabaseFromConnection,
@@ -246,16 +202,12 @@ export default {
   closeLoadingConnectionToDb,
   databaseFileExists,
 
-  makeDatabaseWritable,
-  makeDatabaseReadOnly,
-
-  // @ts-ignore
-  unsafeMode: db.unsafeMode.bind(db),
-  close: db.close.bind(db),
-
   getTemporaryDatabaseFile,
   createTemporaryDatabase,
   destroyTemporaryDatabase,
 
   createConnectionToDatabaseFile,
+
+  makeDatabaseReadonly,
+  shrinkwrapDatabase,
 };
