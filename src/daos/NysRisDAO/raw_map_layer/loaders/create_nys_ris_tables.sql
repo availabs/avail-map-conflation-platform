@@ -233,7 +233,7 @@ DROP VIEW IF EXISTS __SCHEMA__.raw_target_map_features ;
 CREATE VIEW __SCHEMA__.raw_target_map_features
   AS
     SELECT
-        fid AS target_map_id,
+        ( gis_id || ':' || beg_mp ) AS target_map_id,
         json_set(
           json_set(
             json(feature),
@@ -398,7 +398,7 @@ CREATE VIEW __SCHEMA__.raw_target_map_features
             )
           ),
           '$.id',
-          fid
+          ( gis_id || ':' || beg_mp )
         ) as feature
     FROM nys_ris
       LEFT OUTER JOIN ris_segment_federal_directions AS tds

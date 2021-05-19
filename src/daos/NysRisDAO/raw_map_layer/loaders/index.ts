@@ -302,7 +302,6 @@ export async function loadNysRis(
     process.exit(1);
   } finally {
     xdb.exec(`VACUUM ${SCHEMA}; `);
-    db.closeLoadingConnectionToDb(xdb);
-    db.close();
+    xdb.close();
   }
 }
