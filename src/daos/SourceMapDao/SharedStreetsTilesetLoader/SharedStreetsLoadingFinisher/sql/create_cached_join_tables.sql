@@ -9,7 +9,7 @@ DROP TABLE IF EXISTS shst.shst_reference_features_geopoly_idx;
 DROP VIEW IF EXISTS shst._qa_broken_shst_reference_location_references ;
 
 DROP TABLE IF EXISTS shst.shst_reference_features ;
-DROP TABLE IF EXISTS shst.shst_reference_roadways_metadata ;
+DROP TABLE IF EXISTS shst.shst_reference_metadata ;
 
 -- Because SQLite does not have Materialized Views
 CREATE TABLE shst.shst_reference_features (
@@ -129,34 +129,37 @@ CREATE VIRTUAL TABLE shst.shst_reference_features_geopoly_idx
 --   This table introduces redundancy for performance.
 --     * more rows will fit on a disk page, accelerating queries reporting and JOIN operations.
 --     * Node will need to parse less JSON (&/or SQLite has less json_extracts to handle)
-CREATE TABLE shst.shst_reference_roadways_metadata (
+CREATE TABLE shst.shst_reference_metadata (
   shst_reference_id       TEXT PRIMARY KEY,
   geometry_id             TEXT    NOT NULL,
   road_class              INTEGER NOT NULL,
   form_of_way             INTEGER NOT NULL,
   from_intersection_id    TEXT    NOT NULL,
   to_intersection_id      TEXT    NOT NULL,
-  shst_ref_length         REAL    NOT NULL,
+  shst_ref_length_km      REAL    NOT NULL,
   is_unidirectional       INTEGER NOT NULL,
 
-  CHECK( shst_ref_length > 0 ),
+  CHECK( road_class BETWEEN 0 AND 8 ),
+  CHECK( form_of_way BETWEEN 0 AND 7 ),
+  CHECK( shst_ref_length_km > 0 ),
   CHECK( is_unidirectional IN (0, 1) )
+
 ) WITHOUT ROWID ;
 
-CREATE INDEX shst.shst_reference_roadways_metadata_geometry_id_idx
-  ON shst_reference_roadways_metadata( geometry_id ) ;
+CREATE INDEX shst.shst_reference_metadata_geometry_id_idx
+  ON shst_reference_metadata( geometry_id ) ;
 
-CREATE INDEX shst.shst_reference_roadways_metadata_road_class_idx
-  ON shst_reference_roadways_metadata( road_class ) ;
+CREATE INDEX shst.shst_reference_metadata_road_class_idx
+  ON shst_reference_metadata( road_class ) ;
 
-CREATE INDEX shst.shst_reference_roadways_metadata_form_of_way_idx
-  ON shst_reference_roadways_metadata( form_of_way ) ;
+CREATE INDEX shst.shst_reference_metadata_form_of_way_idx
+  ON shst_reference_metadata( form_of_way ) ;
 
-CREATE INDEX shst.shst_reference_roadways_metadata_from_intxn_id_idx
-  ON shst_reference_roadways_metadata( from_intersection_id ) ;
+CREATE INDEX shst.shst_reference_metadata_from_intxn_id_idx
+  ON shst_reference_metadata( from_intersection_id ) ;
 
-CREATE INDEX shst.shst_reference_roadways_metadata_to_intxn_id_idx
-  ON shst_reference_roadways_metadata( to_intersection_id ) ;
+CREATE INDEX shst.shst_reference_metadata_to_intxn_id_idx
+  ON shst_reference_metadata( to_intersection_id ) ;
 
 
 CREATE VIEW shst._qa_broken_shst_reference_location_references

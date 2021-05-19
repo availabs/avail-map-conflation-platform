@@ -74,7 +74,12 @@ const main = async () => {
       readFileSync(shstTilesetBuildMetaPath, { encoding: 'utf8' }),
     );
 
-    loadSharedStreetsTileset(shstTilesetDir, shstTilesetBuildMeta);
+    await loadSharedStreetsTileset(shstTilesetDir, shstTilesetBuildMeta);
+
+    console.log();
+    console.log(
+      'Please complete the loading process with ./run shrinkwrap_source_map_database',
+    );
   } catch (err) {
     console.error(err);
     process.exit(1);

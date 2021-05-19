@@ -340,33 +340,14 @@ export default class SharedStreetsLoadingFinisher {
   }
 
   protected loadShstReferenceRoadwaysMetadata() {
-    this.dbWriteConnection
-      .prepare(
-        `
-          INSERT OR IGNORE INTO shst.shst_reference_roadways_metadata (
-            shst_reference_id,
-            geometry_id,
-            road_class,
-            form_of_way,
-            from_intersection_id,
-            to_intersection_id,
-            shst_ref_length,
-            is_unidirectional
-          )
-            SELECT DISTINCT
-                json_extract(feature, '$.properties.shstReferenceId')     AS shst_reference_id,
-                json_extract(feature, '$.properties.geometryId')          AS geometry_id,
-                json_extract(feature, '$.properties.roadClass')           AS road_class,
-                json_extract(feature, '$.properties.formOfWay')           AS form_of_way,
-                json_extract(feature, '$.properties.fromIntersectionId')  AS from_intersection_id,
-                json_extract(feature, '$.properties.toIntersectionId')    AS to_intersection_id,
-                json_extract(feature, '$.properties.shstReferenceLength') AS shst_ref_length,
-                json_extract(feature, '$.properties.isUnidirectional')    AS is_unidirectional
-              FROM shst.shst_reference_features
-              WHERE json_extract(feature, '$.properties.roadClass') <= 7
-          ; `,
-      )
-      .run();
+    const ddl = readFileSync(
+      join(__dirname, './sql/load_shst_reference_roadways_metadata.sql'),
+      {
+        encoding: 'utf8',
+      },
+    );
+
+    this.dbWriteConnection.exec(ddl);
   }
 
   finishSharedStreetsTilesetLoad() {
