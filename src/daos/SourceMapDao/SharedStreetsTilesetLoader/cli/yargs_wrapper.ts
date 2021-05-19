@@ -19,7 +19,7 @@ const tilesetDir = getSharedStreetsTilesetDirectory('<shst_osm_tile_source>');
 
 const command = 'load_shst_tileset';
 
-const desc = `Load the SharedStreets tileset into SQLite. The loaded tileset version is determined by the loaded OSM version. (The OSM database MUST be loaded prior to loading the SharedStreets database.) The tileset is expected to be found in ${tilesetDir}. The SharedStreets tileset MUST be in the conventional directory during loading and the ShstMatch stage of the conflation pipeline. Additionally, a tileset build metadata file must exist at ${tilesetBuildMetadataPath}. This file is created automatically using this  repository's build_shst_tileset command for data provenance archiving.`;
+const desc = `Load the SharedStreets tileset into SQLite. The loaded tileset version is determined by the loaded OSM version. (The OSM database MUST be loaded prior to loading the SharedStreets database.) The tileset is expected to be found in ${tilesetDir}. The SharedStreets tileset MUST be in the conventional directory during loading and the ShstMatch stage of the conflation pipeline. Additionally, a tileset build metadata file must exist at ${tilesetBuildMetadataPath} for data provenance purposes. this file is created automatically using this repository's (forthcoming) build_shst_tileset command.`;
 
 const builder = {
   // shst_osm_tile_source: {
