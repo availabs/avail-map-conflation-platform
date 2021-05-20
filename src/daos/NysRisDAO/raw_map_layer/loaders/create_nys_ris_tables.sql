@@ -1,3 +1,6 @@
+DROP TABLE IF EXISTS __SCHEMA__.nys_traffic_counts_station_year_directions;
+DROP TABLE IF EXISTS __SCHEMA__.fhwa_direction_of_travel_code_descriptions ;
+DROP TABLE IF EXISTS __SCHEMA__.ris_segment_federal_directions ;
 DROP TABLE IF EXISTS __SCHEMA__.nys_ris;
 
 CREATE TABLE __SCHEMA__.nys_ris (
@@ -98,17 +101,10 @@ CREATE TABLE __SCHEMA__.nys_ris (
   work_yr                       INTEGER,
   work_type                     TEXT,
   yr_scored                     INTEGER,
-  ss_2007                       TEXT,
-  ss_2008                       TEXT,
-  ss_2009                       TEXT,
-  ss_2010                       TEXT,
-  ss_2011                       TEXT,
-  ss_2012                       TEXT,
-  ss_2013                       TEXT,
-  ss_2014                       TEXT,
-  ss_2015                       TEXT,
-  ss_2016                       TEXT,
-  ss_2017                       TEXT,
+
+  -- SS_YEARS Programatically added because varies across RIS GDBs
+__SS_YEAR_COLS__
+
   dom_distr                     TEXT,
   iri                           INTEGER,
   iri_year                      INTEGER,
@@ -183,9 +179,6 @@ CREATE TABLE __SCHEMA__._qa_nys_ris_entries_without_geometries (
   CHECK (json_valid(properties))
 ) WITHOUT ROWID;
 
-DROP TABLE IF EXISTS __SCHEMA__.nys_traffic_counts_station_year_directions;
-DROP TABLE IF EXISTS __SCHEMA__.fhwa_direction_of_travel_code_descriptions ;
-
 CREATE TABLE __SCHEMA__.fhwa_direction_of_travel_code_descriptions (
   federal_direction  INTEGER PRIMARY KEY,
   description        TEXT NOT NULL
@@ -215,8 +208,6 @@ CREATE TABLE __SCHEMA__.nys_traffic_counts_station_year_directions (
   FOREIGN KEY(federal_direction)
     REFERENCES fhwa_direction_of_travel_code_descriptions(federal_direction)
 ) WITHOUT ROWID ;
-
-DROP TABLE IF EXISTS __SCHEMA__.ris_segment_federal_directions ;
 
 CREATE TABLE __SCHEMA__.ris_segment_federal_directions (
   fid                 INTEGER PRIMARY KEY,
@@ -345,17 +336,9 @@ CREATE VIEW __SCHEMA__.raw_target_map_features
                   'work_yr',                       work_yr,
                   'work_type',                     work_type,
                   'yr_scored',                     yr_scored,
-                  'ss_2007',                       ss_2007,
-                  'ss_2008',                       ss_2008,
-                  'ss_2009',                       ss_2009,
-                  'ss_2010',                       ss_2010,
-                  'ss_2011',                       ss_2011,
-                  'ss_2012',                       ss_2012,
-                  'ss_2013',                       ss_2013,
-                  'ss_2014',                       ss_2014,
-                  'ss_2015',                       ss_2015,
-                  'ss_2016',                       ss_2016,
-                  'ss_2017',                       ss_2017
+
+                  -- SS_YEARS Programatically added because varies across RIS GDBs
+__SS_YEAR_JSON__
                 ),
                 json_object(
                   'dom_distr',                     dom_distr,

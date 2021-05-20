@@ -35,10 +35,32 @@ export interface NysRoadInventorySystemGeodatabaseEntryIterator
 
 export type TrafficCountStationYearDirectionAsyncIterator = AsyncGenerator<TrafficCountStationYearDirection>;
 
-const createNysRisTables = (xdb: any) => {
+const createNysRisTables = (
+  xdb: any,
+  risSSYearRange: [number, number] | null,
+) => {
+  const ssYearCols =
+    Array.isArray(risSSYearRange) && risSSYearRange.length === 2
+      ? _.range(risSSYearRange[0], risSSYearRange[1] + 1)
+          .map((yr) => `  ss_${yr}                       INTEGER,`)
+          .join('\n')
+      : '';
+
+  const ssYearJson =
+    Array.isArray(risSSYearRange) && risSSYearRange.length === 2
+      ? _.range(risSSYearRange[0], risSSYearRange[1] + 1)
+          .map(
+            (yr) =>
+              `                  'ss_${yr}',                       ss_${yr}`,
+          )
+          .join(',\n') // No last comma
+      : '';
+
   const sql = readFileSync(join(__dirname, './create_nys_ris_tables.sql'))
     .toString()
-    .replace(/__SCHEMA__/g, SCHEMA);
+    .replace(/__SCHEMA__/g, SCHEMA)
+    .replace(/__SS_YEAR_COLS__/g, ssYearCols)
+    .replace(/__SS_YEAR_JSON__/g, ssYearJson);
 
   xdb.exec(sql);
 };
@@ -168,17 +190,6 @@ const loadNysRisGeodatabase = (
 
     const values = nysRisTableColumns.map(getValuesForCols);
 
-    // console.log(
-    // JSON.stringify(
-    // nysRisTableColumns.reduce((acc, k, i) => {
-    // acc[k] = values[i];
-    // return acc;
-    // }, {}),
-    // null,
-    // 4,
-    // ),
-    // );
-
     insertGdbEntryStmt.run(values);
 
     if (shape) {
@@ -279,13 +290,14 @@ export async function loadNysRis(
   geodatabaseEntriesIterator: NysRoadInventorySystemGeodatabaseEntryIterator,
   trafficCountStationYearDirectionAsyncIterator: TrafficCountStationYearDirectionAsyncIterator,
   year: number,
+  ssYearRange: [number, number] | null,
 ) {
   const xdb = db.openConnectionToDb(SCHEMA);
 
   try {
     xdb.exec('BEGIN;');
 
-    createNysRisTables(xdb);
+    createNysRisTables(xdb, ssYearRange);
 
     loadNysRisGeodatabase(xdb, geodatabaseEntriesIterator);
     await loadTrafficCountStationYearDirectionsTable(

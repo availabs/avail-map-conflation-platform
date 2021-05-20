@@ -5,7 +5,7 @@ import { strict as assert } from 'assert';
 
 import * as turf from '@turf/turf';
 import _ from 'lodash';
-import gdal from 'gdal';
+import gdal, { Dataset } from 'gdal';
 import tar from 'tar';
 
 import { createReadStream } from 'fs';
@@ -36,9 +36,23 @@ const handleGdbEntry = (
 ): NysRoadInventorySystemGeodatabaseEntry | null => {
   const { fid } = feature;
   try {
-    const properties: any = _.mapKeys(feature.fields.toObject(), (_v, k) =>
-      k.toLowerCase(),
-    );
+    const properties: any = _.mapKeys(feature.fields.toObject(), (_v, k) => {
+      const p = k.replace(/_{2,}/g, '_').toLowerCase();
+
+      if (p === 'olap_hierarchy') {
+        return 'overlap_hierarchy';
+      }
+
+      if (p === 'ramp_dest_dot') {
+        return 'ramp_dest_dot_id';
+      }
+
+      if (p === 'percent_peak_combp') {
+        return 'percent_peak_combo';
+      }
+
+      return p;
+    });
 
     properties.fid = fid;
 
@@ -91,10 +105,7 @@ const handleGdbEntry = (
   }
 };
 
-function* makeNysRisGeodatabaseIterator(
-  nys_ris_geodatabase_tgz: string,
-  county: string | null = null,
-): NysRoadInventorySystemGeodatabaseEntryIterator {
+function getGdbDataset(nys_ris_geodatabase_tgz: string): Dataset {
   let gdbtableFile: null | string = null;
 
   tar.list({
@@ -123,6 +134,14 @@ function* makeNysRisGeodatabaseIterator(
     `/vsitar/${nys_ris_geodatabase_tgz}${gdbtableFileDir}`,
   );
 
+  return dataset;
+}
+
+function* makeNysRisGeodatabaseIterator(
+  dataset: Dataset,
+  ssYearRange: [number, number] | null,
+  county: string | null = null,
+): NysRoadInventorySystemGeodatabaseEntryIterator {
   const { features } = dataset.layers.get(0);
 
   let feature: null | gdal.Feature = null;
@@ -186,6 +205,23 @@ async function* makeTrafficCountStationYearDirectionAsyncIterator(
   }
 }
 
+const getSSYearRange = (dataset: Dataset): [number, number] | null => {
+  const years = dataset.layers
+    .get(0)
+    .fields.getNames()
+    .map((f) => f.toLowerCase())
+    .filter((f) => /^ss_\d{4}$/.test(f))
+    .sort()
+    .map((f) => +f.replace(/^ss_/, ''));
+
+  if (years.length === 0) {
+    return null;
+  }
+
+  // @ts-ignore
+  return [_.first(years), _.last(years)];
+};
+
 export default async ({
   nys_ris_geodatabase_tgz,
   traffic_count_station_year_direction_gz,
@@ -195,8 +231,13 @@ export default async ({
   console.time(timerId);
 
   try {
+    const dataset = getGdbDataset(nys_ris_geodatabase_tgz);
+
+    const ssYearRange = getSSYearRange(dataset);
+
     const nysRisEntryIterator = makeNysRisGeodatabaseIterator(
-      nys_ris_geodatabase_tgz,
+      dataset,
+      ssYearRange,
       county?.toUpperCase(),
     );
 
@@ -208,6 +249,7 @@ export default async ({
       nysRisEntryIterator,
       trafficCountStationYearDirectionAsyncIterator,
       year,
+      ssYearRange,
     );
 
     const targetMapDao = new TargetMapDAO<NysRoadInventorySystemFeature>(
