@@ -7,7 +7,7 @@ import * as turf from '@turf/turf';
 import _ from 'lodash';
 
 import { Database } from 'better-sqlite3';
-import db from '../../../../services/DbService';
+import DbService from '../../../../services/DbService';
 
 import getBufferPolygonCoords from '../../../../utils/getBufferPolygonCoords';
 
@@ -35,34 +35,12 @@ export interface NysRoadInventorySystemGeodatabaseEntryIterator
 
 export type TrafficCountStationYearDirectionAsyncIterator = AsyncGenerator<TrafficCountStationYearDirection>;
 
-const createNysRisTables = (
-  xdb: any,
-  risSSYearRange: [number, number] | null,
-) => {
-  const ssYearCols =
-    Array.isArray(risSSYearRange) && risSSYearRange.length === 2
-      ? _.range(risSSYearRange[0], risSSYearRange[1] + 1)
-          .map((yr) => `  ss_${yr}                       INTEGER,`)
-          .join('\n')
-      : '';
-
-  const ssYearJson =
-    Array.isArray(risSSYearRange) && risSSYearRange.length === 2
-      ? _.range(risSSYearRange[0], risSSYearRange[1] + 1)
-          .map(
-            (yr) =>
-              `                  'ss_${yr}',                       ss_${yr}`,
-          )
-          .join(',\n') // No last comma
-      : '';
-
+const createNysRisTables = (db: any) => {
   const sql = readFileSync(join(__dirname, './create_nys_ris_tables.sql'))
     .toString()
-    .replace(/__SCHEMA__/g, SCHEMA)
-    .replace(/__SS_YEAR_COLS__/g, ssYearCols)
-    .replace(/__SS_YEAR_JSON__/g, ssYearJson);
+    .replace(/__SCHEMA__/g, SCHEMA);
 
-  xdb.exec(sql);
+  db.exec(sql);
 };
 
 const compareSchemas = (
@@ -107,12 +85,12 @@ const getColumnValueFromEntry = (
 };
 
 const prepareInsertGdbEntryStmt = (
-  xdb: Database,
+  db: Database,
   nysRisTableColumns: readonly string[],
 ) =>
-  xdb.prepare(
+  db.prepare(
     `
-      INSERT INTO ${SCHEMA}.nys_ris (
+      INSERT INTO source_map.roadway_inventory_system (
         ${nysRisTableColumns}
       ) VALUES(${nysRisTableColumns.map((c) =>
         c === 'feature' ? 'json(?)' : ' ? ',
@@ -120,20 +98,20 @@ const prepareInsertGdbEntryStmt = (
     `,
   );
 
-const prepareInsertGdbEntryMissingGeometryStmt = (xdb: Database) =>
-  xdb.prepare(
+const prepareInsertGdbEntryMissingGeometryStmt = (db: Database) =>
+  db.prepare(
     `
-      INSERT INTO ${SCHEMA}._qa_nys_ris_entries_without_geometries (
+      INSERT INTO source_map._qa_nys_ris_entries_without_geometries (
         fid,
         properties
       ) VALUES(?, json(?));
     `,
   );
 
-const prepareGeoPolyIdxStmt = (xdb: Database) =>
-  xdb.prepare(
+const prepareGeoPolyIdxStmt = (db: Database) =>
+  db.prepare(
     `
-      INSERT INTO ${SCHEMA}.nys_ris_geopoly_idx(
+      INSERT INTO source_map.nys_ris_geopoly_idx(
         _shape,
         fid
       ) VALUES(json(?), ?) ;
@@ -141,11 +119,11 @@ const prepareGeoPolyIdxStmt = (xdb: Database) =>
   );
 
 const loadNysRisGeodatabase = (
-  xdb: Database,
+  db: Database,
   geodatabaseEntriesIterator: NysRoadInventorySystemGeodatabaseEntryIterator,
 ) => {
-  const nysRisTableColumns: readonly string[] = xdb
-    .pragma("table_info('nys_ris')")
+  const nysRisTableColumns: readonly string[] = db
+    .pragma("table_info('roadway_inventory_system')")
     .map(({ name }) => (name === 'primary' ? '"primary"' : name));
 
   const nonNullColumnsTracker = nysRisTableColumns.reduce((acc, c) => {
@@ -153,12 +131,12 @@ const loadNysRisGeodatabase = (
     return acc;
   }, {});
 
-  const insertGdbEntryStmt = prepareInsertGdbEntryStmt(xdb, nysRisTableColumns);
+  const insertGdbEntryStmt = prepareInsertGdbEntryStmt(db, nysRisTableColumns);
 
-  const updateGeoPolyIdxStmt = prepareGeoPolyIdxStmt(xdb);
+  const updateGeoPolyIdxStmt = prepareGeoPolyIdxStmt(db);
 
   const insertGdbEntryMissingGeometryStmt = prepareInsertGdbEntryMissingGeometryStmt(
-    xdb,
+    db,
   );
 
   let comparedSchemas = false;
@@ -221,12 +199,17 @@ const loadNysRisGeodatabase = (
   }
 };
 
+/* TODO: Move this to the final stage of the conflation pipeline.
+         It is not used until then and loading it now introduces a unstable dependency
+           in the early stages. If it remains here and the counts files change,
+           the entire RIS conflation would need to be rerun.
+
 async function loadTrafficCountStationYearDirectionsTable(
-  xdb: Database,
+  db: Database,
   trafficCountStationYearDirectionAsyncIterator: TrafficCountStationYearDirectionAsyncIterator,
 ) {
-  const insertStmt = xdb.prepare(`
-    INSERT INTO ${SCHEMA}.nys_traffic_counts_station_year_directions(
+  const insertStmt = db.prepare(`
+    INSERT INTO source_map.nys_traffic_counts_station_year_directions(
       rc_station,
       year,
       federal_direction
@@ -242,11 +225,11 @@ async function loadTrafficCountStationYearDirectionsTable(
   }
 }
 
-function loadRisSegmentFederalDirections(xdb: Database, year: number) {
-  xdb
-    .prepare(
-      `
-        INSERT INTO ${SCHEMA}.ris_segment_federal_directions (
+function loadRisSegmentFederalDirections(db: Database, year: number) {
+  // FIXME: Get year from select max(last_actual_cntyr) from roadway_inventory_system;
+  db.prepare(
+    `
+        INSERT INTO source_map.ris_segment_federal_directions (
           fid,
           rc_station,
           traffic_count_year,
@@ -267,8 +250,8 @@ function loadRisSegmentFederalDirections(xdb: Database, year: number) {
                   b.year AS traffic_count_year,
                   b.federal_direction,
                   rank() OVER (PARTITION BY rc_station ORDER BY year DESC) AS antecendency
-                FROM ${SCHEMA}.nys_ris AS a
-                  LEFT OUTER JOIN ${SCHEMA}.nys_traffic_counts_station_year_directions AS b
+                FROM source_map.roadway_inventory_system AS a
+                  LEFT OUTER JOIN source_map.nys_traffic_counts_station_year_directions AS b
                     ON (
                       ( substr(printf('0%d', a.region_co), -2)
                           || '_'
@@ -281,39 +264,30 @@ function loadRisSegmentFederalDirections(xdb: Database, year: number) {
             WHERE ( antecendency = 1 )
             GROUP BY fid ;
       `,
-    )
-    .run([year]);
+  ).run([year]);
 }
+*/
 
 // eslint-disable-next-line import/prefer-default-export
 export async function loadNysRis(
   geodatabaseEntriesIterator: NysRoadInventorySystemGeodatabaseEntryIterator,
-  trafficCountStationYearDirectionAsyncIterator: TrafficCountStationYearDirectionAsyncIterator,
-  year: number,
-  ssYearRange: [number, number] | null,
 ) {
-  const xdb = db.openConnectionToDb(SCHEMA);
+  const db = DbService.openConnectionToDb(SCHEMA, null, 'source_map');
 
   try {
-    xdb.exec('BEGIN;');
+    db.exec('BEGIN;');
 
-    createNysRisTables(xdb, ssYearRange);
+    createNysRisTables(db);
 
-    loadNysRisGeodatabase(xdb, geodatabaseEntriesIterator);
-    await loadTrafficCountStationYearDirectionsTable(
-      xdb,
-      trafficCountStationYearDirectionAsyncIterator,
-    );
+    loadNysRisGeodatabase(db, geodatabaseEntriesIterator);
 
-    loadRisSegmentFederalDirections(xdb, year);
-
-    xdb.exec('COMMIT');
+    db.exec('COMMIT');
   } catch (err) {
-    xdb.exec('ROLLBACK;');
+    db.exec('ROLLBACK;');
     console.error(err);
     process.exit(1);
   } finally {
-    xdb.exec(`VACUUM ${SCHEMA}; `);
-    xdb.close();
+    db.exec(`VACUUM source_map; `);
+    db.close();
   }
 }

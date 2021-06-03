@@ -1,5 +1,7 @@
 import * as turf from '@turf/turf';
 
+export type NysRisVersion = string;
+
 export type NysRisDirection = 1 | 2;
 
 export interface NysRoadInventorySystemProperties {
