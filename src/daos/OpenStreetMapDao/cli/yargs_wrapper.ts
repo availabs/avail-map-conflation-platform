@@ -4,34 +4,30 @@ import { existsSync, readdirSync } from 'fs';
 
 import handler from '.';
 
-import OpenStreetMapDao from '..';
+import osmInputDirectory from '../constants/osmInputDirectory';
 
-// import shrinkwrapDatabase from './utils/shrinkwrapDatabase';
+import getOsmVersionFromPbfFileName from '../utils/getOsmVersionFromPbfFileName';
 
-const validOsmVersions = existsSync(OpenStreetMapDao.osmXmlInputDirectory)
-  ? readdirSync(OpenStreetMapDao.osmXmlInputDirectory)
-      .filter((f) => /osm\.gz$/.test(f))
-      .map(OpenStreetMapDao.getOsmVersionFromXmlGzFileName)
+const validOsmVersions = existsSync(osmInputDirectory)
+  ? readdirSync(osmInputDirectory)
+      .map(getOsmVersionFromPbfFileName)
       .filter((v) => v)
   : [];
 
 const command = 'load_osm';
-const desc = `
-  Load the OSM file into SQLite.
-  The OSM XML files are expected to be named <osm_version>.osm.gz,
-    and found in ${OpenStreetMapDao.osmXmlInputDirectory}.
-`;
+const desc = `Load the OSM file into SQLite. The OSM PBF files MUST be in ${osmInputDirectory}.`;
 
 const builder = {
   osm_version: {
-    desc: `The OpenStreetMap version. Must be alphanumeric, possibly with dashes, such as "new-york-2100101". The choices listed below are populated using the *.osm.gz files found in ${OpenStreetMapDao.osmXmlInputDirectory}.`,
+    desc: `The OpenStreetMap version. Must be alphanumeric, possibly with dashes or underscores, such as "albany-county_new-york-200101". The choices listed below are populated using the *.osm.pbf files found in ${osmInputDirectory}.`,
     type: 'string',
     demand: true,
+    default: validOsmVersions.length === 1 ? validOsmVersions[0] : undefined,
     choices: validOsmVersions,
   },
 };
 
-export const loadOpenStreetMapsXmlFile = {
+export const loadOpenStreetMapsPbfFile = {
   command,
   desc,
   builder,

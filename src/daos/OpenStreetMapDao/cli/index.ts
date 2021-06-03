@@ -1,40 +1,29 @@
-// https://wiki.openstreetmap.org/wiki/Way#Examples
-//   The nodes defining the geometry of the way are enumerated in the correct order,
-//     and indicated only by reference using their unique identifier.
-//   These nodes must have been already defined separately with their coordinates.
-
 import { EventEmitter } from 'events';
-import { createReadStream, existsSync } from 'fs';
+import { existsSync, createReadStream } from 'fs';
 import { pipeline } from 'stream';
-import zlib from 'zlib';
 
-// @ts-ignore
-import XmlStream from 'xml-stream';
+import parseOsm from 'osm-pbf-parser';
+
+import through from 'through2';
 
 import pEvent from 'p-event';
 
 import OsmDao from '..';
 
+import getExpectedOsmVersionPbfPath from '../utils/getExpectedOsmVersionPbfPath';
+
 import { OsmVersion } from '../domain/types';
 
 const main = async ({ osm_version }: { osm_version: OsmVersion }) => {
-  const osm_xml_gz = OsmDao.getExpectedOsmXmlGzFilePath(osm_version);
+  const osmPbfPath = getExpectedOsmVersionPbfPath(osm_version);
 
-  if (!existsSync(osm_xml_gz)) {
-    throw new Error(`${osm_xml_gz} does not exist`);
+  if (!existsSync(osmPbfPath)) {
+    throw new Error(`${osmPbfPath} does not exist`);
   }
 
   OsmDao.initializeDatabase();
 
   OsmDao.setOsmVersion(osm_version);
-
-  let streamClosed: any;
-  let streamError: any;
-
-  const sentinel = new Promise((resolve, reject) => {
-    streamClosed = resolve;
-    streamError = reject;
-  });
 
   const osmElementEmitter = new EventEmitter();
   const osmNodesIterator = pEvent.iterator(osmElementEmitter, ['node']);
@@ -45,83 +34,47 @@ const main = async ({ osm_version }: { osm_version: OsmVersion }) => {
   // @ts-ignore
   OsmDao.bulkLoadOsmWaysAsync(osmWaysIterator);
 
-  try {
-    const osmStream = pipeline(
-      createReadStream(osm_xml_gz),
-      zlib.createGunzip(),
-      (err) => {
-        if (err) {
-          return streamError(err);
+  let nodeCt = 0;
+  let wayCt = 0;
+
+  function emitNode({ id, lat, lon, tags }) {
+    ++nodeCt;
+    osmElementEmitter.emit('node', { id, coord: [lon, lat], tags });
+  }
+
+  function emitWay({ id, refs: nodeIds, tags }) {
+    ++wayCt;
+    osmElementEmitter.emit('way', { id, nodeIds, tags });
+  }
+
+  pipeline(
+    createReadStream(osmPbfPath),
+    parseOsm(),
+    through.obj(function a(items, _enc, next) {
+      items.forEach(function b(item: any) {
+        if (item.type === 'node') {
+          emitNode(item);
         }
 
-        return streamClosed();
-      },
-    );
-
-    const xml = new XmlStream(osmStream);
-
-    let nodeCt = 0;
-    let wayCt = 0;
-
-    xml.collect('node tag');
-    xml.on('endElement: node', (d: any) => {
-      ++nodeCt;
-
-      const {
-        $: { id: osmNodeId, lat, lon },
-        tag,
-      } = d;
-
-      const tags = Array.isArray(tag)
-        ? tag.reduce((acc, { $: { k, v } }) => {
-            acc[k] = v;
-            return acc;
-          }, {})
-        : null;
-
-      osmElementEmitter.emit('node', {
-        id: +osmNodeId,
-        coord: [+lon, +lat],
-        tags,
+        if (item.type === 'way') {
+          emitWay(item);
+        }
       });
-    });
 
-    xml.collect('way nd');
-    xml.collect('way tag');
-    xml.on('endElement: way', (d: any) => {
-      ++wayCt;
+      next();
+    }),
+    (err) => {
+      console.log('Nodes:', nodeCt, ', Ways:', wayCt);
 
-      const {
-        $: { id: osmWayId },
-        nd,
-        tag,
-      } = d;
+      if (err) {
+        return osmElementEmitter.emit('error', err);
+      }
 
-      const osmNodeIds = Array.isArray(nd)
-        ? nd.map(({ $: { ref } }) => +ref)
-        : null;
+      osmElementEmitter.emit('done');
 
-      const tags = Array.isArray(tag)
-        ? tag.reduce((acc, { $: { k, v } }) => {
-            acc[k] = v;
-            return acc;
-          }, {})
-        : null;
-
-      osmElementEmitter.emit('way', { id: +osmWayId, osmNodeIds, tags });
-    });
-
-    xml.on('end', () => osmElementEmitter.emit('done'));
-
-    await sentinel;
-
-    console.log('Nodes:', nodeCt, ', Ways:', wayCt);
-
-    OsmDao.finalizeDatabase();
-  } catch (err) {
-    osmElementEmitter.emit('error', err);
-    console.error(err);
-  }
+      return OsmDao.finalizeDatabase();
+    },
+  );
 };
 
 export default main;

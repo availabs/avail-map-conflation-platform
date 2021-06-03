@@ -11,6 +11,8 @@ import db from '../../services/DbService';
 
 import { OSM } from '../../constants/databaseSchemaNames';
 
+import validateOsmVersion from './utils/validateOsmVersion';
+
 import { OsmVersion, OsmNode, OsmWay } from './domain/types';
 
 class OpenStreetMapDao {
@@ -19,10 +21,6 @@ class OpenStreetMapDao {
     dbReadConnection: Database | null;
     dbWriteConnection: Database | null;
   };
-
-  static validateOsmVersion(osmVersion: OsmVersion) {
-    return /^[a-z0-9-]+$/i.test(osmVersion);
-  }
 
   protected readonly preparedReadStatements!: {
     getOsmVersionStmt?: Statement;
@@ -38,22 +36,6 @@ class OpenStreetMapDao {
 
     this.preparedReadStatements = {};
     this.preparedWriteStatements = {};
-  }
-
-  // These should be static, but because we export an instance of this class
-  //   as a singleton, they must be put in the instance.
-  getOsmVersionFromXmlGzFileName(osmXmlGzFileName: string) {
-    const osmVersion = osmXmlGzFileName.replace(/\.osm\.gz$/, '');
-
-    return OpenStreetMapDao.validateOsmVersion(osmVersion) ? osmVersion : null;
-  }
-
-  get osmXmlInputDirectory() {
-    return join(__dirname, '../../../input/osm/');
-  }
-
-  getExpectedOsmXmlGzFilePath(osmVersion: OsmVersion) {
-    return join(this.osmXmlInputDirectory, `${osmVersion}.osm.gz`);
   }
 
   get dbReadConnection(): Database {
@@ -109,7 +91,7 @@ class OpenStreetMapDao {
   get osmVersion(): OsmVersion {
     const osmVersion = this.getOsmVersionStmt.pluck().get();
 
-    if (!OpenStreetMapDao.validateOsmVersion(osmVersion)) {
+    if (!validateOsmVersion(osmVersion)) {
       throw new Error('WARNING: Invalid OSM Version ID.');
     }
 
@@ -117,7 +99,7 @@ class OpenStreetMapDao {
   }
 
   setOsmVersion(osmVersion: OsmVersion) {
-    if (!OpenStreetMapDao.validateOsmVersion(osmVersion)) {
+    if (!validateOsmVersion(osmVersion)) {
       throw new Error('WARNING: Invalid OSM Version ID.');
     }
 
