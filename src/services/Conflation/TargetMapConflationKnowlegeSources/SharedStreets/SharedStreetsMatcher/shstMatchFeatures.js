@@ -13,6 +13,12 @@ const split = require('split2');
 const replaceFeaturesGeomsWithOsrmRoute = require('./geometryMutators/replaceFeaturesGeomsWithOsrmRoute');
 const doubleLineStringPoints = require('./geometryMutators/doubleLineStringPoints');
 
+const {
+  default: inputDirectory,
+} = require('../../../../../constants/inputDirectory');
+
+const { default: SourceMapDao } = require('../../../../../daos/SourceMapDao');
+
 const UTF8_ENCODING = 'utf8';
 
 const INF_PATH = 'features.geojson';
@@ -20,7 +26,13 @@ const OUTF_PATH = 'shst_match_output.geojson';
 const MATCHED_PATH = OUTF_PATH.replace(/geojson$/, 'matched.geojson');
 
 const PROJECT_ROOT = join(__dirname, '../../../../../../');
-const SHST_DATA_DIR = join(PROJECT_ROOT, 'data/shst/');
+
+const SHST_DATA_DIR = join(
+  inputDirectory,
+  'shst',
+  SourceMapDao.shstTileSource,
+  'shst',
+);
 const SHST_PATH = join(PROJECT_ROOT, 'node_modules/.bin/shst');
 
 const MATCH = 'MATCH';
@@ -29,7 +41,7 @@ const DISTANCE_SLICE_METHOD = 'DISTANCE_SLICE_METHOD';
 const BEARING_SLICE_METHOD = 'BEARING_SLICE_METHOD';
 
 const SHST_CHILD_PROC_OPTS = {
-  // DO NOT ENABLE SHELL. This spawned process receives use configuration from the QA UI.
+  // DO NOT ENABLE SHELL. This spawned process receives configuration from the QA UI.
   // https://nodejs.org/api/child_process.html#child_process_child_process_spawn_command_args_options
   cwd: PROJECT_ROOT,
   env: { ...process.env, HOME: SHST_DATA_DIR },
@@ -60,8 +72,7 @@ const runShstMatch = (
         [
           'match',
           `${inFilePath}`,
-          // '--follow-line-direction',
-          '--tile-source=planet-200910',
+          `--tile-source=osm/${SourceMapDao.shstTileSource}`,
           '--tile-hierarchy=8',
           `--out=${outFilePath}`,
         ],
@@ -201,6 +212,7 @@ const match = async ({ features, flags }) => {
   writeFileSync(inFilePath, JSON.stringify(featureCollection));
 
   try {
+    // TODO: Wrap runShstMatch to retry if LevelDB lock contention fail.
     const osrmDir = await runShstMatch(inFilePath, outFilePath, flags);
 
     const matchedFeatures = collectMatchedFeatures(matchedFilePath);
