@@ -25,7 +25,12 @@ CREATE TABLE __SCHEMA__.target_map_edge_chosen_matches (
   --         in the PRIMARY KEY enforces that the TargetMapEdge and ShstReference
   --         are both contiguous and atomic because a TMPEdge cannot leave, then return,
   --         to a ShstReference. This means that there are no possible turns within a ShstRef.
-  PRIMARY KEY(path_id, path_edge_idx, is_forward, shst_reference),
+  PRIMARY KEY(
+    path_id,
+    path_edge_idx,
+    is_forward,
+    shst_reference
+  ),
 
   CHECK(is_forward BETWEEN 0 AND 1),
   CHECK(edge_shst_match_idx >= 0),

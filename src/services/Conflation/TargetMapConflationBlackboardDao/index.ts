@@ -10,7 +10,7 @@ import { Database, Statement } from 'better-sqlite3';
 
 import db, { DatabaseSchemaName } from '../../DbService';
 
-import * as SourceMapDAO from '../../../daos/SourceMapDao';
+import SourceMapDao from '../../../daos/SourceMapDao';
 
 import TargetMapDAO from '../../../utils/TargetMapDatabases/TargetMapDAO';
 
@@ -636,7 +636,7 @@ export default class TargetMapConflationBlackboardDao<
       const { shstReferenceId, sectionStart, sectionEnd } = chosenMatch;
 
       if (!shstReference || shstReference.id !== shstReferenceId) {
-        [shstReference] = SourceMapDAO.getShstReferences([shstReferenceId]);
+        [shstReference] = SourceMapDao.getShstReferences([shstReferenceId]);
       }
 
       if (sectionStart < sectionEnd) {
@@ -894,7 +894,7 @@ export default class TargetMapConflationBlackboardDao<
       .uniq()
       .value();
 
-    const shstReferences = SourceMapDAO.getShstReferences(shstReferenceIds);
+    const shstReferences = SourceMapDao.getShstReferences(shstReferenceIds);
 
     const shstReferencesById = shstReferences.reduce((acc, shstReference) => {
       const { id } = shstReference;

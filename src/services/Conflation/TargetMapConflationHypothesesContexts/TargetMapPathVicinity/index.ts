@@ -3,7 +3,7 @@
 import * as turf from '@turf/turf';
 import _ from 'lodash';
 
-import * as SourceMapDAO from '../../../../daos/SourceMapDao';
+import SourceMapDao from '../../../../daos/SourceMapDao';
 
 import TargetMapConflationBlackboardDao from '../../TargetMapConflationBlackboardDao';
 
@@ -233,7 +233,7 @@ export default class TargetMapPathVicinity<T extends RawTargetMapFeature> {
       crossMapVicinityFeatures,
     );
 
-    this.allVicinitySharedStreetsReferences = SourceMapDAO.getShstReferenceRoadsOverlappingPoly(
+    this.allVicinitySharedStreetsReferences = SourceMapDao.getShstReferenceRoadsOverlappingPoly(
       this.vicinityBoundingPolyCoords[0],
     );
 
@@ -260,7 +260,7 @@ export default class TargetMapPathVicinity<T extends RawTargetMapFeature> {
             // @ts-ignore
             const hull = getGeometriesConcaveHull([shstRef, offset]);
 
-            const shstRefsCrossingHull = SourceMapDAO.getShstReferenceRoadsOverlappingPoly(
+            const shstRefsCrossingHull = SourceMapDao.getShstReferenceRoadsOverlappingPoly(
               // @ts-ignore
               hull.geometry?.coordinates[0],
             );
