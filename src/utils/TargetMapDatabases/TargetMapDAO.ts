@@ -63,9 +63,17 @@ export type PreloadedTargetMapEdge = {
     targetMapId: TargetMapId;
     targetMapEdgeLength: number;
     isUnidirectional: boolean | 0 | 1;
+    roadName: string;
+    routeNumber: number;
+    networkLevel: number;
+    isPrimary: boolean;
   };
   coordinates: [number, number][] | [number, number][][];
 };
+
+export type TargetMapPropertiesFromRawEdgeFn = (
+  feature: RawTargetMapFeature,
+) => TargetMapEdgeFeature['properties'];
 
 export type TargetMapEdge = {
   id: TargetMapEdgeId;
@@ -229,31 +237,42 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
     return this.preparedReadStatements.queryTargetMapMetadata;
   }
 
-  get targetMapIsCenterline() {
+  getMetadataProperty(key: string): any {
     const targetMapMetadata = JSON.parse(
       this.queryTargetMapMetadata.raw().get()[0],
     );
 
-    return !!targetMapMetadata.targetMapIsCenterline;
+    return targetMapMetadata[key] ?? null;
+  }
+
+  setMetadataProperty(key: string, value: any = null) {
+    console.log(JSON.stringify({ value }, null, 4));
+
+    this.updateTargetMapMetadataStmt.run([key, JSON.stringify(value)]);
+  }
+
+  get targetMapIsCenterline() {
+    return this.getMetadataProperty('targetMapIsCenterline');
   }
 
   set targetMapIsCenterline(targetMapIsCenterline: boolean) {
-    this.updateTargetMapMetadataStmt.run([
-      'targetMapIsCenterline',
-      JSON.stringify(targetMapIsCenterline),
-    ]);
+    this.setMetadataProperty('targetMapIsCenterline', targetMapIsCenterline);
   }
 
   get mapYear() {
-    const targetMapMetadata = JSON.parse(
-      this.queryTargetMapMetadata.raw().get()[0],
-    );
-
-    return +targetMapMetadata.year ?? null;
+    return this.getMetadataProperty('mapYear');
   }
 
   set mapYear(year: number) {
-    this.updateTargetMapMetadataStmt.run(['year', JSON.stringify(year)]);
+    this.setMetadataProperty('mapYear', year);
+  }
+
+  get mapVersion() {
+    return this.getMetadataProperty('mapVersion');
+  }
+
+  set mapVersion(mapVersion: string) {
+    this.setMetadataProperty('mapVersion', mapVersion);
   }
 
   // https://en.wikipedia.org/wiki/Eulerian_path
@@ -438,16 +457,16 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
   // The rawEdgeIsUnidirectional function is called for each RawTargetMapFeature to determine
   //   whether the Feature represents a uni-directional or bi-directional segment of road.
   private *makePreloadedTargetMapEdgesIterator(
-    rawEdgeIsUnidirectional: (feature: T) => boolean,
+    getTargetMapPropertiesFromRawEdge: (
+      feature: T,
+    ) => TargetMapEdgeFeature['properties'],
   ): Generator<PreloadedTargetMapEdge> {
     const rawEdgesIter = this.makeRawEdgeFeaturesIterator();
 
     // Cannot do in database using SQL because we need to compute GeoProx keys
     //   The alternative it to iterate over the table while simultaneously mutating it.
     for (const feature of rawEdgesIter) {
-      const { id: targetMapId } = feature;
-
-      const isUnidirectional = rawEdgeIsUnidirectional(feature);
+      const properties = getTargetMapPropertiesFromRawEdge(feature);
 
       const mergedLineStrings = lineMerge(feature).sort(
         (a, b) => turf.length(b) - turf.length(a),
@@ -460,8 +479,6 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
       const [end_longitude, end_latitude] = longestLineStringCoords[
         longestLineStringCoords.length - 1
       ];
-
-      const properties = { targetMapId, isUnidirectional };
 
       const startCoord: turf.Position = [start_longitude, start_latitude];
       const endCoord: turf.Position = [end_longitude, end_latitude];
@@ -484,7 +501,7 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
   //   whether the Feature represents a uni-directional or bi-directional segment of road.
   loadMicroLevel(
     clean: boolean = true,
-    rawEdgeIsUnidirectional: (feature: T) => boolean,
+    getTargetMapPropertiesFromRawEdge: TargetMapPropertiesFromRawEdgeFn,
   ) {
     try {
       this.dbWriteConnection.exec('BEGIN;');
@@ -494,11 +511,11 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
       }
 
       const edgesIterator = this.makePreloadedTargetMapEdgesIterator(
-        rawEdgeIsUnidirectional,
+        getTargetMapPropertiesFromRawEdge,
       );
 
       for (const edge of edgesIterator) {
-        console.log(edge.properties.targetMapId);
+        console.log(JSON.stringify(edge, null, 4));
 
         const feature = Array.isArray(edge.coordinates[0][0])
           ? // @ts-ignore
