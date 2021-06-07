@@ -1,22 +1,19 @@
 /* eslint-disable no-restricted-syntax, no-await-in-loop */
 
-import { createReadStream } from 'fs';
+import { createReadStream, existsSync } from 'fs';
 import { createGunzip } from 'zlib';
 import { pipeline } from 'stream';
 import { strict as assert } from 'assert';
-import { dirname } from 'path';
 
 import * as turf from '@turf/turf';
 import _ from 'lodash';
 import gdal from 'gdal';
 import * as csv from 'fast-csv';
-import tar from 'tar';
 
 import TargetMapDAO from '../../../../utils/TargetMapDatabases/TargetMapDAO';
 
 import {
   TmcIdentificationPropertiesSchema,
-  TmcIdentificationProperties,
   NpmrdsShapefileFeature,
   NpmrdsTmcFeature,
 } from '../domain';
@@ -26,6 +23,12 @@ import {
   TmcIdentificationAsyncIterator,
   NpmrdsShapefileIterator,
 } from '../loaders';
+
+import parseNpmrdsShapefileVersion from '../utils/parseNpmrdsShapefileVersion';
+import parseTmcIdentificationVersion from '../utils/parseTmcIdentificationVersion';
+
+import getExpectedNpmrdsShapefileVersionZipPath from './utils/getExpectedNpmrdsShapefileVersionZipPath';
+import getExpectedTmcIdentificationVersionGzipPath from './utils/getExpectedTmcIdentificationVersionGzipPath';
 
 import { NPMRDS as SCHEMA } from '../../../../constants/databaseSchemaNames';
 
@@ -47,40 +50,6 @@ const tmcIdentificationPropertyTypes = _.mapValues(
   },
 );
 
-// Because prettier and ts-ignore are not working well together.
-const timerId = 'load npmrds';
-
-const getShapefileDirectoryFromTarArchive = (npmrds_shapefile_tgz: string) => {
-  let shpFile: null | string = null;
-
-  tar.list({
-    file: npmrds_shapefile_tgz,
-    sync: true,
-    onentry: (readEntry) => {
-      const { type, size, path } = readEntry;
-      // @ts-ignore
-      if (type === 'File' && size > 0 && path.match(/\.shp$/)) {
-        // @ts-ignore
-        if (shpFile !== null) {
-          throw new Error(
-            `More than one .shp file found in ${npmrds_shapefile_tgz}.`,
-          );
-        }
-        // @ts-ignore
-        shpFile = path;
-      }
-    },
-  });
-
-  if (shpFile === null) {
-    throw new Error(`No .shp file found in ${npmrds_shapefile_tgz}.`);
-  }
-
-  const shpFileDir = dirname(shpFile) === '.' ? '' : `/${dirname(shpFile)}`;
-
-  return shpFileDir;
-};
-
 // Because, for some reason, the template breaks my editor when used below.
 const toStr = (v: any) => `${v}`;
 
@@ -101,74 +70,61 @@ const castTmcIdentificationRowValues = (v: any, k: string) => {
 };
 
 async function* makeTmcIdentificationIterator(
-  npmrds_tmc_identification_gz: string,
-  county: string | null,
+  tmc_identification_version: string,
 ): TmcIdentificationAsyncIterator {
+  const tmcIdentCsvGzipPath = getExpectedTmcIdentificationVersionGzipPath(
+    tmc_identification_version,
+  );
+
+  if (!existsSync(tmcIdentCsvGzipPath)) {
+    throw new Error(`File does not exists: ${tmcIdentCsvGzipPath}`);
+  }
+
   const stream = csv.parseStream(
-    pipeline(
-      createReadStream(npmrds_tmc_identification_gz),
-      createGunzip(),
-      (err) => {
-        if (err) {
-          throw err;
-        }
-      },
-    ),
+    pipeline(createReadStream(tmcIdentCsvGzipPath), createGunzip(), (err) => {
+      if (err) {
+        throw err;
+      }
+    }),
     { headers: true, trim: true },
   );
 
-  let n = 0;
-  let m = 0;
   for await (const row of stream) {
-    ++n;
-    const tmcMetadata: any | TmcIdentificationProperties = _(row)
+    const tmcMetadata = _(row)
       .mapKeys((_v, k: string) => k.toLowerCase())
       .pick(Object.keys(tmcIdentificationPropertyTypes))
       .mapValues(castTmcIdentificationRowValues)
       .value();
 
-    if (county !== null && tmcMetadata.county.toUpperCase() !== county) {
-      continue;
-    }
-
-    ++m;
+    // @ts-ignore
     yield tmcMetadata;
-  }
-
-  if (county !== null) {
-    console.log(
-      `${county} matched ${m} of ${n} TMCs in the TMC_Identification file.`,
-    );
   }
 }
 
 async function* makeNpmrdsShapesIterator(
-  npmrds_shapefile_tgz: string,
-  county: string | null,
+  npmrds_shapefile_version: string,
 ): NpmrdsShapefileIterator {
-  const shpFileDir = getShapefileDirectoryFromTarArchive(npmrds_shapefile_tgz);
+  const npmrdsShapefileVersionZip = getExpectedNpmrdsShapefileVersionZipPath(
+    npmrds_shapefile_version,
+  );
 
-  gdal.verbose();
-  const dataset = gdal.open(`/vsitar/${npmrds_shapefile_tgz}${shpFileDir}`);
+  if (!existsSync(npmrdsShapefileVersionZip)) {
+    throw new Error(`File does not exists: ${npmrdsShapefileVersionZip}`);
+  }
+
+  const dataset = gdal.open(
+    `/vsizip/${npmrdsShapefileVersionZip}/${npmrds_shapefile_version}`,
+  );
 
   const { features } = dataset.layers.get(0);
 
   let feature: null | gdal.Feature = null;
 
-  let n = 0;
-  let m = 0;
   // eslint-disable-next-line no-cond-assign
   while ((feature = features.next())) {
-    ++n;
     const properties: any = _.mapKeys(feature.fields.toObject(), (_v, k) =>
       k.toLowerCase(),
     );
-
-    if (county !== null && properties.county.toUpperCase() !== county) {
-      continue;
-    }
-
-    ++m;
 
     // @ts-ignore
     const geometry:
@@ -189,38 +145,59 @@ async function* makeNpmrdsShapesIterator(
         : turf.multiLineString(coords, properties, { id });
 
     yield tmcGeoJson;
-    await new Promise((resolve) => process.nextTick(resolve));
-  }
 
-  if (county !== null) {
-    console.log(`${county} matched ${m} of ${n} TMCs in the NPMRDS Shapefile.`);
+    await new Promise((resolve) => process.nextTick(resolve));
   }
 }
 
 export default async function loadRawNpmrdsTables({
-  npmrds_tmc_identification_gz,
-  npmrds_shapefile_tgz,
-  year,
-  county = null,
+  tmc_identification_version,
+  npmrds_shapefile_version,
 }: {
-  npmrds_tmc_identification_gz: string;
-  npmrds_shapefile_tgz: string;
-  year: number;
-  county: string | null;
+  tmc_identification_version: string;
+  npmrds_shapefile_version: string;
 }) {
-  const selectedCounty = county && county.toUpperCase();
+  // Because prettier and ts-ignore are not working well together.
+  const timerId = 'load npmrds';
 
   console.time(timerId);
 
+  const { year: metaYear } = parseTmcIdentificationVersion(
+    tmc_identification_version,
+  );
+
+  const {
+    year: shpYear,
+    extractArea: shpExtractArea,
+  } = parseNpmrdsShapefileVersion(npmrds_shapefile_version);
+
+  console.log(JSON.stringify({ metaYear, shpYear }, null, 4));
+
+  if (metaYear !== shpYear) {
+    throw new Error('TMC_Identification and NPMRDS Shapefile year mismatch.');
+  }
+
   await load(
-    makeTmcIdentificationIterator(npmrds_tmc_identification_gz, selectedCounty),
-    makeNpmrdsShapesIterator(npmrds_shapefile_tgz, selectedCounty),
+    makeTmcIdentificationIterator(tmc_identification_version),
+    makeNpmrdsShapesIterator(npmrds_shapefile_version),
   );
 
   const targetMapDao = new TargetMapDAO<NpmrdsTmcFeature>(SCHEMA);
 
   targetMapDao.targetMapIsCenterline = false;
-  targetMapDao.mapYear = year;
+
+  targetMapDao.mapYear = shpYear;
+
+  targetMapDao.mapVersion = npmrds_shapefile_version;
+
+  targetMapDao.setMetadataProperty(
+    'tmcIdentificationVersion',
+    tmc_identification_version,
+  );
+
+  if (shpExtractArea) {
+    targetMapDao.setMetadataProperty('shapefileExtractArea', shpExtractArea);
+  }
 
   console.timeEnd(timerId);
 }

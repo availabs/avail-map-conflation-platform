@@ -2,29 +2,34 @@
 
 import handler from '.';
 
-const command = 'load_raw_npmrds';
-const desc = 'Load the NPMRDS shapefile and TMC_Identification files.';
+import availableTmcIdentificationVersions from './constants/availableTmcIdentificationVersions';
+import availableNpmrdsShapefileVersions from './constants/availableNpmrdsShapefileVersions';
+
+const command = 'load_npmrds';
+
+const desc =
+  'Load the NPMRDS shapefile and TMC_Identification files. NOTE: The NPMRDS Shapefile is expected be the standardized format output by the https://github.com/availabs/avail-gis-toolkit/tree/main/src/NpmrdsDao createShapefile method.';
 
 const builder = {
-  npmrds_tmc_identification_gz: {
-    desc: 'Path to the gzipped TMC_Identification file',
+  tmc_identification_version: {
+    desc: 'The TMC_Identification file version',
     type: 'string',
     demand: true,
+    default:
+      availableTmcIdentificationVersions.length === 1
+        ? availableTmcIdentificationVersions[0]
+        : undefined,
+    choices: availableTmcIdentificationVersions,
   },
-  npmrds_shapefile_tgz: {
-    desc: 'Path to the gzipped tar archive of the NPMRDS shapefile.',
+  npmrds_shapefile_version: {
+    desc: 'The NPMRDS Shapefilefile version',
     type: 'string',
     demand: true,
-  },
-  year: {
-    desc: 'Map year.',
-    type: 'number',
-    demand: true,
-  },
-  county: {
-    desc: 'For development purposes, only load a specific county.',
-    type: 'string',
-    demand: false,
+    default:
+      availableNpmrdsShapefileVersions.length === 1
+        ? availableNpmrdsShapefileVersions[0]
+        : undefined,
+    choices: availableNpmrdsShapefileVersions,
   },
 };
 

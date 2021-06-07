@@ -1,5 +1,8 @@
 import * as turf from '@turf/turf';
 
+export type NpmrdsVersion = string;
+export type TmcIdentificationVersion = string;
+
 export interface TmcIdentificationProperties {
   readonly tmc: string;
   readonly type: string;
