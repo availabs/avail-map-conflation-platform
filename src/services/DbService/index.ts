@@ -1,5 +1,5 @@
 import { existsSync, chmodSync } from 'fs';
-import { join, isAbsolute } from 'path';
+import { join } from 'path';
 
 import { sync as mkdirpSync } from 'mkdirp';
 
@@ -10,6 +10,8 @@ import Database, {
 
 import tmp from 'tmp';
 
+import outputDirectory from '../../constants/outputDirectory';
+
 export type DatabaseSchemaName = string;
 export type DatabaseDirectory = string;
 
@@ -19,26 +21,11 @@ const IN_MEMORY = ':memory:';
 const db = new Database(IN_MEMORY);
 db.pragma('foreign_keys=ON');
 
-const envVarOutputDirOverride =
-  process.env.AVAIL_MAP_CONFLATION_OUTPUT_DIR || null;
-
-const envVaribleOutputDirPath =
-  envVarOutputDirOverride &&
-  (isAbsolute(envVarOutputDirOverride)
-    ? envVarOutputDirOverride
-    : join(process.cwd(), envVarOutputDirOverride));
-
-const defaultOutputDirPath = join(__dirname, '../../../output/');
-
-const OUTPUT_DIR = envVaribleOutputDirPath || defaultOutputDirPath;
-
-const sqliteDir = isAbsolute(OUTPUT_DIR)
-  ? join(OUTPUT_DIR, 'sqlite')
-  : join(process.cwd(), OUTPUT_DIR, 'sqlite');
+const sqliteDir = join(outputDirectory, 'sqlite');
 
 mkdirpSync(sqliteDir);
 
-const tmpSqliteDir = join(__dirname, '../../../output/tmp/');
+const tmpSqliteDir = join(outputDirectory, 'tmp');
 
 mkdirpSync(tmpSqliteDir);
 
