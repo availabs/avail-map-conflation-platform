@@ -1,6 +1,6 @@
 import { basename } from 'path';
 
-import validateNysRisVersion from './validateNysRisVersion';
+import isValidNysRisVersion from '../../utils/isValidNysRisVersion';
 
 export default function getNysRisVersionFromPbfFileName(nysRisPbfFile: string) {
   const b = basename(nysRisPbfFile);
@@ -11,5 +11,5 @@ export default function getNysRisVersionFromPbfFileName(nysRisPbfFile: string) {
 
   const nysRisVersion = b.replace(/\.gdb\.zip$/, '');
 
-  return validateNysRisVersion(nysRisVersion) ? nysRisVersion : null;
+  return isValidNysRisVersion(nysRisVersion) ? nysRisVersion : null;
 }

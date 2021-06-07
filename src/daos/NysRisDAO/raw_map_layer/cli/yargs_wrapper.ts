@@ -2,7 +2,7 @@
 
 import handler from '.';
 
-import availableNysRisVersions from '../constants/availableNysRisVersions';
+import availableNysRisVersions from './constants/availableNysRisVersions';
 
 const command = 'load_nys_ris';
 const desc =

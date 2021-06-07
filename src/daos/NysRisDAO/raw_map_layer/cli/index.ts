@@ -8,7 +8,9 @@ import gdal, { Dataset } from 'gdal';
 
 import TargetMapDAO from '../../../../utils/TargetMapDatabases/TargetMapDAO';
 
-import getExpectedNysRisVersionZipPath from '../utils/getExpectedNysRisVersionZipPath';
+import parseNysRisVersion from '../utils/parseNysRisVersion';
+
+import getExpectedNysRisVersionZipPath from './utils/getExpectedNysRisVersionZipPath';
 
 import { NysRoadInventorySystemFeature } from '../domain/types';
 
@@ -136,6 +138,8 @@ export default async ({ nys_ris_version }) => {
   console.time(timerId);
 
   try {
+    const { extractArea } = parseNysRisVersion(nys_ris_version);
+
     const dataset = getGdbDataset(nys_ris_version);
 
     const nysRisEntryIterator = makeNysRisGeodatabaseIterator(dataset);
@@ -147,6 +151,11 @@ export default async ({ nys_ris_version }) => {
     );
 
     targetMapDao.targetMapIsCenterline = true;
+    targetMapDao.mapVersion = nys_ris_version;
+
+    if (extractArea) {
+      targetMapDao.setMetadataProperty('extractArea', extractArea);
+    }
   } catch (err) {
     console.error(err);
     process.exit(1);
