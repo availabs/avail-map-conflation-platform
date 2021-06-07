@@ -27,29 +27,12 @@ const MATCHED_PATH = OUTF_PATH.replace(/geojson$/, 'matched.geojson');
 
 const PROJECT_ROOT = join(__dirname, '../../../../../../');
 
-const SHST_DATA_DIR = join(
-  inputDirectory,
-  'shst',
-  SourceMapDao.shstTileSource,
-  'shst',
-);
 const SHST_PATH = join(PROJECT_ROOT, 'node_modules/.bin/shst');
 
 const MATCH = 'MATCH';
 const ROUTE = 'ROUTE';
 const DISTANCE_SLICE_METHOD = 'DISTANCE_SLICE_METHOD';
 const BEARING_SLICE_METHOD = 'BEARING_SLICE_METHOD';
-
-const SHST_CHILD_PROC_OPTS = {
-  // DO NOT ENABLE SHELL. This spawned process receives configuration from the QA UI.
-  // https://nodejs.org/api/child_process.html#child_process_child_process_spawn_command_args_options
-  cwd: PROJECT_ROOT,
-  env: { ...process.env, HOME: SHST_DATA_DIR },
-};
-
-const SHST_DATA_DIR_REGEXP = new RegExp(
-  `(${SHST_DATA_DIR.replace('.', '\n').replace('/', '\\/')}.*)`,
-);
 
 // const PEDESTRIAN = "--match-pedestrian";
 // const BIKE = "--match-bike";
@@ -59,6 +42,19 @@ const SHST_DATA_DIR_REGEXP = new RegExp(
 
 const MAX_FEATURE_LENGTH = 2; /* km */
 const MATCHES_LENGTH_RATIO_THOLD = 0.1;
+
+const getShstHomeDir = () =>
+  join(inputDirectory, 'shst', SourceMapDao.shstTileSource, 'shst');
+
+const getShstHomeDirRegExp = () =>
+  new RegExp(`(${getShstHomeDir().replace('.', '\n').replace('/', '\\/')}.*)`);
+
+const getShstMatchChildProcessOpts = () => ({
+  // DO NOT ENABLE SHELL. This spawned process receives configuration from the QA UI.
+  // https://nodejs.org/api/child_process.html#child_process_child_process_spawn_command_args_options
+  cwd: PROJECT_ROOT,
+  env: { ...process.env, HOME: getShstHomeDir() },
+});
 
 const runShstMatch = (
   inFilePath,
@@ -78,7 +74,7 @@ const runShstMatch = (
         ],
         flags,
       ).filter(_.negate(_.isNil)),
-      SHST_CHILD_PROC_OPTS,
+      getShstMatchChildProcessOpts(),
     );
 
     let osrmDir = null;
@@ -89,7 +85,7 @@ const runShstMatch = (
       through(function fn(line, _$, cb) {
         console.log(line.toString());
 
-        const pathMatch = line.toString().match(SHST_DATA_DIR_REGEXP);
+        const pathMatch = line.toString().match(getShstHomeDirRegExp());
         if (pathMatch) {
           const [osrmLocation] = pathMatch;
 
