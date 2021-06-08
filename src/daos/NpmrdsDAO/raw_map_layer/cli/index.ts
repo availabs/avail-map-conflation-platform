@@ -196,7 +196,7 @@ export default async function loadRawNpmrdsTables({
   );
 
   if (shpExtractArea) {
-    targetMapDao.setMetadataProperty('shapefileExtractArea', shpExtractArea);
+    targetMapDao.mapExtractArea = shpExtractArea;
   }
 
   console.timeEnd(timerId);
