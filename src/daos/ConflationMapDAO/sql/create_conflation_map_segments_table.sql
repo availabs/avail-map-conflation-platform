@@ -43,7 +43,7 @@ CREATE TABLE conflation_map.conflation_map_segments (
     ( nys_ris IS NULL )
     OR
     (
-      ( json_type(nys_ris, '$.targetMapId') = 'integer' )
+      ( json_type(nys_ris, '$.targetMapId') = 'text' )
       AND
       ( json_extract(nys_ris, '$.isForward') BETWEEN 0 AND 1 )
       AND

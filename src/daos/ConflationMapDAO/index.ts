@@ -9,7 +9,7 @@
       It currently depends on the existence of the source_map SQLite database.
 */
 
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 import * as turf from '@turf/turf';
@@ -17,14 +17,12 @@ import _ from 'lodash';
 
 import { Database as SQLiteDatbase, Statement } from 'better-sqlite3';
 
-import db, {
+import DbService, {
   DatabaseSchemaName,
   DatabaseDirectory,
 } from '../../services/DbService';
 
 import TargetMapConflationBlackboardDao from '../../services/Conflation/TargetMapConflationBlackboardDao';
-
-import { getGeometriesConcaveHull } from '../../utils/gis/hulls';
 
 import getChosenShstReferenceSegmentsForOsmWay from './utils/getChosenShstReferenceSegmentsForOsmWay';
 import partitionShstReference from './utils/partitionShstReference';
@@ -34,14 +32,15 @@ import outputShapefile from './utils/outputShapefile';
 
 import {
   CONFLATION_MAP as SCHEMA,
+  OSM,
   SOURCE_MAP,
   NYS_RIS,
   NPMRDS,
 } from '../../constants/databaseSchemaNames';
 
+import { OsmNodeId, OsmWayId } from '../OpenStreetMapDao/domain/types';
+
 import {
-  OsmNodeId,
-  OsmWayId,
   SharedStreetsRoadClass,
   SharedStreetsReferenceFeature,
 } from '../SourceMapDao/domain/types';
@@ -73,58 +72,65 @@ function getSql(fName: string) {
   });
 }
 
-const getCountyBoundingPolyCoords = (countyName: string) => {
-  const countyPolygon: turf.Feature<turf.Polygon> = JSON.parse(
-    readFileSync(join(__dirname, '/geojson/', `${countyName}County.geojson`), {
-      encoding: 'utf8',
-    }),
-  );
-
-  // @ts-ignore
-  const boundingPolyHull = getGeometriesConcaveHull([countyPolygon]);
-  const [boundingPolyCoords] = turf.getCoords(boundingPolyHull);
-
-  return boundingPolyCoords;
-};
-
 function createDbReadConnection(): SQLiteDatbase {
-  const dbReadConnection = db.openConnectionToDb(
+  const dbReadConnection = DbService.openConnectionToDb(
     SCHEMA,
     null,
     'conflation_map',
   );
 
-  db.attachDatabaseToConnection(
+  DbService.attachDatabaseToConnection(dbReadConnection, OSM, null, 'osm');
+
+  DbService.attachDatabaseToConnection(
     dbReadConnection,
     SOURCE_MAP,
     null,
     'source_map',
   );
 
+  DbService.attachDatabaseToConnection(
+    dbReadConnection,
+    NYS_RIS,
+    null,
+    'nys_ris',
+  );
+
   return dbReadConnection;
 }
 
 function createDbWriteConnection(): SQLiteDatbase {
-  const dbWriteConnection = db.openConnectionToDb(
+  const dbWriteConnection = DbService.openConnectionToDb(
     SCHEMA,
     null,
     'conflation_map',
   );
 
-  db.attachDatabaseToConnection(
+  DbService.attachDatabaseToConnection(dbWriteConnection, OSM, null, 'osm');
+  DbService.attachDatabaseToConnection(
     dbWriteConnection,
     SOURCE_MAP,
     null,
     'source_map',
   );
-  db.attachDatabaseToConnection(dbWriteConnection, NYS_RIS, null, 'nys_ris');
-  db.attachDatabaseToConnection(
+
+  DbService.attachDatabaseToConnection(
+    dbWriteConnection,
+    NYS_RIS,
+    null,
+    'nys_ris',
+  );
+  DbService.attachDatabaseToConnection(
     dbWriteConnection,
     NYS_RIS_BB,
     null,
     'nys_ris_bb',
   );
-  db.attachDatabaseToConnection(dbWriteConnection, NPMRDS, null, 'npmrds');
+  DbService.attachDatabaseToConnection(
+    dbWriteConnection,
+    NPMRDS,
+    null,
+    'npmrds',
+  );
 
   return dbWriteConnection;
 }
@@ -141,30 +147,27 @@ export default class ConflationMapDAO {
   readonly dbWriteConnection: SQLiteDatbase;
 
   protected readonly preparedReadStatements: {
-    nysRisAssignedMatchesTableExistsStmt?: Statement;
-    npmrdsAssignedMatchesTableExistsStmt?: Statement;
-    nysRisAssignedMatchesAreLoadedStmt?: Statement;
-    npmrdsAssignedMatchesAreLoadedStmt?: Statement;
-    osmWayChosenMatchesTableExistsStmt?: Statement;
-    osmWayChosenMatchesAreLoadedStmt?: Statement;
-    targetMapAssignedMatchesTableExistsStmt?: Statement;
-    targetMapAssignedMatchesAreLoadedStmt?: Statement;
-    getOsmNodesStmt?: Statement;
+    conflationMapDatabaseTableExistsStmt?: Statement;
+    queryConflationMapMetadataStmt?: Statement;
     allOsmWaysWithShstReferencesStmt?: Statement;
-    shstReferenceTargetMapsAssignmentsStmt?: Statement;
-    conflationMapSegmentsTableExistsStmt?: Statement;
+    osmWayChosenMatchesAreLoadedStmt?: Statement;
+    risTrafficCountsStationYearDirectionsTableExistsStmt?: Statement;
+    risTrafficCountsStationYearDirectionsTableIsLoadedStmt?: Statement;
+    targetMapAssignedMatchesAreLoadedStmt?: Statement;
     conflationMapSegmentsAreLoadedStmt?: Statement;
     nysRisConflationMappingsStmt?: Statement;
     nysRisConflationMetricsStmt?: Statement;
     npmrdsConflationMappingsStmt?: Statement;
     npmrdsConflationMetricsStmt?: Statement;
     conflationMapSegmentsStmt?: Statement;
-    risAssignedMatchFederalDirectionTableExistsStmt?: Statement;
-    risAssignedMatchFederalDirectionAreLoadedStmt?: Statement;
+    shstReferenceTargetMapsAssignmentsStmt?: Statement;
   };
 
   protected readonly preparedWriteStatements: {
+    updateConflationMapMetadataStmt?: Statement;
+    insertTrafficCountStationYearDirectionStmt?: Statement;
     insertChosenShstReferenceSegmentForOsmWayStmt?: Statement;
+    loadTempAllOsmWaysWithShstReferencesTableStmt?: Statement;
     loadOsmWayAssignedMatchesTableStmt?: Statement;
     insertTargetMapAssignedMatchStmt?: Statement;
     insertConflationMapSegmentStmt?: Statement;
@@ -178,6 +181,132 @@ export default class ConflationMapDAO {
     this.preparedWriteStatements = {};
   }
 
+  protected get conflationMapDatabaseTableExistsStmt(): Statement {
+    this.preparedReadStatements.conflationMapDatabaseTableExistsStmt =
+      this.preparedReadStatements.conflationMapDatabaseTableExistsStmt ||
+      this.dbReadConnection.prepare(
+        `
+          SELECT EXISTS(
+            SELECT 1
+              FROM conflation_map.sqlite_master
+              WHERE(
+                (type = 'table')
+                AND
+                (name = ?)
+              )
+          ) ;
+        `,
+      );
+
+    return this.preparedReadStatements.conflationMapDatabaseTableExistsStmt;
+  }
+
+  protected conflationMapDatabaseTableExists(tableName: string) {
+    return !!this.conflationMapDatabaseTableExistsStmt.pluck().get([tableName]);
+  }
+
+  protected get conflationMapMetadataTableExists() {
+    return this.conflationMapDatabaseTableExists('conflation_map_metadata');
+  }
+
+  private get queryConflationMapMetadataStmt(): Statement {
+    if (!this.preparedReadStatements.queryConflationMapMetadataStmt) {
+      this.preparedReadStatements.queryConflationMapMetadataStmt = this.dbReadConnection.prepare(
+        `
+          SELECT
+              metadata
+            FROM conflation_map.conflation_map_metadata ;
+        `,
+      );
+    }
+
+    // @ts-ignore
+    return this.preparedReadStatements.queryConflationMapMetadataStmt;
+  }
+
+  get conflationMetadata(): Record<string, any> {
+    return JSON.parse(this.queryConflationMapMetadataStmt.raw().get()[0]);
+  }
+
+  protected get updateConflationMapMetadataStmt(): Statement {
+    if (!this.preparedWriteStatements.updateConflationMapMetadataStmt) {
+      this.preparedWriteStatements.updateConflationMapMetadataStmt = this.dbWriteConnection.prepare(
+        `
+          UPDATE conflation_map.conflation_map_metadata
+            SET metadata = json_set(metadata, '$.' || ?, json(?))
+        `,
+      );
+    }
+
+    // @ts-ignore
+    return this.preparedWriteStatements.updateConflationMapMetadataStmt;
+  }
+
+  getMetadataProperty(key: string): any {
+    return this.conflationMetadata[key] ?? null;
+  }
+
+  setMetadataProperty(key: string, value: any = null) {
+    this.updateConflationMapMetadataStmt.run([key, JSON.stringify(value)]);
+  }
+
+  get osmVersion() {
+    return this.getMetadataProperty('osmVersion');
+  }
+
+  get nysRisMapVersion() {
+    return this.getMetadataProperty('nysRisMapVersion');
+  }
+
+  get nysRisMapExtractArea() {
+    return this.getMetadataProperty('nysRisMapExtractArea');
+  }
+
+  get npmrdsMapVersion() {
+    return this.getMetadataProperty('npmrdsMapVersion');
+  }
+
+  get npmrdsMapYear() {
+    return this.getMetadataProperty('npmrdsMapVersion');
+  }
+
+  get npmrdsMapExtractArea() {
+    return this.getMetadataProperty('npmrdsMapExtractArea');
+  }
+
+  get nysTrafficCountStationsVersion() {
+    return this.getMetadataProperty('nysTrafficCountStationsVersion');
+  }
+
+  protected initializeConflationMapMetadata() {
+    this.dbWriteConnection.exec(`
+      BEGIN;
+
+      DROP TABLE IF EXISTS conflation_map.conflation_map_metadata ;
+
+      CREATE TABLE conflation_map.conflation_map_metadata
+        AS
+          SELECT
+              json_object(
+                'osmVersion',                       o.osm_version,
+
+                'nysRisMapVersion',                 json_extract(r.metadata, '$.mapVersion'),
+                'nysRisMapExtractArea',             json_extract(r.metadata, '$.mapExtractArea'),
+                'nysTrafficCountStationsVersion',   json_extract(r.metadata, '$.nysTrafficCountStationsVersion'),
+
+                'npmrdsMapVersion',                 json_extract(n.metadata, '$.mapVersion'),
+                'npmrdsMapExtractArea',             json_extract(n.metadata, '$.mapExtractArea'),
+                'npmrdsTmcIdentificationVersion',   json_extract(n.metadata, '$.tmcIdentificationVersion')
+
+              ) AS metadata
+            FROM osm.osm_version AS o
+              INNER JOIN nys_ris.target_map_metadata AS r ON (true)
+              INNER JOIN npmrds.target_map_metadata AS n ON (true) ;
+
+       COMMIT;
+    `);
+  }
+
   initialize() {
     try {
       this.loadOsmWayChosenMatchesTable();
@@ -186,7 +315,9 @@ export default class ConflationMapDAO {
 
       this.loadConflationMapSegments();
 
-      this.loadRisAssignedMatchFederalDirectionsTable();
+      this.initializeConflationMapMetadata();
+
+      this.loadRisTrafficCountsStationYearDirectionssTable();
     } catch (err) {
       console.error(err);
       process.exit(1);
@@ -211,6 +342,15 @@ export default class ConflationMapDAO {
     this.dbWriteConnection.exec('ROLLBACK');
   }
 
+  protected createTrafficCountStationYearDirectionsTables() {
+    const sql = getSql(
+      'create_traffic_count_station_year_directions_tables.sql',
+    );
+
+    this.dbWriteConnection.exec(sql);
+    this.createTargetMapsAssignedMatchesTable();
+  }
+
   protected createOsmChosenMatchesTable() {
     const sql = getSql('create_osm_way_chosen_matches_table.sql');
 
@@ -224,30 +364,6 @@ export default class ConflationMapDAO {
     this.dbWriteConnection.exec(sql);
 
     this.createConflationMapSegmentsTable();
-  }
-
-  private createTempAllOsmWaysWithShstReferencesTable() {
-    this.dbWriteConnection.exec(`
-      DROP TABLE IF EXISTS conflation_map.tmp_all_osm_ways_with_shst_references ;
-
-      CREATE TABLE conflation_map.tmp_all_osm_ways_with_shst_references (
-        osm_way_id    INTEGER PRIMARY KEY,
-        osm_node_ids  TEXT NOT NULL, -- JSON
-        shst_refs     TEXT NOT NULL
-      ) WITHOUT ROWID;
-    `);
-  }
-
-  protected createConflationMapSegmentsTable() {
-    const sql = getSql('create_conflation_map_segments_table.sql');
-
-    this.dbWriteConnection.exec(sql);
-
-    this.createTempAllOsmWaysWithShstReferencesTable();
-
-    // FIXME: Moved this into ./sql/load_ris_assigned_match_federal_directions
-    //        Need to handle CASCADING dependency deletion.
-    // this.createRisAssignedMatchFederalDirectionsTable();
   }
 
   verifyTargetMapsConflationComplete(): void | never {
@@ -273,24 +389,8 @@ export default class ConflationMapDAO {
     }
   }
 
-  protected get osmWayChosenMatchesTableExistsStmt(): Statement {
-    this.preparedReadStatements.osmWayChosenMatchesTableExistsStmt =
-      this.preparedReadStatements.osmWayChosenMatchesTableExistsStmt ||
-      this.dbReadConnection.prepare(
-        `
-          SELECT EXISTS(
-            SELECT 1
-              FROM conflation_map.sqlite_master
-              WHERE(
-                (type = 'table')
-                AND
-                (name = 'osm_way_chosen_matches')
-              )
-          ) ;
-        `,
-      );
-
-    return this.preparedReadStatements.osmWayChosenMatchesTableExistsStmt;
+  protected get osmWayChosenMatchesTableExists() {
+    return this.conflationMapDatabaseTableExists('osm_way_chosen_matches');
   }
 
   protected get osmWayChosenMatchesAreLoadedStmt(): Statement {
@@ -310,41 +410,34 @@ export default class ConflationMapDAO {
 
   get osmWayChosenMatchesAreLoaded(): boolean {
     return (
-      this.osmWayChosenMatchesTableExistsStmt.pluck().get() === 1 &&
+      this.osmWayChosenMatchesTableExists &&
       this.osmWayChosenMatchesAreLoadedStmt.pluck().get() === 1
     );
   }
 
-  private loadTempAllOsmWaysWithShstReferencesTable(
-    countyName: string | null = null,
-  ) {
-    console.log('loadTempAllOsmWaysWithShstReferencesTable');
+  private createTempAllOsmWaysWithShstReferencesTable() {
+    this.dbWriteConnection.exec(`
+      DROP TABLE IF EXISTS conflation_map.tmp_all_osm_ways_with_shst_references ;
 
-    this.beginWriteTransaction();
+      CREATE TABLE conflation_map.tmp_all_osm_ways_with_shst_references (
+        osm_way_id    INTEGER PRIMARY KEY,
+        osm_node_ids  TEXT NOT NULL, -- JSON
+        shst_refs     TEXT NOT NULL
+      ) WITHOUT ROWID;
+    `);
+  }
 
-    this.createTempAllOsmWaysWithShstReferencesTable();
+  protected createConflationMapSegmentsTable() {
+    const sql = getSql('create_conflation_map_segments_table.sql');
 
-    console.time('loadTempAllOsmWaysWithShstReferencesTable');
+    this.dbWriteConnection.exec(sql);
+  }
 
-    const boundingPolyCoords =
-      countyName && getCountyBoundingPolyCoords(countyName);
-
-    const countyFilter = countyName
-      ? `
-                    INNER JOIN (
-                      SELECT
-                          shst_reference_id
-                        FROM source_map.shst_reference_features_geopoly_idx
-                        WHERE geopoly_overlap(_shape, ?)
-                    ) USING ( shst_reference_id )`
-      : '';
-
-    const queryParams = boundingPolyCoords
-      ? [JSON.stringify(boundingPolyCoords)]
-      : null;
-
-    this.dbWriteConnection
-      .prepare(
+  protected get loadTempAllOsmWaysWithShstReferencesTableStmt() {
+    this.preparedWriteStatements.loadTempAllOsmWaysWithShstReferencesTableStmt =
+      this.preparedWriteStatements
+        .loadTempAllOsmWaysWithShstReferencesTableStmt ||
+      this.dbWriteConnection.prepare(
         `
           INSERT INTO conflation_map.tmp_all_osm_ways_with_shst_references
             SELECT
@@ -353,25 +446,37 @@ export default class ConflationMapDAO {
                 json_group_array(
                   DISTINCT json(b.feature)
                 ) AS shst_refs
+              FROM osm.osm_ways AS a
+                INNER JOIN(
+                  SELECT
+                      json_extract(t.value, '$.way_id') AS osm_way_id,
+                      feature
+                    FROM source_map.shst_reference_features,
+                      json_each(
+                        json_extract(feature, '$.properties.osmMetadataWaySections')
+                      ) AS t
+                    WHERE(
+                      json_extract(feature, '$.properties.minOsmRoadClass') < ${SharedStreetsRoadClass.Other}
+                    )
+                  ) AS b USING(osm_way_id)
+              GROUP BY osm_way_id ;
+        `,
+      );
 
-            FROM source_map.osm_ways AS a
-              INNER JOIN(
-                SELECT
-                    json_extract(t.value, '$.way_id') AS osm_way_id,
-                    feature
-                  FROM source_map.shst_reference_features
-                    ${countyFilter}
-                    , json_each(
-                      json_extract(feature, '$.properties.osmMetadataWaySections')
-                    ) AS t
-                  WHERE(
-                    json_extract(feature, '$.properties.minOsmRoadClass') < ${SharedStreetsRoadClass.Other}
-                  )
-                ) AS b USING(osm_way_id)
+    return this.preparedWriteStatements
+      .loadTempAllOsmWaysWithShstReferencesTableStmt;
+  }
 
-            GROUP BY osm_way_id ; `,
-      )
-      .run(queryParams);
+  private loadTempAllOsmWaysWithShstReferencesTable() {
+    console.log('loadTempAllOsmWaysWithShstReferencesTable');
+
+    this.beginWriteTransaction();
+
+    console.time('loadTempAllOsmWaysWithShstReferencesTable');
+
+    this.createTempAllOsmWaysWithShstReferencesTable();
+
+    this.loadTempAllOsmWaysWithShstReferencesTableStmt.run();
 
     this.commitWriteTransaction();
 
@@ -448,7 +553,7 @@ export default class ConflationMapDAO {
     }
 
     try {
-      this.loadTempAllOsmWaysWithShstReferencesTable('westchester');
+      this.loadTempAllOsmWaysWithShstReferencesTable();
 
       console.log('loadOsmWayChosenMatchesTable');
       console.time('loadOsmWayChosenMatchesTable');
@@ -532,24 +637,10 @@ export default class ConflationMapDAO {
     }
   }
 
-  protected get targetMapAssignedMatchesTableExistsStmt(): Statement {
-    this.preparedReadStatements.targetMapAssignedMatchesTableExistsStmt =
-      this.preparedReadStatements.targetMapAssignedMatchesTableExistsStmt ||
-      this.dbReadConnection.prepare(
-        `
-          SELECT EXISTS(
-            SELECT 1
-                  FROM conflation_map.sqlite_master
-                  WHERE(
-              (type = 'table')
-                    AND
-                (name = 'target_maps_assigned_matches')
-            )
-          ) ;
-        `,
-      );
-
-    return this.preparedReadStatements.targetMapAssignedMatchesTableExistsStmt;
+  protected get targetMapAssignedMatchesTableExists() {
+    return this.conflationMapDatabaseTableExists(
+      'target_maps_assigned_matches',
+    );
   }
 
   protected get targetMapAssignedMatchesAreLoadedStmt(): Statement {
@@ -570,7 +661,7 @@ export default class ConflationMapDAO {
 
   get targetMapAssignedMatchesAreLoaded(): boolean {
     return (
-      this.targetMapAssignedMatchesTableExistsStmt.pluck().get() === 1 &&
+      this.targetMapAssignedMatchesTableExists &&
       this.targetMapAssignedMatchesAreLoadedStmt.pluck().get() === 1
     );
   }
@@ -714,15 +805,10 @@ export default class ConflationMapDAO {
                         'sectionEnd',    section_end
                       )
                     ) AS asgmts
-
                   FROM conflation_map.target_maps_assigned_matches
-
                   WHERE ( (section_end - section_start) > 0.0001 )
-
                   GROUP BY shst_reference_id, target_map
-              )
-                USING (shst_reference_id)
-
+              ) USING (shst_reference_id)
             GROUP BY shst_reference_id ;
         `,
       );
@@ -772,10 +858,7 @@ export default class ConflationMapDAO {
               shstReference.properties.shstReferenceLength,
             );
 
-            if (
-              targetMap === TargetMap.OSM ||
-              targetMap === TargetMap.NYS_RIS
-            ) {
+            if (targetMap === TargetMap.OSM) {
               // eslint-disable-next-line no-param-reassign
               asgmt.targetMapId = +asgmt.targetMapId;
             }
@@ -794,30 +877,18 @@ export default class ConflationMapDAO {
     for (const { shstReference, assignments } of iter) {
       const partitions = partitionShstReference(shstReference, assignments);
 
+      if (partitions.length === 0) {
+        console.error('partitions.length === 0');
+      }
+
       for (let i = 0; i < partitions.length; ++i) {
         yield partitions[i];
       }
     }
   }
 
-  protected get conflationMapSegmentsTableExistsStmt(): Statement {
-    this.preparedReadStatements.conflationMapSegmentsTableExistsStmt =
-      this.preparedReadStatements.conflationMapSegmentsTableExistsStmt ||
-      this.dbReadConnection.prepare(
-        `
-          SELECT EXISTS(
-            SELECT 1
-              FROM conflation_map.sqlite_master
-              WHERE(
-                (type = 'table')
-                AND
-                (name = 'conflation_map_segments')
-              )
-          ) ;
-        `,
-      );
-
-    return this.preparedReadStatements.conflationMapSegmentsTableExistsStmt;
+  protected get conflationMapSegmentsTableExists() {
+    return this.conflationMapDatabaseTableExists('conflation_map_segments');
   }
 
   protected get conflationMapSegmentsAreLoadedStmt(): Statement {
@@ -837,7 +908,7 @@ export default class ConflationMapDAO {
 
   get conflationMapSegmentsAreLoaded(): boolean {
     return (
-      this.conflationMapSegmentsTableExistsStmt.pluck().get() === 1 &&
+      this.conflationMapSegmentsTableExists &&
       this.conflationMapSegmentsAreLoadedStmt.pluck().get() === 1
     );
   }
@@ -847,7 +918,7 @@ export default class ConflationMapDAO {
       this.preparedWriteStatements.insertConflationMapSegmentStmt ||
       this.dbWriteConnection.prepare(
         `
-          INSERT OR IGNORE INTO conflation_map.conflation_map_segments(
+          INSERT INTO conflation_map.conflation_map_segments(
             id,
             shst,
             shst_reference_length,
@@ -1090,11 +1161,10 @@ export default class ConflationMapDAO {
                   AND
                   ( json_extract(b.nys_ris, '$.isForward') = c.is_forward )
                 )
-              LEFT OUTER JOIN source_map.osm_ways AS d
+              LEFT OUTER JOIN osm.osm_ways AS d
                 ON (
                   ( json_extract(b.osm, '$.targetMapId') = d.osm_way_id )
                 )
-
             GROUP BY shst_reference_id
         `,
       );
@@ -1131,62 +1201,78 @@ export default class ConflationMapDAO {
     }
   }
 
-  protected get risAssignedMatchFederalDirectionTableExistsStmt(): Statement {
-    this.preparedReadStatements.risAssignedMatchFederalDirectionTableExistsStmt =
+  protected get risTrafficCountsStationYearDirectionsTableExistsStmt(): Statement {
+    this.preparedReadStatements.risTrafficCountsStationYearDirectionsTableExistsStmt =
       this.preparedReadStatements
-        .risAssignedMatchFederalDirectionTableExistsStmt ||
+        .risTrafficCountsStationYearDirectionsTableExistsStmt ||
       this.dbReadConnection.prepare(
         `
           SELECT EXISTS(
             SELECT 1
-              FROM conflation_map.sqlite_master
+              FROM nys_ris.sqlite_master
               WHERE(
                 (type = 'table')
                 AND
-                (name = 'ris_assigned_match_federal_directions')
+                (name = 'nys_traffic_counts_station_year_directions')
               )
           ) ;
         `,
       );
 
     return this.preparedReadStatements
-      .risAssignedMatchFederalDirectionTableExistsStmt;
+      .risTrafficCountsStationYearDirectionsTableExistsStmt;
   }
 
-  protected get risAssignedMatchFederalDirectionAreLoadedStmt(): Statement {
-    this.preparedReadStatements.risAssignedMatchFederalDirectionAreLoadedStmt =
+  protected get risTrafficCountsStationYearDirectionsTableExists() {
+    return !!this.risTrafficCountsStationYearDirectionsTableExistsStmt
+      .pluck()
+      .get();
+  }
+
+  protected get risTrafficCountsStationYearDirectionsTableIsLoadedStmt(): Statement {
+    this.preparedReadStatements.risTrafficCountsStationYearDirectionsTableIsLoadedStmt =
       this.preparedReadStatements
-        .risAssignedMatchFederalDirectionAreLoadedStmt ||
+        .risTrafficCountsStationYearDirectionsTableIsLoadedStmt ||
       this.dbReadConnection.prepare(
         `
           SELECT EXISTS(
             SELECT 1
-              FROM conflation_map.ris_assigned_match_federal_directions
+              FROM nys_ris.nys_traffic_counts_station_year_directions
           );
         `,
       );
 
     return this.preparedReadStatements
-      .risAssignedMatchFederalDirectionAreLoadedStmt;
+      .risTrafficCountsStationYearDirectionsTableIsLoadedStmt;
   }
 
-  get risAssignedMatchFederalDirectionAreLoaded(): boolean {
+  get risTrafficCountsStationYearDirectionsTableIsLoaded(): boolean {
     return (
-      this.risAssignedMatchFederalDirectionTableExistsStmt.pluck().get() ===
-        1 &&
-      this.risAssignedMatchFederalDirectionAreLoadedStmt.pluck().get() === 1
+      this.risTrafficCountsStationYearDirectionsTableExists &&
+      this.risTrafficCountsStationYearDirectionsTableIsLoadedStmt
+        .pluck()
+        .get() === 1
     );
   }
 
-  loadRisAssignedMatchFederalDirectionsTable() {
-    if (this.risAssignedMatchFederalDirectionAreLoaded) {
-      return;
+  loadRisTrafficCountsStationYearDirectionssTable() {
+    if (!this.risTrafficCountsStationYearDirectionsTableIsLoaded) {
+      throw new Error(
+        'The nys_ris.nys_traffic_counts_station_year_directions table is not loaded. Please run load_nys_traffic_count_stations.',
+      );
     }
 
     this.dbWriteConnection.function(
       'getFederalDirection',
       { deterministic: true },
       getFederalDirection,
+    );
+
+    this.dbWriteConnection.function(
+      'intArraySort',
+      { deterministic: true },
+      (arr: string) =>
+        JSON.stringify(JSON.parse(arr).sort((a: number, b: number) => a - b)),
     );
 
     const sql = getSql('load_ris_assigned_match_federal_directions.sql');
@@ -1208,7 +1294,14 @@ export default class ConflationMapDAO {
   }
 
   outputShapefile() {
-    return outputShapefile(this.makeConflationMapSegmentsIterator());
+    const shapefileDir = outputShapefile(
+      this.makeConflationMapSegmentsIterator(),
+    );
+
+    writeFileSync(
+      join(shapefileDir, 'conflation_metadata.json'),
+      JSON.stringify(this.conflationMetadata),
+    );
   }
 
   vacuumDatabase() {

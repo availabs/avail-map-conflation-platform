@@ -33,7 +33,7 @@ const getDatasetLayer = (dataset: gdal.Dataset) => {
   layer.fields.add(new gdal.FieldDefn('id', gdal.OFTInteger));
   layer.fields.add(new gdal.FieldDefn('shst', gdal.OFTString));
   layer.fields.add(new gdal.FieldDefn('osm', gdal.OFTInteger));
-  layer.fields.add(new gdal.FieldDefn('ris', gdal.OFTInteger));
+  layer.fields.add(new gdal.FieldDefn('ris', gdal.OFTString));
   layer.fields.add(new gdal.FieldDefn('tmc', gdal.OFTString));
   layer.fields.add(new gdal.FieldDefn('n', gdal.OFTInteger));
 
@@ -82,6 +82,7 @@ const addConflationMapSegmentToLayer = (
 export default function outputShapefile(
   conflationMapSegmentIter: Generator<ConflationMapSegment>,
 ) {
+  gdal.verbose();
   if (existsSync(shpfileDir)) {
     rimrafSync(shpfileDir);
   }
@@ -95,4 +96,6 @@ export default function outputShapefile(
   }
 
   dataset.close();
+
+  return shpfileDir;
 }

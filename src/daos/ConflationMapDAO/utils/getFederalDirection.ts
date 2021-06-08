@@ -4,7 +4,7 @@ import { strict as assert } from 'assert';
 
 import _ from 'lodash';
 
-import { FederalDirection } from '../../NysRisDAO/raw_map_layer/domain/types';
+import { FederalDirection } from '../../NysRisDAO/traffic_count_station_year_directions/domain/types';
 
 /*
 FederalDirection
@@ -103,14 +103,6 @@ export default function getFederalDirection(
   is_forward: 0 | 1,
   federal_directions: string | null,
 ): FederalDirection | null {
-  // console.log(
-  // JSON.stringify(
-  // { target_map_path_bearing, is_forward, federal_directions },
-  // null,
-  // 4,
-  // ),
-  // );
-
   if (target_map_path_bearing === null && federal_directions === null) {
     return null;
   }
