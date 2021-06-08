@@ -1,15 +1,6 @@
 /* eslint-disable no-restricted-syntax, no-underscore-dangle */
 
-// Massive violation of single responsibility principle.
-
-/*
-    FIXME:  This modules ASSUMES that the SQLite database file exists
-            and that the database is already attached to it.
-
-            Also, the DB connection management is vastly improved in the
-              TargetMapSubnetConflationBlackboardDao.
-            This module SHOULD implement the solution used there.
-*/
+// FIXME: Massive violation of single responsibility principle.
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -137,7 +128,7 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
 
   private readonly preparedReadStatements: {
     targetMapDatabaseIsInitializedStmt?: Statement;
-    queryTargetMapMetadata?: Statement;
+    queryTargetMapMetadataStmt?: Statement;
     tableIsCleanStmt?: Record<string, Statement>;
     allTargetMapPathIdsStmt?: Statement;
     targetMapIdsForEdgeIdsStmts?: Record<number, Statement>;
@@ -222,9 +213,9 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
     this.dbWriteConnection.exec(sql);
   }
 
-  private get queryTargetMapMetadata(): Statement {
-    if (!this.preparedReadStatements.queryTargetMapMetadata) {
-      this.preparedReadStatements.queryTargetMapMetadata = this.dbReadConnection.prepare(
+  private get queryTargetMapMetadataStmt(): Statement {
+    if (!this.preparedReadStatements.queryTargetMapMetadataStmt) {
+      this.preparedReadStatements.queryTargetMapMetadataStmt = this.dbReadConnection.prepare(
         `
           SELECT
               metadata
@@ -234,20 +225,18 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
     }
 
     // @ts-ignore
-    return this.preparedReadStatements.queryTargetMapMetadata;
+    return this.preparedReadStatements.queryTargetMapMetadataStmt;
   }
 
   getMetadataProperty(key: string): any {
     const targetMapMetadata = JSON.parse(
-      this.queryTargetMapMetadata.raw().get()[0],
+      this.queryTargetMapMetadataStmt.raw().get()[0],
     );
 
     return targetMapMetadata[key] ?? null;
   }
 
   setMetadataProperty(key: string, value: any = null) {
-    console.log(JSON.stringify({ value }, null, 4));
-
     this.updateTargetMapMetadataStmt.run([key, JSON.stringify(value)]);
   }
 
@@ -275,10 +264,18 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
     this.setMetadataProperty('mapVersion', mapVersion);
   }
 
+  set mapExtractArea(mapExtractArea: string) {
+    this.setMetadataProperty('mapExtractArea', mapExtractArea);
+  }
+
+  get mapExtractArea() {
+    return this.getMetadataProperty('mapExtractArea');
+  }
+
   // https://en.wikipedia.org/wiki/Eulerian_path
   get targetMapPathsAreEulerian() {
     const targetMapMetadata = JSON.parse(
-      this.queryTargetMapMetadata.raw().get()[0],
+      this.queryTargetMapMetadataStmt.raw().get()[0],
     );
 
     return !!targetMapMetadata.targetMapPathsAreEulerian;
@@ -515,8 +512,6 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
       );
 
       for (const edge of edgesIterator) {
-        console.log(JSON.stringify(edge, null, 4));
-
         const feature = Array.isArray(edge.coordinates[0][0])
           ? // @ts-ignore
             turf.multiLineString(edge.coordinates)
@@ -745,29 +740,6 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
     }
   }
 
-  private get randomizedAllTargetMapPathIdsStmt(): Statement {
-    if (!this.preparedReadStatements.randomizedAllTargetMapPathIdsStmt) {
-      this.preparedReadStatements.randomizedAllTargetMapPathIdsStmt = this.dbReadConnection.prepare(
-        `
-          SELECT
-              path_id
-            FROM ${this.targetMapSchema}.target_map_ppg_paths
-            ORDER BY random() ;`,
-      );
-    }
-
-    // @ts-ignore
-    return this.preparedReadStatements.randomizedAllTargetMapPathIdsStmt;
-  }
-
-  *makeRandomizedTargetMapPathIdsIterator(): Generator<TargetMapPathId> {
-    const iter = this.randomizedAllTargetMapPathIdsStmt.raw().iterate();
-
-    for (const [pathId] of iter) {
-      yield pathId;
-    }
-  }
-
   private get preparedTargetMapPathEdgesStmt(): Statement {
     this.preparedReadStatements.prepareTargetMapPathEdgesStmt =
       this.preparedReadStatements.prepareTargetMapPathEdgesStmt ||
@@ -789,7 +761,6 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
     const iter = this.allTargetMapPathIdsStmt.raw().iterate();
 
     for (const [pathId] of iter) {
-      console.log(pathId);
       const result = this.preparedTargetMapPathEdgesStmt.all([pathId]);
 
       const coords = _(result)
