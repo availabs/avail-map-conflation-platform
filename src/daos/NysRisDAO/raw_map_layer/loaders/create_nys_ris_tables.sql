@@ -1,9 +1,6 @@
-DROP TABLE IF EXISTS source_map.nys_traffic_counts_station_year_directions;
-DROP TABLE IF EXISTS source_map.fhwa_direction_of_travel_code_descriptions ;
-DROP TABLE IF EXISTS source_map.ris_segment_federal_directions ;
-DROP TABLE IF EXISTS source_map.roadway_inventory_system;
+DROP TABLE IF EXISTS nys_ris.roadway_inventory_system;
 
-CREATE TABLE source_map.roadway_inventory_system (
+CREATE TABLE nys_ris.roadway_inventory_system (
   fid                           INTEGER PRIMARY KEY,
   region                        INTEGER NOT NULL,
   gis_id                        INTEGER NOT NULL,
@@ -148,42 +145,42 @@ CREATE TABLE source_map.roadway_inventory_system (
   CHECK (functional_class BETWEEN 1 AND 19)
 ) WITHOUT ROWID;
 
-DROP INDEX IF EXISTS source_map.nys_ris_roadname_idx ;
+DROP INDEX IF EXISTS nys_ris.nys_ris_roadname_idx ;
 
-CREATE INDEX source_map.nys_ris_roadname_idx
+CREATE INDEX nys_ris.nys_ris_roadname_idx
   ON roadway_inventory_system (road_name) ;
 
-DROP INDEX IF EXISTS source_map.nys_ris_begin_description_idx ;
+DROP INDEX IF EXISTS nys_ris.nys_ris_begin_description_idx ;
 
-CREATE INDEX source_map.nys_ris_begin_description_idx
+CREATE INDEX nys_ris.nys_ris_begin_description_idx
   ON roadway_inventory_system (begin_description) ;
 
-DROP INDEX IF EXISTS source_map.nys_ris_end_description_idx ;
+DROP INDEX IF EXISTS nys_ris.nys_ris_end_description_idx ;
 
-CREATE INDEX source_map.nys_ris_end_description_idx
+CREATE INDEX nys_ris.nys_ris_end_description_idx
   ON roadway_inventory_system (end_description) ;
 
 -- Create a spatial index on the geometry
-DROP TABLE IF EXISTS source_map.nys_ris_geopoly_idx;
+DROP TABLE IF EXISTS nys_ris.nys_ris_geopoly_idx;
 
-CREATE VIRTUAL TABLE source_map.nys_ris_geopoly_idx
+CREATE VIRTUAL TABLE nys_ris.nys_ris_geopoly_idx
   USING geopoly(fid) ;
 
-DROP TABLE IF EXISTS source_map._qa_nys_ris_entries_without_geometries ;
+DROP TABLE IF EXISTS nys_ris._qa_nys_ris_entries_without_geometries ;
 
-CREATE TABLE source_map._qa_nys_ris_entries_without_geometries (
+CREATE TABLE nys_ris._qa_nys_ris_entries_without_geometries (
   fid         INTEGER PRIMARY KEY,
   properties  TEXT NOT NULL,
 
   CHECK (json_valid(properties))
 ) WITHOUT ROWID;
 
-CREATE TABLE source_map.fhwa_direction_of_travel_code_descriptions (
+CREATE TABLE nys_ris.fhwa_direction_of_travel_code_descriptions (
   federal_direction  INTEGER PRIMARY KEY,
   description        TEXT NOT NULL
 ) WITHOUT ROWID;
 
-INSERT INTO source_map.fhwa_direction_of_travel_code_descriptions (
+INSERT INTO nys_ris.fhwa_direction_of_travel_code_descriptions (
   federal_direction,
   description
 ) VALUES
@@ -197,7 +194,7 @@ INSERT INTO source_map.fhwa_direction_of_travel_code_descriptions (
   ( 8 , 'Northwest')
 ;
 
-CREATE TABLE source_map.nys_traffic_counts_station_year_directions (
+CREATE TABLE nys_ris.nys_traffic_counts_station_year_directions (
   rc_station         TEXT,
   year               INTEGER,
   federal_direction  INTEGER,
@@ -208,7 +205,7 @@ CREATE TABLE source_map.nys_traffic_counts_station_year_directions (
     REFERENCES fhwa_direction_of_travel_code_descriptions(federal_direction)
 ) WITHOUT ROWID ;
 
-CREATE TABLE source_map.ris_segment_federal_directions (
+CREATE TABLE nys_ris.ris_segment_federal_directions (
   fid                 INTEGER PRIMARY KEY,
   rc_station          TEXT,
   traffic_count_year  INTEGER,
@@ -217,10 +214,20 @@ CREATE TABLE source_map.ris_segment_federal_directions (
   FOREIGN KEY(fid) REFERENCES roadway_inventory_system(fid)
 ) WITHOUT ROWID;
 
+-- Should be created by the load traffic_count_station_year_directions.
+--   Creating a dummy here for the view below.
+CREATE TABLE IF NOT EXISTS nys_ris.ris_segment_federal_directions (
+  fid                 INTEGER PRIMARY KEY,
+  rc_station          TEXT,
+  traffic_count_year  INTEGER,
+  federal_directions  TEXT, -- JSON
 
-DROP VIEW IF EXISTS source_map.raw_target_map_features ;
+  FOREIGN KEY(fid) REFERENCES roadway_inventory_system(fid)
+) WITHOUT ROWID;
 
-CREATE VIEW source_map.raw_target_map_features
+DROP VIEW IF EXISTS nys_ris.raw_target_map_features ;
+
+CREATE VIEW nys_ris.raw_target_map_features
   AS
     SELECT
         ( gis_id || ':' || beg_mp ) AS target_map_id,

@@ -154,7 +154,7 @@ export default async ({ nys_ris_version }) => {
     targetMapDao.mapVersion = nys_ris_version;
 
     if (extractArea) {
-      targetMapDao.setMetadataProperty('extractArea', extractArea);
+      targetMapDao.mapExtractArea = extractArea;
     }
   } catch (err) {
     console.error(err);

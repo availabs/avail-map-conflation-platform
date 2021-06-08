@@ -21,7 +21,6 @@ import {
 
 import {
   NysRoadInventorySystemProperties,
-  TrafficCountStationYearDirection,
   validateNysRoadInventorySystemProperties,
 } from '../domain';
 
@@ -32,8 +31,6 @@ export type NysRoadInventorySystemGeodatabaseEntry = {
 
 export interface NysRoadInventorySystemGeodatabaseEntryIterator
   extends Generator<NysRoadInventorySystemGeodatabaseEntry, void, unknown> {}
-
-export type TrafficCountStationYearDirectionAsyncIterator = AsyncGenerator<TrafficCountStationYearDirection>;
 
 const createNysRisTables = (db: any) => {
   const sql = readFileSync(join(__dirname, './create_nys_ris_tables.sql'))
@@ -90,7 +87,7 @@ const prepareInsertGdbEntryStmt = (
 ) =>
   db.prepare(
     `
-      INSERT INTO source_map.roadway_inventory_system (
+      INSERT INTO nys_ris.roadway_inventory_system (
         ${nysRisTableColumns}
       ) VALUES(${nysRisTableColumns.map((c) =>
         c === 'feature' ? 'json(?)' : ' ? ',
@@ -101,7 +98,7 @@ const prepareInsertGdbEntryStmt = (
 const prepareInsertGdbEntryMissingGeometryStmt = (db: Database) =>
   db.prepare(
     `
-      INSERT INTO source_map._qa_nys_ris_entries_without_geometries (
+      INSERT INTO nys_ris._qa_nys_ris_entries_without_geometries (
         fid,
         properties
       ) VALUES(?, json(?));
@@ -111,7 +108,7 @@ const prepareInsertGdbEntryMissingGeometryStmt = (db: Database) =>
 const prepareGeoPolyIdxStmt = (db: Database) =>
   db.prepare(
     `
-      INSERT INTO source_map.nys_ris_geopoly_idx(
+      INSERT INTO nys_ris.nys_ris_geopoly_idx(
         _shape,
         fid
       ) VALUES(json(?), ?) ;
@@ -199,80 +196,11 @@ const loadNysRisGeodatabase = (
   }
 };
 
-/* TODO: Move this to the final stage of the conflation pipeline.
-         It is not used until then and loading it now introduces a unstable dependency
-           in the early stages. If it remains here and the counts files change,
-           the entire RIS conflation would need to be rerun.
-
-async function loadTrafficCountStationYearDirectionsTable(
-  db: Database,
-  trafficCountStationYearDirectionAsyncIterator: TrafficCountStationYearDirectionAsyncIterator,
-) {
-  const insertStmt = db.prepare(`
-    INSERT INTO source_map.nys_traffic_counts_station_year_directions(
-      rc_station,
-      year,
-      federal_direction
-    ) VALUES(?, ?, ?) ;
-  `);
-
-  for await (const {
-    rcStation,
-    year,
-    federalDirection,
-  } of trafficCountStationYearDirectionAsyncIterator) {
-    insertStmt.run([rcStation, year, federalDirection]);
-  }
-}
-
-function loadRisSegmentFederalDirections(db: Database, year: number) {
-  // FIXME: Get year from select max(last_actual_cntyr) from roadway_inventory_system;
-  db.prepare(
-    `
-        INSERT INTO source_map.ris_segment_federal_directions (
-          fid,
-          rc_station,
-          traffic_count_year,
-          federal_directions
-        )
-          SELECT
-              fid,
-              rc_station,
-              traffic_count_year,
-              NULLIF(
-                json_group_array(federal_direction),
-                '[null]'
-              ) AS federal_directions
-            FROM (
-              SELECT
-                  a.fid,
-                  b.rc_station,
-                  b.year AS traffic_count_year,
-                  b.federal_direction,
-                  rank() OVER (PARTITION BY rc_station ORDER BY year DESC) AS antecendency
-                FROM source_map.roadway_inventory_system AS a
-                  LEFT OUTER JOIN source_map.nys_traffic_counts_station_year_directions AS b
-                    ON (
-                      ( substr(printf('0%d', a.region_co), -2)
-                          || '_'
-                          || substr(printf('0000%d', a.station_num), -4)
-                      ) = b.rc_station
-                    )
-                WHERE ( b.year <= ? )
-                ORDER BY 1,2,3,4
-            )
-            WHERE ( antecendency = 1 )
-            GROUP BY fid ;
-      `,
-  ).run([year]);
-}
-*/
-
 // eslint-disable-next-line import/prefer-default-export
 export async function loadNysRis(
   geodatabaseEntriesIterator: NysRoadInventorySystemGeodatabaseEntryIterator,
 ) {
-  const db = DbService.openConnectionToDb(SCHEMA, null, 'source_map');
+  const db = DbService.openConnectionToDb(SCHEMA, null, 'nys_ris');
 
   try {
     db.exec('BEGIN;');
@@ -287,7 +215,7 @@ export async function loadNysRis(
     console.error(err);
     process.exit(1);
   } finally {
-    db.exec(`VACUUM source_map; `);
+    db.exec(`VACUUM nys_ris; `);
     db.close();
   }
 }

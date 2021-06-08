@@ -15,3 +15,5 @@ Info parsed from the official version conventions MUST become required config pa
 The TargetMap mapVersion MUST be NULL to indicate unofficial input data.
 See index.ts from git commit 41579b2dc91da974cd9784d9240f579d12fbfba3
 for possibly useful code.
+
+Unofficial loads could use the NODE_ENV environment variable.
