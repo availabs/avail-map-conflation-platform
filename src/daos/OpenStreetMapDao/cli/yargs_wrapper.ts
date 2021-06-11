@@ -6,6 +6,8 @@ import osmInputDirectory from '../constants/osmInputDirectory';
 
 import availableOsmVersions from '../constants/availableOsmVersions';
 
+import shrinkwrapDatabase from './utils/shrinkwrapDatabase';
+
 const command = 'load_osm';
 const desc = `Load the OSM file into SQLite. The OSM PBF files MUST be in ${osmInputDirectory}.`;
 
@@ -27,8 +29,8 @@ export const loadOpenStreetMapsPbfFile = {
   handler,
 };
 
-// export const shrinkwrapSourceMapDatabase = {
-// command: 'shrinkwrap_source_map_database',
-// desc: 'Make the SourceMap database Read-Only',
-// handler: shrinkwrapDatabase,
-// };
+export const shrinkwrapOsmDatabase = {
+  command: 'shrinkwrap_osm_database',
+  desc: 'Make the OSM database Read-Only',
+  handler: shrinkwrapDatabase,
+};
