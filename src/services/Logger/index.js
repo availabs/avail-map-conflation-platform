@@ -55,7 +55,7 @@ const logger = Winston.createLogger({
         Winston.format.json(),
         Winston.format.prettyPrint(),
       ),
-      level: 'warn',
+      level: 'error',
       prettyPrint: true,
       colorize: true,
       silent: false,
