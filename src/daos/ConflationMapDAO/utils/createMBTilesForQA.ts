@@ -6,11 +6,13 @@ import { join } from 'path';
 
 import tmp from 'tmp';
 
+import outputDirectory from '../../../constants/outputDirectory';
+
 import { ConflationMapSegment } from '../domain/types';
 
 tmp.setGracefulCleanup();
 
-const mbtilesOutputDir = join(__dirname, '../../../../output/qa_mbtiles');
+const mbtilesOutputDir = join(outputDirectory, 'qa_mbtiles');
 
 const tmpDir = join(mbtilesOutputDir, 'tmp/');
 mkdirSync(tmpDir, { recursive: true });

@@ -10,6 +10,8 @@ import { sync as rimrafSync } from 'rimraf';
 
 import getTerseConflationMapSegment from './getTerseConflationMapSegment';
 
+import outputDirectory from '../../../constants/outputDirectory';
+
 import { ConflationMapSegment } from '../domain/types';
 
 gdal.verbose();
@@ -17,10 +19,7 @@ gdal.verbose();
 // @ts-ignore
 const wgs84 = gdal.SpatialReference.fromEPSG(4326);
 
-const conflationMapOutputDir = join(
-  __dirname,
-  '../../../../output/conflation_map',
-);
+const conflationMapOutputDir = join(outputDirectory, 'conflation_map');
 
 mkdirSync(conflationMapOutputDir, { recursive: true });
 

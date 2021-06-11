@@ -996,7 +996,7 @@ export default class ConflationMapDAO {
             FROM conflation_map.conflation_map_segments AS a
               INNER JOIN conflation_map.target_maps_assigned_matches AS b
                 ON (
-                  ( CAST(json_extract(a.nys_ris, '$.targetMapId') AS INTEGER) = b.target_map_id )
+                  ( json_extract(a.nys_ris, '$.targetMapId') = b.target_map_id )
                   AND
                   ( a.shst = b.shst_reference_id )
                   AND
