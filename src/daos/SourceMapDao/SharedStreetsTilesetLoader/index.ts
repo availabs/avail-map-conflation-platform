@@ -20,6 +20,8 @@ import {
   SharedStreetsOsmTileSource,
 } from '../domain/types';
 
+import inputDirectory from '../../../constants/inputDirectory';
+
 import SharedStreetsLoadingInitializer from './SharedStreetsLoadingInitializer';
 import SharedStreetsMetadataLoader from './SharedStreetsMetadataLoader';
 import SharedStreetsIntersectionLoader from './SharedStreetsIntersectionLoader';
@@ -29,7 +31,7 @@ import SharedStreetsLoadingFinisher from './SharedStreetsLoadingFinisher';
 
 export default class SharedStreetsTilesetLoader {
   static getSharedStreetsHome(shstOsmTileSource: SharedStreetsOsmTileSource) {
-    return join(__dirname, '../../../../input/shst/', shstOsmTileSource);
+    return join(inputDirectory, 'shst', shstOsmTileSource);
   }
 
   static getSharedStreetsTilesetDirectory(
