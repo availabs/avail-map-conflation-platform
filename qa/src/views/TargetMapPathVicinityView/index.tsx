@@ -35,7 +35,6 @@ export default function TargetMapPathView() {
     return <div>Waiting...</div>;
   }
 
-  // console.log('REFRESH')
   return <AvlMap
     layers={[targetMapPathVicinityLayer.current]}
     dragPan={true}

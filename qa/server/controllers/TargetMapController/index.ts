@@ -72,7 +72,7 @@ abstract class TargetMapController<T extends RawTargetMapFeature> {
   }
 
   getShstChosenMatchesMetadata() {
-    const chosenMatchesIter = this.blackboardDao.makeChosenShstMatchesIterator();
+    const chosenMatchesIter = this.blackboardDao.makeChosenMatchesIterator();
 
     const response = {};
 
