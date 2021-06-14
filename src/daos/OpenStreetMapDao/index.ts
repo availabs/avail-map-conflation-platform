@@ -181,8 +181,52 @@ class OpenStreetMapDao {
     }
   }
 
+  createOsmWayShstRoadclassTable() {
+    const sql = readFileSync(
+      join(__dirname, './sql/create_osm_highway_shst_roadclass_table.sql'),
+      {
+        encoding: 'utf8',
+      },
+    );
+
+    this.dbWriteConnection.exec(sql);
+  }
+
+  createCanonicalNodesTable() {
+    const cleanNodeIds = (nodesArrStr: string) => {
+      const nodesArr: { n: number; i: number }[] = JSON.parse(nodesArrStr);
+
+      console.log(JSON.stringify(nodesArr, null, 4));
+
+      const cleaned = nodesArr
+        .sort((a, b) => a.i - b.i)
+        .filter(({ n }, i, arr) => arr[i - 1]?.n !== n)
+        .map(({ n }) => n);
+
+      console.log(JSON.stringify({ nodesArr, cleaned }, null, 4));
+
+      return JSON.stringify(cleaned);
+    };
+
+    this.dbWriteConnection.function(
+      'clean_node_ids',
+      { deterministic: true },
+      cleanNodeIds,
+    );
+
+    const sql = readFileSync(
+      join(__dirname, './sql/create_canonical_osm_nodes_table.sql'),
+      {
+        encoding: 'utf8',
+      },
+    );
+
+    this.dbWriteConnection.exec(sql);
+  }
+
   finalizeDatabase() {
-    this.dbWriteConnection.pragma(`osm.journal_mode = DELETE`);
+    this.createOsmWayShstRoadclassTable();
+    this.createCanonicalNodesTable();
   }
 }
 
