@@ -47,7 +47,7 @@ const getShstHomeDir = () =>
   join(inputDirectory, 'shst', SourceMapDao.shstTileSource, 'shst');
 
 const getShstHomeDirRegExp = () =>
-  new RegExp(`(${getShstHomeDir().replace('.', '\n').replace('/', '\\/')}.*)`);
+  new RegExp(`(${getShstHomeDir().replace('.', '\\.').replace('/', '\\/')}.*)`);
 
 const getShstMatchChildProcessOpts = () => ({
   // DO NOT ENABLE SHELL. This spawned process receives configuration from the QA UI.
@@ -86,6 +86,7 @@ const runShstMatch = (
         console.log(line.toString());
 
         const pathMatch = line.toString().match(getShstHomeDirRegExp());
+
         if (pathMatch) {
           const [osrmLocation] = pathMatch;
 
