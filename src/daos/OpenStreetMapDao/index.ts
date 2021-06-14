@@ -196,14 +196,10 @@ class OpenStreetMapDao {
     const cleanNodeIds = (nodesArrStr: string) => {
       const nodesArr: { n: number; i: number }[] = JSON.parse(nodesArrStr);
 
-      console.log(JSON.stringify(nodesArr, null, 4));
-
       const cleaned = nodesArr
         .sort((a, b) => a.i - b.i)
         .filter(({ n }, i, arr) => arr[i - 1]?.n !== n)
         .map(({ n }) => n);
-
-      console.log(JSON.stringify({ nodesArr, cleaned }, null, 4));
 
       return JSON.stringify(cleaned);
     };
