@@ -192,7 +192,7 @@ class OpenStreetMapDao {
     this.dbWriteConnection.exec(sql);
   }
 
-  createCanonicalNodesTable() {
+  createCanonicalOsmTables() {
     const cleanNodeIds = (nodesArrStr: string) => {
       const nodesArr: { n: number; i: number }[] = JSON.parse(nodesArrStr);
 
@@ -211,7 +211,7 @@ class OpenStreetMapDao {
     );
 
     const sql = readFileSync(
-      join(__dirname, './sql/create_canonical_osm_nodes_table.sql'),
+      join(__dirname, './sql/create_canonical_osm_tables.sql'),
       {
         encoding: 'utf8',
       },
@@ -222,7 +222,7 @@ class OpenStreetMapDao {
 
   finalizeDatabase() {
     this.createOsmWayShstRoadclassTable();
-    this.createCanonicalNodesTable();
+    this.createCanonicalOsmTables();
   }
 }
 

@@ -1,4 +1,4 @@
--- FIXME: This code does NOT guarantee the PRIMARY KEY constraint for osm.canonical_osm_nodes
+-- FIXME: This code does NOT guarantee the PRIMARY KEY CONSTRAINT for osm.canonical_osm_nodes
 --          will be satisfied. For all observed nodes, it has not yet failed.
 --          Would need to handle the possible transitive equality and make sure we
 --          don't move too far from the original node location.
@@ -77,12 +77,22 @@ ANALYZE osm.tmp_osm_highway_nodes ;
 DROP TABLE IF EXISTS osm.canonical_osm_nodes ;
 
 CREATE TABLE osm.canonical_osm_nodes (
-  osm_node_id         INTEGER PRIMARY KEY,
-  canonical_node_id   INTEGER NOT NULL
+  osm_node_id         INTEGER NOT NULL,
+  canonical_node_id   INTEGER NOT NULL,
 
-  --  PRIMARY KEY (osm_node_id, canonical_node_id)
+  PRIMARY KEY (osm_node_id, canonical_node_id)
 ) WITHOUT ROWID ;
 
+DROP VIEW IF EXISTS osm._qa_canonical_osm_nodes_many_to_one_violations ;
+
+CREATE VIEW osm._qa_canonical_osm_nodes_many_to_one_violations
+  AS
+    SELECT
+        osm_node_id
+      FROM canonical_osm_nodes
+      GROUP BY osm_node_id
+      HAVING COUNT(DISTINCT canonical_node_id) > 1
+;
 
 INSERT INTO osm.canonical_osm_nodes (
   osm_node_id,
@@ -120,9 +130,9 @@ INSERT INTO osm.canonical_osm_nodes (
 
 ANALYZE osm.canonical_osm_nodes ;
 
-DROP TABLE IF EXISTS osm.canonical_osm_node_ids_arrays ;
+DROP TABLE IF EXISTS osm.tmp_canonical_osm_node_ids_arrays ;
 
-CREATE TABLE osm.canonical_osm_node_ids_arrays (
+CREATE TABLE osm.tmp_canonical_osm_node_ids_arrays (
   osm_node_ids        TEXT PRIMARY KEY,
   canonical_node_ids  TEXT NOT NULL,
 
@@ -132,7 +142,7 @@ CREATE TABLE osm.canonical_osm_node_ids_arrays (
 
 ) WITHOUT ROWID ;
 
-INSERT INTO osm.canonical_osm_node_ids_arrays (
+INSERT INTO osm.tmp_canonical_osm_node_ids_arrays (
   osm_node_ids,
   canonical_node_ids
 )
@@ -146,7 +156,7 @@ INSERT INTO osm.canonical_osm_node_ids_arrays (
             'i', a.osm_node_idx
           )
         )
-      )
+      ) AS canonical_node_ids
     FROM osm.tmp_osm_highway_nodes AS a
       INNER JOIN osm.canonical_osm_nodes AS b
         USING (osm_node_id)
@@ -155,10 +165,81 @@ INSERT INTO osm.canonical_osm_node_ids_arrays (
     GROUP BY c.osm_way_id
 ;
 
-CREATE INDEX osm.canonical_osm_node_ids_arrays_canonical_idx
+DROP TABLE IF EXISTS osm.osm_way_canonical_node_ids ;
+DROP TABLE IF EXISTS osm.canonical_osm_node_ids_arrays ;
+
+CREATE TABLE osm.canonical_osm_node_ids_arrays (
+  canonical_node_ids_array_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+  canonical_node_ids            TEXT NOT NULL,
+
+  CHECK( json_type(canonical_node_ids) = 'array' ),
+  CHECK( json_array_length(canonical_node_ids) >= 1 )
+) ;
+
+INSERT INTO osm.canonical_osm_node_ids_arrays (
+  canonical_node_ids
+)
+  SELECT DISTINCT
+      canonical_node_ids
+    FROM osm.tmp_canonical_osm_node_ids_arrays
+    ORDER BY 1
+;
+
+CREATE INDEX osm.canonical_osm_node_ids_arrays_idx
   ON canonical_osm_node_ids_arrays (canonical_node_ids)
 ;
 
+ANALYZE osm.canonical_osm_node_ids_arrays ;
+
+DROP TABLE IF EXISTS osm.osm_way_canonical_node_ids ;
+
+CREATE TABLE osm.osm_way_canonical_node_ids (
+  osm_way_id                    INTEGER PRIMARY KEY,
+  canonical_node_ids_array_id   INTEGER NOT NULL,
+
+  FOREIGN KEY (canonical_node_ids_array_id)
+    REFERENCES canonical_osm_node_ids_arrays (canonical_node_ids_array_id)
+) WITHOUT ROWID ;
+
+-- https://stackoverflow.com/a/6283762/3970755
+-- "an index should be created on the child key columns of each foreign key constraint"
+
+CREATE INDEX osm.osm_way_canonical_node_ids_fkey_idx
+  ON osm_way_canonical_node_ids (canonical_node_ids_array_id)
+;
+
+INSERT INTO osm.osm_way_canonical_node_ids (
+  osm_way_id,
+  canonical_node_ids_array_id
+)
+  SELECT
+      a.osm_way_id,
+      c.canonical_node_ids_array_id
+    FROM osm.osm_ways AS a
+      INNER JOIN osm.tmp_canonical_osm_node_ids_arrays AS b
+        USING (osm_node_ids)
+      INNER JOIN osm.canonical_osm_node_ids_arrays AS c
+        USING (canonical_node_ids)
+    ORDER BY 1
+;
+
+ANALYZE osm.osm_way_canonical_node_ids ;
+
+DROP VIEW IF EXISTS osm.canonical_geospatially_equivalent_osm_ways ;
+
+CREATE VIEW osm.canonical_geospatially_equivalent_osm_ways
+  AS
+    SELECT
+        a.osm_way_id,
+        b.osm_way_id AS geospatially_equivalent_osm_way_id
+      FROM osm_way_canonical_node_ids AS a
+        INNER JOIN osm_way_canonical_node_ids AS b
+          USING (canonical_node_ids_array_id)
+;
+
+ANALYZE osm.osm_way_canonical_node_ids ;
+
 DROP TABLE osm.tmp_osm_highway_nodes ;
+DROP TABLE osm.tmp_canonical_osm_node_ids_arrays ;
 
 COMMIT;
