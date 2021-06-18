@@ -166,6 +166,10 @@ const shrinkwrapDatabase = (
     const xdb = openConnectionToDb(databaseSchemaName, databaseDirectory);
 
     xdb.pragma(`${databaseSchemaName}.journal_mode = DELETE;`);
+
+    xdb.exec(`VACUUM ${databaseSchemaName};`);
+    xdb.exec(`ANALYZE ${databaseSchemaName};`);
+
     xdb.close();
 
     makeDatabaseReadonly(databaseSchemaName, databaseDirectory);
