@@ -141,7 +141,7 @@ CREATE TABLE nys_ris.roadway_inventory_system (
   CHECK(json_valid(feature) OR feature IS NULL),
 
   CHECK (beg_mp < end_mp),
-  CHECK (direction BETWEEN 1 AND 2),
+  CHECK (direction BETWEEN 0 AND 2),
   CHECK (functional_class BETWEEN 1 AND 19)
 ) WITHOUT ROWID;
 
