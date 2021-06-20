@@ -8,6 +8,8 @@ import _ from 'lodash';
 
 import lineMerge from './lineMerge';
 
+import { getGeometriesConcaveHull } from './hulls';
+
 const SHORT_SEG_LENGTH_THOLD = 0.002; // 2 meters
 
 export function getGdalMultiLineString(
@@ -43,7 +45,11 @@ export function getGdalPolygon(polygon: turf.Feature<turf.Polygon>) {
   const gdalPolygon = new gdal.Polygon();
   const ring = new gdal.LinearRing();
 
-  const coords = polygon.geometry?.coordinates[0];
+  const coords =
+    turf.getType(polygon) === 'MultiPolygon'
+      ? // @ts-ignore
+        getGeometriesConcaveHull([polygon]).geometry?.coordinates[0]
+      : polygon.geometry?.coordinates[0];
 
   // @ts-ignore
   coords?.forEach(([lon, lat]) => ring.points.add(lon, lat));
