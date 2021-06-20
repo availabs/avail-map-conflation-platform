@@ -757,26 +757,30 @@ export default class TargetMapDAO<T extends RawTargetMapFeature> {
     return this.preparedReadStatements.prepareTargetMapPathEdgesStmt;
   }
 
+  getMergedTargetMapPath(pathId: TargetMapPathId) {
+    const result = this.preparedTargetMapPathEdgesStmt.all([pathId]);
+
+    const coords = _(result)
+      .sortBy('path_edge_idx')
+      .map((r) => turf.getCoords(JSON.parse(r.feature)))
+      .flattenDeep()
+      .chunk(2)
+      .value();
+
+    const lineString = turf.lineString(
+      coords,
+      { targetMapPathId: pathId },
+      { id: pathId },
+    );
+
+    return lineString;
+  }
+
   *makeMergedTargetMapPathIterator(): Generator<turf.Feature<turf.LineString>> {
     const iter = this.allTargetMapPathIdsStmt.raw().iterate();
 
     for (const [pathId] of iter) {
-      const result = this.preparedTargetMapPathEdgesStmt.all([pathId]);
-
-      const coords = _(result)
-        .sortBy('path_edge_idx')
-        .map((r) => turf.getCoords(JSON.parse(r.feature)))
-        .flattenDeep()
-        .chunk(2)
-        .value();
-
-      const lineString = turf.lineString(
-        coords,
-        { targetMapPathId: pathId },
-        { id: pathId },
-      );
-
-      yield lineString;
+      yield this.getMergedTargetMapPath(pathId);
     }
   }
 

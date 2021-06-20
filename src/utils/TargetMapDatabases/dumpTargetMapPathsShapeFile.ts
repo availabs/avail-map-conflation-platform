@@ -7,6 +7,7 @@ import gdal from 'gdal';
 
 import { sync as rimrafSync } from 'rimraf';
 
+// import { NYS_RIS as SCHEMA } from '../../constants/databaseSchemaNames';
 import { NYS_RIS as SCHEMA } from '../../constants/databaseSchemaNames';
 
 import TargetMapDAO from './TargetMapDAO';
@@ -49,7 +50,7 @@ const addTargetMapPathsLayer = (
 const targetMapDao = new TargetMapDAO(SCHEMA);
 // const targetMapBBDao = new TargetMapConflationBlackboardDao(SCHEMA);
 
-const output_directory = join(process.cwd(), 'target_map_paths_shp');
+const output_directory = join(process.cwd(), 'target_map_paths_shp.albany.ris');
 
 console.log(output_directory);
 
