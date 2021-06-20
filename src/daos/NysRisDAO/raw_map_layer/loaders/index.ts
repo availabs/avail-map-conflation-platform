@@ -87,11 +87,23 @@ const prepareInsertGdbEntryStmt = (
 ) =>
   db.prepare(
     `
-      INSERT INTO nys_ris.roadway_inventory_system (
+      INSERT OR IGNORE INTO nys_ris.roadway_inventory_system (
         ${nysRisTableColumns}
       ) VALUES(${nysRisTableColumns.map((c) =>
         c === 'feature' ? 'json(?)' : ' ? ',
       )}) ;
+    `,
+  );
+
+const prepareInsertFailedGdbEntryStmt = (db: Database) =>
+  db.prepare(
+    `
+      INSERT INTO nys_ris._qa_failed_roadway_inventory_system_inserts (
+        gis_id,
+        beg_mp,
+        end_mp,
+        feature
+      ) VALUES(?, ?, ?, json(?)) ;
     `,
   );
 
@@ -130,6 +142,8 @@ const loadNysRisGeodatabase = (
 
   const insertGdbEntryStmt = prepareInsertGdbEntryStmt(db, nysRisTableColumns);
 
+  const insertFailedGdbEntryStmt = prepareInsertFailedGdbEntryStmt(db);
+
   const updateGeoPolyIdxStmt = prepareGeoPolyIdxStmt(db);
 
   const insertGdbEntryMissingGeometryStmt = prepareInsertGdbEntryMissingGeometryStmt(
@@ -165,7 +179,20 @@ const loadNysRisGeodatabase = (
 
     const values = nysRisTableColumns.map(getValuesForCols);
 
-    insertGdbEntryStmt.run(values);
+    const { changes: success } = insertGdbEntryStmt.run(values);
+
+    if (!success) {
+      const { gis_id, beg_mp, end_mp } = properties;
+
+      insertFailedGdbEntryStmt.run([
+        gis_id,
+        beg_mp,
+        end_mp,
+        JSON.stringify(entry),
+      ]);
+
+      continue;
+    }
 
     if (shape) {
       // Coordinates of the feature's bounding polygon.

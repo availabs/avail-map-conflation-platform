@@ -175,6 +175,16 @@ CREATE TABLE nys_ris._qa_nys_ris_entries_without_geometries (
   CHECK (json_valid(properties))
 ) WITHOUT ROWID;
 
+DROP TABLE IF EXISTS nys_ris._qa_failed_roadway_inventory_system_inserts ;
+
+CREATE TABLE nys_ris._qa_failed_roadway_inventory_system_inserts (
+  fid       INTEGER PRIMARY KEY,
+  gis_id    INTEGER,
+  beg_mp    REAL,
+  end_mp    REAL,
+  feature   TEXT NOT NULL
+) WITHOUT ROWID;
+
 CREATE TABLE nys_ris.fhwa_direction_of_travel_code_descriptions (
   federal_direction  INTEGER PRIMARY KEY,
   description        TEXT NOT NULL
