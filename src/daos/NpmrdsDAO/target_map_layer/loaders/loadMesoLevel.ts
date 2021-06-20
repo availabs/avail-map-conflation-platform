@@ -42,7 +42,7 @@ function* makePreloadedTargetMapEdgesIterator(
       return acc;
     }, {});
 
-    const countyName = county.replace(/ /g, '_').toLowerCase();
+    const countyName = county.toLowerCase().replace(/[^a-z]+/g, '_');
     const fipsCode = nysFipsCodes[countyName];
 
     assert(fipsCode !== undefined);

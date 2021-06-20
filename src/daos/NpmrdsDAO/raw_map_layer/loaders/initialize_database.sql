@@ -42,15 +42,81 @@ CREATE TABLE __SCHEMA__.tmc_identification (
     active_end_date     TEXT,
 
     -- TODO: Change these to FOREIGN KEY REFERENCES.
-    CHECK (f_system    BETWEEN 1 AND 7   ),
-    CHECK (faciltype   BETWEEN 1 AND 6   ),
-    CHECK (structype   BETWEEN 1 AND 3   ),
-    CHECK (route_sign  BETWEEN 1 AND 10  ),
-    CHECK (route_qual  BETWEEN 1 AND 10  ),
-    CHECK (nhs         BETWEEN 0 AND 9   ), -- Documentation says [1,9]
-    CHECK (nhs_pct     BETWEEN 0 AND 100 ),
-    CHECK (strhnt_typ  BETWEEN 0 AND 2   ), -- Documentation says [1,2]
-    CHECK (strhnt_pct  BETWEEN 0 AND 100 )
+    CHECK (
+      (f_system IS NULL)
+      OR
+      (f_system BETWEEN 1 AND 7 )
+      OR
+      (
+        (active_end_date <= '2018-01-01')
+        AND
+        (f_system = 99)
+      )
+    ),
+    CHECK (
+      (faciltype IS NULL)
+      OR
+      (faciltype BETWEEN 1 AND 6 )
+    ),
+    CHECK (
+      (structype IS NULL)
+      OR
+      (structype BETWEEN 1 AND 3)
+      OR
+      (
+        (active_end_date <= '2018-01-01')
+        AND
+        (structype = 0)
+      )
+    ),
+    CHECK (
+      (route_sign IS NULL)
+      OR
+      (route_sign BETWEEN 1 AND 10)
+      OR
+      (
+        (active_end_date <= '2018-01-01')
+        AND
+        (route_sign = 0)
+      )
+    ),
+    CHECK (
+      (route_qual IS NULL)
+      OR
+      (route_qual BETWEEN 1 AND 10)
+      OR
+      (
+        (active_end_date <= '2018-01-01')
+        AND
+        (route_qual = 0)
+      )
+    ),
+    CHECK (
+      (nhs IS NULL) -- Documentation says [1,9]
+      OR
+      (nhs BETWEEN 0 AND 9)
+      OR
+      (
+        (active_end_date <= '2018-01-01')
+        AND
+        (route_qual = -1)
+      )
+    ),
+    CHECK (
+      (nhs_pct IS NULL)
+      OR
+      (nhs_pct BETWEEN 0 AND 100 )
+    ),
+    CHECK (
+      (strhnt_typ IS NULL)
+      OR
+      (strhnt_typ BETWEEN 0 AND 2   )
+    ),
+    CHECK (
+      (strhnt_pct IS NULL)
+      OR
+      (strhnt_pct  BETWEEN 0 AND 100 )
+    )
 ) WITHOUT ROWID;
 
 DROP TABLE IF EXISTS __SCHEMA__.npmrds_shapefile ;
@@ -126,6 +192,13 @@ DROP TABLE IF EXISTS __SCHEMA__.npmrds_shapefile_geopoly_idx;
 CREATE VIRTUAL TABLE __SCHEMA__.npmrds_shapefile_geopoly_idx
   USING geopoly(tmc) ;
 
+DROP TABLE IF EXISTS __SCHEMA__._qa_failed_npmrds_shapefile_inserts ;
+
+CREATE TABLE __SCHEMA__._qa_failed_npmrds_shapefile_inserts (
+  tmc       TEXT PRIMARY KEY,
+  feature   TEXT NOT NULL
+) WITHOUT ROWID;
+
 DROP VIEW IF EXISTS __SCHEMA__.raw_target_map_features ;
 
 CREATE VIEW __SCHEMA__.raw_target_map_features
@@ -185,4 +258,5 @@ CREATE VIEW __SCHEMA__.raw_target_map_features
     FROM tmc_identification as a
       INNER JOIN npmrds_shapefile as b
         USING(tmc)
+    WHERE ( IFNULL(a.isprimary, -1) <> 0 )
 ;
