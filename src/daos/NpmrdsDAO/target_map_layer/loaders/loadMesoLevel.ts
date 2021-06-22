@@ -1,7 +1,5 @@
 /* eslint-disable no-restricted-syntax */
 
-import { strict as assert } from 'assert';
-
 import DbService from '../../../../services/DbService';
 
 import { NPMRDS as SCHEMA } from '../../../../constants/databaseSchemaNames';
@@ -14,8 +12,6 @@ import { NpmrdsTmcFeature } from '../../raw_map_layer/domain';
 
 import getBearing from '../../../../utils/gis/getBearing';
 
-import nysFipsCodes from '../../constants/nysFipsCodes';
-
 import findMesoLevelPaths from './findMesoLevelPaths';
 
 type NpmrdsTargetMapDao = TargetMapDAO<NpmrdsTmcFeature>;
@@ -25,27 +21,23 @@ function* makePreloadedTargetMapEdgesIterator(
 ): Generator<PreloadedTargetMapPath> {
   const edgesByLinearTmcIterator = targetMapDao.makeGroupedRawEdgeFeaturesIterator(
     {
-      groupByRawProperties: ['lineartmc', 'county'],
+      groupByRawProperties: ['_route_id_'],
     },
   );
 
   // @ts-ignore
   for (const {
-    lineartmc,
-    county,
+    _route_id_,
     features,
   }: {
     features: NpmrdsTmcFeature[];
   } of edgesByLinearTmcIterator) {
+    const cleanedPathId = _route_id_.toLowerCase().replace(/[^a-z0-9:]+/g, '_');
+
     const featuresById = features.reduce((acc, feature) => {
       acc[feature.id] = feature;
       return acc;
     }, {});
-
-    const countyName = county.toLowerCase().replace(/[^a-z]+/g, '_');
-    const fipsCode = nysFipsCodes[countyName];
-
-    assert(fipsCode !== undefined);
 
     // @ts-ignore
     const tmcPaths = findMesoLevelPaths(features);
@@ -61,7 +53,7 @@ function* makePreloadedTargetMapEdgesIterator(
 
       const targetMapPathBearing = getBearing(targetMapPath);
 
-      const targetMapMesoId = `${lineartmc}:${fipsCode}:${i}`;
+      const targetMapMesoId = `${cleanedPathId}:${i}`;
 
       // TODO: Properties should include bearing.
       const properties = {
