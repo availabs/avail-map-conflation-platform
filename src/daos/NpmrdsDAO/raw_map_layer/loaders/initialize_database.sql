@@ -94,13 +94,7 @@ CREATE TABLE __SCHEMA__.tmc_identification (
     CHECK (
       (nhs IS NULL) -- Documentation says [1,9]
       OR
-      (nhs BETWEEN 0 AND 9)
-      OR
-      (
-        (active_end_date <= '2018-01-01')
-        AND
-        (route_qual = -1)
-      )
+      (nhs BETWEEN -1 AND 9)
     ),
     CHECK (
       (nhs_pct IS NULL)
@@ -127,7 +121,7 @@ CREATE TABLE __SCHEMA__.npmrds_shapefile (
     roadnumber        TEXT,
     roadname          TEXT,
     firstname         TEXT,
-    lineartmc         TEXT NOT NULL,
+    lineartmc         TEXT,
     country           TEXT,
     state             TEXT,
     county            TEXT,
@@ -210,6 +204,12 @@ CREATE VIEW __SCHEMA__.raw_target_map_features
             json(b.feature),
             '$.properties',
             json_object(
+              '_route_id_',         COALESCE(
+                                      b.lineartmc  || ':' || LOWER(REPLACE(a.county, ':', ' ')),
+                                      a.tmclinear  || ':' || LOWER(REPLACE(a.county, ':', ' ')),
+                                      a.route_numb || ':' || LOWER(REPLACE(a.county, ':', ' ')),
+                                      a.tmc
+                                    ),
               'tmc',                a.tmc,
               'type',               a.type,
               'road',               a.road,

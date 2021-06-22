@@ -174,7 +174,10 @@ export default async function loadRawNpmrdsTables({
   console.log(JSON.stringify({ metaYear, shpYear }, null, 4));
 
   if (metaYear !== shpYear) {
-    throw new Error('TMC_Identification and NPMRDS Shapefile year mismatch.');
+    // Expected to happen for 2016 and the latest year.
+    console.warn(
+      'Warning: TMC_Identification and NPMRDS Shapefile year mismatch.',
+    );
   }
 
   await load(
