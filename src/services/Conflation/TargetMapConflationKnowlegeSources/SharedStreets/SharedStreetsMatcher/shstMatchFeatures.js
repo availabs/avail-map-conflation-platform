@@ -29,6 +29,8 @@ const PROJECT_ROOT = join(__dirname, '../../../../../../');
 
 const SHST_PATH = join(PROJECT_ROOT, 'node_modules/.bin/shst');
 
+const TEN_MINUTES =
+  10 /* min */ * 60 /* secs per min */ * 1000; /* millisecs per sec */
 const MATCH = 'MATCH';
 const ROUTE = 'ROUTE';
 const DISTANCE_SLICE_METHOD = 'DISTANCE_SLICE_METHOD';
@@ -53,6 +55,7 @@ const getShstMatchChildProcessOpts = () => ({
   // DO NOT ENABLE SHELL. This spawned process receives configuration from the QA UI.
   // https://nodejs.org/api/child_process.html#child_process_child_process_spawn_command_args_options
   cwd: PROJECT_ROOT,
+  timeout: TEN_MINUTES,
   env: { ...process.env, HOME: getShstHomeDir() },
 });
 
