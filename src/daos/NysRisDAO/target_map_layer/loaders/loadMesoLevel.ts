@@ -1,7 +1,5 @@
 /* eslint-disable no-restricted-syntax */
 
-import { strict as assert } from 'assert';
-
 import _ from 'lodash';
 
 import DbService from '../../../../services/DbService';
@@ -16,8 +14,6 @@ import { NysRoadInventorySystemFeature } from '../../raw_map_layer/domain';
 
 import getBearing from '../../../../utils/gis/getBearing';
 
-import nysFipsCodes from '../../../../constants/nysFipsCodes';
-
 import findMesoLevelPaths from './findMesoLevelPaths';
 
 type NysRisTargetMapDao = TargetMapDAO<NysRoadInventorySystemFeature>;
@@ -28,19 +24,22 @@ function* makePreloadedTargetMapEdgesIterator(
   console.time('edgeIter');
   const edgesByLinearTmcIterator = targetMapDao.makeGroupedRawEdgeFeaturesIterator(
     {
-      groupByRawProperties: ['gis_id', 'county_name'],
+      groupByRawProperties: ['_route_id_'],
     },
   );
 
   let timer = true;
   // @ts-ignore
   for (const {
-    gis_id,
-    county_name,
+    _route_id_,
     features,
   }: {
     features: NysRoadInventorySystemFeature[];
   } of edgesByLinearTmcIterator) {
+    const cleanedRouteId = _route_id_
+      .toLowerCase()
+      .replace(/[^a-z0-9:]+/g, '_');
+
     if (timer) {
       console.timeEnd('edgeIter');
       timer = false;
@@ -55,11 +54,6 @@ function* makePreloadedTargetMapEdgesIterator(
     // if (features.length < 2) {
     // continue;
     // }
-
-    const countyName = county_name.replace(/ /g, '_').toLowerCase();
-    const fipsCode = nysFipsCodes[countyName];
-
-    assert(fipsCode !== undefined);
 
     // @ts-ignore
     // TODO: Is it guaranteed that the sequential segments connect end to end?
@@ -77,7 +71,7 @@ function* makePreloadedTargetMapEdgesIterator(
 
       const targetMapPathBearing = getBearing(targetMapPath);
 
-      const targetMapMesoId = `${gis_id}:${fipsCode}:${i}`;
+      const targetMapMesoId = `${cleanedRouteId}:${i}`;
 
       // TODO: Properties should include bearing.
       const properties = {

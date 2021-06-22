@@ -249,6 +249,8 @@ CREATE VIEW nys_ris.raw_target_map_features
             json_patch(
               json_patch(
                 json_object(
+                  '_route_id_',                    ( gis_id || ':' || county_name ),
+
                   'fid',                           fid,
                   'region',                        region,
                   'gis_id',                        gis_id,
