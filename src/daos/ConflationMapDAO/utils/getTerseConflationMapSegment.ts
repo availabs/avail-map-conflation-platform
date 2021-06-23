@@ -15,9 +15,11 @@ export default function getTerseConflationMapSegment(
     },
   } = conflationMapSegment;
 
-  const osm = conflationMapSegment.properties.osm.targetMapId;
+  const osm = conflationMapSegment.properties.osm?.targetMapId || undefined;
+
   const ris =
     conflationMapSegment.properties?.nys_ris?.targetMapId || undefined;
+
   const tmc = conflationMapSegment.properties?.npmrds?.targetMapId || undefined;
 
   const n = conflationMapSegment.properties.roadClass;

@@ -13,7 +13,8 @@ CREATE TABLE conflation_map.conflation_map_segments (
 
   partition_end_dist              REAL NOT NULL,
 
-  osm                             TEXT NOT NULL, -- JSON
+  --  osm                             TEXT NOT NULL, -- JSON
+osm                             TEXT,
 
   nys_ris                         TEXT, -- JSON
 
