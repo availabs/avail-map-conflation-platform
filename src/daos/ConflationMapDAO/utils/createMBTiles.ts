@@ -12,7 +12,9 @@ import getTerseConflationMapSegment from './getTerseConflationMapSegment';
 
 import { ConflationMapSegment } from '../domain/types';
 
-const tmpDir = join(__dirname, '../../../../output/conflation_map/tmp');
+import outputDirectory from '../../../constants/outputDirectory';
+
+const tmpDir = join(outputDirectory, 'conflation_map/tmp');
 mkdirSync(tmpDir, { recursive: true });
 
 tmp.setGracefulCleanup();
@@ -30,8 +32,9 @@ const tippecanoeDetails = {
 };
 
 const mbtilesOutputFile = join(
-  __dirname,
-  '../../../../output/conflation_map/conflation_map.mbtiles',
+  outputDirectory,
+  'conflation_map',
+  'conflation_map.mbtiles',
 );
 
 const outputSegmentsAsNDJSON = async (
@@ -61,7 +64,7 @@ const outputSegmentsAsNDJSON = async (
     // @ts-ignore
     terseConflationMapSegment.properties = _.pick(
       terseConflationMapSegment.properties,
-      ['id', 'osm', 'ris', 'tmc', 'n', 'h', 'dir'],
+      ['id', 'osm', 'osm_fwd', 'ris', 'tmc', 'n', 'h', 'dir'],
     );
 
     const good = writeStream.write(

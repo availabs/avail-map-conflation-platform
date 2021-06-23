@@ -17,6 +17,8 @@ export default function getTerseConflationMapSegment(
 
   const osm = conflationMapSegment.properties.osm?.targetMapId || undefined;
 
+  const osm_fwd = conflationMapSegment.properties.osm?.isForward;
+
   const ris =
     conflationMapSegment.properties?.nys_ris?.targetMapId || undefined;
 
@@ -27,7 +29,7 @@ export default function getTerseConflationMapSegment(
   const feature = {
     ...conflationMapSegment,
     id,
-    properties: { id, shst, osm, ris, tmc, n, h, dir },
+    properties: { id, shst, osm, osm_fwd, ris, tmc, n, h, dir },
   };
 
   // @ts-ignore
