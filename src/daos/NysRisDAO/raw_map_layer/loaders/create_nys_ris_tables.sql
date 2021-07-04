@@ -1,3 +1,5 @@
+DROP TABLE IF EXISTS nys_ris.ris_segment_federal_directions ;
+DROP TABLE IF EXISTS nys_ris.nys_traffic_counts_station_year_directions ;
 DROP TABLE IF EXISTS nys_ris.roadway_inventory_system;
 
 CREATE TABLE nys_ris.roadway_inventory_system (
@@ -184,6 +186,8 @@ CREATE TABLE nys_ris._qa_failed_roadway_inventory_system_inserts (
   end_mp    REAL,
   feature   TEXT NOT NULL
 ) WITHOUT ROWID;
+
+DROP TABLE IF EXISTS nys_ris.fhwa_direction_of_travel_code_descriptions ;
 
 CREATE TABLE nys_ris.fhwa_direction_of_travel_code_descriptions (
   federal_direction  INTEGER PRIMARY KEY,
