@@ -13,5 +13,6 @@ const defaultInputDirPath = join(__dirname, '../../input/');
 
 const inputDirectory = envVaribleInputDirPath || defaultInputDirPath;
 
-console.log(inputDirectory);
+console.log('inputDirectory:', inputDirectory);
+
 export default inputDirectory;
