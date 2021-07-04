@@ -12,9 +12,11 @@ import { NYS_RIS as SCHEMA } from '../../../constants/databaseSchemaNames';
 
 import { NysRoadInventorySystemFeature } from '../raw_map_layer/domain/types';
 
+import outputDirectory from '../../../constants/outputDirectory';
+
 type NysRisTargetMapDao = TargetMapDAO<NysRoadInventorySystemFeature>;
 
-const tmpDir = join(__dirname, '../../../../output/nys_ris_mbtiles_tmp');
+const tmpDir = join(outputDirectory, 'tmp');
 mkdirSync(tmpDir, { recursive: true });
 
 tmp.setGracefulCleanup();
@@ -48,7 +50,7 @@ const tippecanoeDetails = {
   9: { minzoom: 12, layer: 'local' },
 };
 
-const mbtilesOutputDir = join(__dirname, '../../../../output/mbtiles/');
+const mbtilesOutputDir = join(outputDirectory, 'mbtiles');
 mkdirSync(mbtilesOutputDir, { recursive: true });
 
 const mbtilesOutputFile = join(mbtilesOutputDir, 'nys_ris.mbtiles');

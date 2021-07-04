@@ -12,11 +12,13 @@ import { NPMRDS as SCHEMA } from '../../../constants/databaseSchemaNames';
 
 import { NpmrdsTmcFeature } from '../raw_map_layer/domain/types';
 
+import outputDirectory from '../../../constants/outputDirectory';
+
 type NpmrdsTargetMapDao = TargetMapDAO<NpmrdsTmcFeature>;
 
 tmp.setGracefulCleanup();
 
-const mbtilesOutputDir = join(__dirname, '../../../../output/qa_mbtiles');
+const mbtilesOutputDir = join(outputDirectory, 'qa_mbtiles');
 
 const tmpDir = join(mbtilesOutputDir, 'tmp/');
 mkdirSync(tmpDir, { recursive: true });

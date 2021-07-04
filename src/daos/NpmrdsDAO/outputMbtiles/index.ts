@@ -12,9 +12,11 @@ import { NPMRDS as SCHEMA } from '../../../constants/databaseSchemaNames';
 
 import { NpmrdsTmcFeature } from '../raw_map_layer/domain/types';
 
+import outputDirectory from '../../../constants/outputDirectory';
+
 type NpmrdsTargetMapDao = TargetMapDAO<NpmrdsTmcFeature>;
 
-const tmpDir = join(__dirname, '../../../../output/tmp/');
+const tmpDir = join(outputDirectory, 'tmp');
 mkdirSync(tmpDir, { recursive: true });
 
 tmp.setGracefulCleanup();
@@ -45,7 +47,7 @@ const tippecanoeDetails = {
   7: { minzoom: 12, layer: 'local' },
 };
 
-const mbtilesOutputDir = join(__dirname, '../../../../output/mbtiles/');
+const mbtilesOutputDir = join(outputDirectory, 'mbtiles');
 mkdirSync(mbtilesOutputDir, { recursive: true });
 
 const mbtilesOutputFile = join(mbtilesOutputDir, 'npmrds.mbtiles');
