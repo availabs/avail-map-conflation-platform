@@ -11,23 +11,12 @@ const {
   default: dumpVicinityShapefile,
 } = require('../utils/dumpVicinityShapefile');
 
-const { default: db } = require('../../DbService');
-
-const defaultOutputDir = join(__dirname, '../../../../output');
-
 const defaultVicinityShpfileDir = join(
   __dirname,
   '../../../..//tmpath_vicinity_shpfiles/',
 );
 
 const cliArgsSpec = {
-  output_dir: {
-    demand: false,
-    type: 'string',
-    desc: 'Path to the output directory',
-    default: defaultOutputDir,
-  },
-
   vicinity_shpfiles_dir: {
     demand: false,
     type: 'string',
@@ -50,7 +39,7 @@ const cliArgsSpec = {
 };
 
 const {
-  argv: { output_dir, vicinity_shpfiles_dir, target_map, target_map_path_id },
+  argv: { vicinity_shpfiles_dir, target_map, target_map_path_id },
 } = yargs
   .strict()
   .parserConfiguration({
@@ -61,8 +50,6 @@ const {
   .option(cliArgsSpec);
 
 const shpfileDir = join(vicinity_shpfiles_dir, target_map);
-
-db.setOutputDirectory(output_dir);
 
 dumpVicinityShapefile({
   targetMap: target_map,
