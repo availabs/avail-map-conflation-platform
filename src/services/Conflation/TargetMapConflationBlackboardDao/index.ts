@@ -81,6 +81,7 @@ export default class TargetMapConflationBlackboardDao<
     assignedMatchesTableExistsStmt?: Statement;
     assignedMatchesAreLoadedStmt?: Statement;
     allTargetMapAssignedMatchesStmt?: Statement;
+    targetMapPathAssignedMatchesStats?: Statement;
   };
 
   protected readonly preparedWriteStatements!: {
@@ -517,7 +518,7 @@ export default class TargetMapConflationBlackboardDao<
 
   // FIXME: Need to (optionally?) split noncontinuous paths
   //        if subnet induction removes internal path edges.
-  getTargetMapPathMatches(targetMapPathId: TargetMapPathId) {
+  getTargetMapPathShstMatches(targetMapPathId: TargetMapPathId) {
     // We get the matches on-demand so that the chooser can insert matches as needed.
     //  EG: Match mutations or gap-filling "matches"
     const unorderedTargetMapEdgeMatchesStr = this.shstMatchesForPathStmt
@@ -553,10 +554,6 @@ export default class TargetMapConflationBlackboardDao<
     return this.targetMapDao.makeTargetMapPathIdsIterator();
   }
 
-  makeRandomizedTargetMapPathIdsIterator() {
-    return this.targetMapDao.makeRandomizedTargetMapPathIdsIterator();
-  }
-
   *makeTargetMapPathMatchesIterator(queryParams?: {
     targetMapPathIds: Generator<TargetMapPathId> | Array<TargetMapPathId>;
   }): TargetMapPathMatchesIterator {
@@ -564,7 +561,7 @@ export default class TargetMapConflationBlackboardDao<
       queryParams?.targetMapPathIds ?? this.makeTargetMapPathIdsIterator();
 
     for (const targetMapPathId of pathIdsIter) {
-      yield this.getTargetMapPathMatches(targetMapPathId);
+      yield this.getTargetMapPathShstMatches(targetMapPathId);
     }
   }
 
@@ -1094,6 +1091,48 @@ export default class TargetMapConflationBlackboardDao<
   makeAssignedMatchesIterator(): Generator<TargetMapAssignedMatch> {
     // @ts-ignore
     return this.allTargetMapAssignedMatchesStmt.iterate();
+  }
+
+  protected get targetMapPathAssignedMatchesStats(): Statement {
+    this.preparedReadStatements.targetMapPathAssignedMatchesStats =
+      this.preparedReadStatements.targetMapPathAssignedMatchesStats ||
+      this.dbReadConnection.prepare(
+        `
+          SELECT
+              path_id,
+              COUNT( DISTINCT a.edge_id ) AS total_edges,
+              COUNT( DISTINCT
+                IIF(
+                  (
+                    ( b.section_start IS NOT NULL )
+                    AND
+                    ( b.section_end IS NOT NULL )
+                  ),
+                  b.edge_id,
+                  NULL
+                )
+              ) AS edges_with_assignments
+            FROM ${this.targetMapSchema}.target_map_ppg_path_edges AS a
+              LEFT OUTER JOIN ${this.blkbrdDbSchema}.target_map_edge_assigned_matches AS b
+                USING (edge_id)
+            GROUP BY path_id
+            ORDER BY path_id
+        `,
+      );
+
+    return this.preparedReadStatements.targetMapPathAssignedMatchesStats;
+  }
+
+  outputUnmatchedTargetMapPaths() {
+    const stats = this.targetMapPathAssignedMatchesStats.iterate();
+
+    for (const { path_id, edges_with_assignments } of stats) {
+      if (edges_with_assignments === 0) {
+        console.log(
+          JSON.stringify(this.targetMapDao.getMergedTargetMapPath(path_id)),
+        );
+      }
+    }
   }
 
   vacuumDatabase() {
