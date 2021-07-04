@@ -12,6 +12,8 @@ import { getGeometriesConcaveHull } from '../../utils/gis/hulls';
 import {
   SharedStreetsReferenceId,
   SharedStreetsReferenceFeature,
+  SharedStreetsIntersectionId,
+  SharedStreetsIntersectionFeature,
 } from './domain/types';
 
 class SourceMapDao {
@@ -22,6 +24,7 @@ class SourceMapDao {
     shstReferenceFeaturesOverlappingPolyStmt?: Statement;
     shstReferenceRoadsOverlappingPolyStmt?: Statement;
     shstReferencesStmt?: Statement;
+    shstIntersectionsStmt?: Statement;
     allShstReferenceFeaturesStmt?: Statement;
     allShstReferenceFeaturesOverlappingPolygonStmt?: Statement;
   };
@@ -175,6 +178,55 @@ class SourceMapDao {
 
     const shstRefLineStrings = shstReferenceIds.map(
       (shstRefId) => shstRefsById[shstRefId] || null,
+    );
+
+    return shstRefLineStrings;
+  }
+
+  get shstIntersectionsStmt(): Statement {
+    this.preparedReadStatements.shstIntersectionsStmt =
+      this.preparedReadStatements.shstIntersectionsStmt ||
+      this.dbReadConnection.prepare(
+        `
+          SELECT
+              geojson_point
+            FROM shst.shst_intersections
+            WHERE id IN (
+              SELECT
+                  value
+                FROM (
+                    SELECT json(?) AS shst_ref_ids_arr
+                  ) AS t, json_each(t.shst_ref_ids_arr)
+            )
+        `,
+      );
+
+    return this.preparedReadStatements.shstIntersectionsStmt;
+  }
+
+  getShstIntersections(
+    shstIntersectionIds: SharedStreetsIntersectionId[],
+  ): SharedStreetsIntersectionFeature[] {
+    const shstIntxnsById = this.shstIntersectionsStmt
+      .raw()
+      .all([JSON.stringify(shstIntersectionIds)])
+      .reduce(
+        (
+          acc: Record<
+            SharedStreetsIntersectionId,
+            SharedStreetsIntersectionFeature
+          >,
+          shstIntxnStr: string,
+        ) => {
+          const shstIntxn = JSON.parse(shstIntxnStr);
+          acc[shstIntxn.id] = shstIntxn;
+          return acc;
+        },
+        {},
+      );
+
+    const shstRefLineStrings = shstIntersectionIds.map(
+      (shstIntxnId) => shstIntxnsById[shstIntxnId] || null,
     );
 
     return shstRefLineStrings;
