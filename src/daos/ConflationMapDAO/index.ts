@@ -317,7 +317,7 @@ export default class ConflationMapDAO {
 
       this.initializeConflationMapMetadata();
 
-      this.loadRisTrafficCountsStationYearDirectionssTable();
+      this.loadRisTrafficCountsStationYearDirectionsTable();
     } catch (err) {
       console.error(err);
       process.exit(1);
@@ -1255,7 +1255,7 @@ export default class ConflationMapDAO {
     );
   }
 
-  loadRisTrafficCountsStationYearDirectionssTable() {
+  loadRisTrafficCountsStationYearDirectionsTable() {
     if (!this.risTrafficCountsStationYearDirectionsTableIsLoaded) {
       throw new Error(
         'The nys_ris.nys_traffic_counts_station_year_directions table is not loaded. Please run load_nys_traffic_count_stations.',
