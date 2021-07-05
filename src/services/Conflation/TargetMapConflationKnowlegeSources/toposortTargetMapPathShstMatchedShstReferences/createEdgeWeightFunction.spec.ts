@@ -93,8 +93,9 @@ const mockVicinity = {
   ],
 };
 
-test('Matched are discounted', (t) => {
-  const discount = Math.random();
+test.only('ShstMatches are discounted when preferred', (t) => {
+  const shstMatchDiscount = Math.random();
+  const exceedsMaxDistanceKmPenalty = Infinity;
 
   const clonedVicinity = _.cloneDeep(mockVicinity);
 
@@ -130,23 +131,64 @@ test('Matched are discounted', (t) => {
     clonedVicinity.vicinitySharedStreetsReferences.push(alter);
   });
 
-  // @ts-ignore
-  const weightFn = createEdgeWeightFunction(clonedVicinity, discount);
+  const shstMatchesPreferredWeightFn = createEdgeWeightFunction(
+    // @ts-ignore
+    clonedVicinity,
+    {
+      preferShstMatches: true,
+      shstMatchDiscount,
+      maxDistanceKm: 0,
+      exceedsMaxDistanceKmPenalty,
+    },
+  );
+
+  const resultsA: boolean[] = [];
 
   clonedVicinity.targetMapPathEdges.forEach((tmpe) => {
     const len = tmpe.properties.targetMapEdgeLength;
 
     // @ts-ignore
-    const weight = weightFn({ name: tmpe.properties.targetMapId });
+    const weight = shstMatchesPreferredWeightFn({
+      name: tmpe.properties.targetMapId,
+    });
 
-    t.assert(weight === len * discount);
+    resultsA.push(weight === len * shstMatchDiscount);
   });
+
+  t.assert(resultsA.every((r) => r));
+
+  const shstMatchesNotPreferredWeightFn = createEdgeWeightFunction(
+    // @ts-ignore
+    clonedVicinity,
+    {
+      preferShstMatches: false,
+      shstMatchDiscount,
+      maxDistanceKm: 0.005,
+      exceedsMaxDistanceKmPenalty,
+    },
+  );
+
+  const resultsB: boolean[] = [];
+
+  clonedVicinity.targetMapPathEdges.forEach((tmpe) => {
+    const len = tmpe.properties.targetMapEdgeLength;
+
+    // @ts-ignore
+    const weight = shstMatchesNotPreferredWeightFn({
+      name: tmpe.properties.targetMapId,
+    });
+
+    resultsB.push(Math.abs(weight - len) < 0.001);
+  });
+
+  t.assert(resultsB.every((r) => r));
 
   t.end();
 });
 
 test('Distant are penalized', (t) => {
-  const penalty = Math.random() * 1000;
+  const maxDistanceKm = 0.5;
+  const exceedsMaxDistanceKmPenalty = 1000;
 
   const clonedVicinity = _.cloneDeep(mockVicinity);
   // @ts-ignore
@@ -161,7 +203,7 @@ test('Distant are penalized', (t) => {
     const alter = turf.transformTranslate(
       // @ts-ignore
       _.cloneDeep(tmpe),
-      tmpe.properties.targetMapEdgeLength * 2 + 0.5,
+      tmpe.properties.targetMapEdgeLength + maxDistanceKm * 2,
       0,
       { mutate: true },
     );
@@ -187,7 +229,10 @@ test('Distant are penalized', (t) => {
   });
 
   // @ts-ignore
-  const weightFn = createEdgeWeightFunction(clonedVicinity, null, penalty);
+  const weightFn = createEdgeWeightFunction(clonedVicinity, {
+    maxDistanceKm,
+    exceedsMaxDistanceKmPenalty,
+  });
 
   clonedVicinity.targetMapPathEdges.forEach((tmpe) => {
     const len = tmpe.properties.targetMapEdgeLength;
@@ -195,7 +240,7 @@ test('Distant are penalized', (t) => {
     // @ts-ignore
     const weight = weightFn({ name: tmpe.properties.targetMapId });
 
-    t.assert(Math.abs(weight - len * penalty) < 0.001);
+    t.assert(Math.abs(weight - len * exceedsMaxDistanceKmPenalty) < 0.001);
   });
 
   t.end();
@@ -270,16 +315,17 @@ test('Near weights reasonable', (t) => {
     }
   });
 
-  // @ts-ignore
   const weightFn = createEdgeWeightFunction(
+    // @ts-ignore
     clonedVicinity,
-    -Infinity,
-    Infinity,
+    { shstMatchDiscount: 0, exceedsMaxDistanceKmPenalty: Infinity },
   );
 
   const targetMapIds = clonedVicinity.targetMapPathEdges.map(
     ({ properties: { targetMapId } }) => targetMapId,
   );
+
+  const results: boolean[] = [];
 
   for (const targetMapId of targetMapIds) {
     let prevWeight = -Infinity;
@@ -293,14 +339,15 @@ test('Near weights reasonable', (t) => {
       // @ts-ignore
       const weight = weightFn({ name: refId });
 
-      t.assert(weight > len);
-      t.assert(weight < 2 * len);
-
-      t.assert(weight > prevWeight);
+      results.push(weight > len);
+      results.push(weight < 2 * len);
+      results.push(weight > prevWeight);
 
       prevWeight = weight;
     }
   }
+
+  t.assert(results.every((r) => r));
 
   t.end();
 });

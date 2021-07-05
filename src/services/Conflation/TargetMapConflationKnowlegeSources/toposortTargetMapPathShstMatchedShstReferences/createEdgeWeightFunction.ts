@@ -1,3 +1,5 @@
+/* eslint-disable no-underscore-dangle */
+
 import * as turf from '@turf/turf';
 import _ from 'lodash';
 
@@ -16,9 +18,10 @@ import {
 import { EdgeWeightFunction } from '../../utils/ShstReferencesSubNet';
 
 // Length of the edgs is discounted by this much if ShstMatcher chose ShstReference for the TMPEdge.
-const PREFERRED_DISCOUNT = 0.1;
-
-const UNPREFERRED_PENALTY = 2;
+const PREFER_SHST_MATCHES_DEFAULT = true;
+const DEFAULT_SHST_MATCH_DISCOUNT = 0.1;
+const DEFAULT_MAX_DISTANCE_KM = 0.2;
+const EXCEEDS_MAX_DISTANCE_KM_PENALTY = 2;
 
 // While routing over the candidate ShstReferences for a TMPath,
 //   we prefer ShstReferences suggested by ShstMatch.
@@ -54,13 +57,41 @@ export function getPreferredShstReferences(
   return preferredShstRefs;
 }
 
+export type CreateEdgeWeightFunctionOptions = {
+  preferShstMatches?: boolean;
+  shstMatchDiscount?: number;
+  maxDistanceKm?: number;
+  exceedsMaxDistanceKmPenalty?: number;
+};
+
 export default function createEdgeWeightFunction(
   vicinity: TargetMapPathVicinity<RawTargetMapFeature>,
-  preferredDiscount?: number,
-  unpreferredPenalty?: number,
+  options: CreateEdgeWeightFunctionOptions = {},
 ): EdgeWeightFunction {
-  const prefDisc = preferredDiscount ?? PREFERRED_DISCOUNT;
-  const unprefPen = unpreferredPenalty ?? UNPREFERRED_PENALTY;
+  const {
+    preferShstMatches,
+    shstMatchDiscount,
+    maxDistanceKm,
+    exceedsMaxDistanceKmPenalty,
+  } = options;
+
+  const _preferShstMatches = preferShstMatches ?? PREFER_SHST_MATCHES_DEFAULT;
+  const _shstMatchDiscount = shstMatchDiscount ?? DEFAULT_SHST_MATCH_DISCOUNT;
+  const _maxDistanceKm = maxDistanceKm ?? DEFAULT_MAX_DISTANCE_KM;
+  const _exceedsMaxDistanceKmPenalty =
+    exceedsMaxDistanceKmPenalty ?? EXCEEDS_MAX_DISTANCE_KM_PENALTY;
+
+  if (_shstMatchDiscount < 0) {
+    throw new Error('shstMatchDiscount must be >= 0');
+  }
+
+  if (_maxDistanceKm < 0) {
+    throw new Error('maxDistanceKm must be >= 0');
+  }
+
+  if (_exceedsMaxDistanceKmPenalty < 0) {
+    throw new Error('_exceedsMaxDistanceKmPenalty must be >= 0');
+  }
 
   const {
     targetMapPathEdges,
@@ -68,7 +99,9 @@ export default function createEdgeWeightFunction(
   } = vicinity;
 
   // Preferred ShstReferences get discounted weight in the Dijkstra algorithm.
-  const preferredShstRefs = getPreferredShstReferences(vicinity);
+  const preferredShstRefs = _preferShstMatches
+    ? getPreferredShstReferences(vicinity)
+    : new Set();
 
   // The TargetMapPathEdges are merged into a single LineString.
   const mergedTargetMapPath = mergePathIntoLineString(targetMapPathEdges);
@@ -98,27 +131,26 @@ export default function createEdgeWeightFunction(
       properties: { shstReferenceLength },
     } = shstRef;
 
+    // IMPORTANT: maxDistanceKm and exceedsMaxDistanceKmPenalty do not apply to preferredShstRefs
     // If the ShstReference is amongst the preferred...
     if (preferredShstRefs.has(shstRef)) {
       // Discount the weight
-      const weight = shstReferenceLength * prefDisc;
+      const weight = shstReferenceLength * _shstMatchDiscount;
 
       cachedEdgeWeights[shstRefId] = weight;
 
       return weight;
     }
 
-    const sliceBufferWidth = 200 / 1000;
-
     // Create a buffer around the ShstReference under consideration
-    const buffer = turf.buffer(shstRef, sliceBufferWidth); // 200m buffer
+    const buffer = turf.buffer(shstRef, _maxDistanceKm); // 200m buffer
 
     // Slice a segment from the TargetMapPath. Need to slice because otherwise very slow.
     const slicedTargetMapPath = getBufferedOverlap(mergedTargetMapPath, buffer);
 
     // If the TargetMapPath is not within 200 meters of the ShstReference, give it high weight.
     if (!slicedTargetMapPath) {
-      const weight = shstReferenceLength * unprefPen;
+      const weight = shstReferenceLength * _exceedsMaxDistanceKmPenalty;
 
       cachedEdgeWeights[shstRefId] = weight;
 
@@ -135,20 +167,20 @@ export default function createEdgeWeightFunction(
     //       Direction is irrelevant unless we use Frechet.
 
     // Get the distance between each point and the slicedTargetMapPath
-    // NOTE: We know that all points along the TMPath should be within sliceBufferWidth
+    // NOTE: We know that all points along the TMPath should be within _maxDistanceKm
     //       of the ShstReference or else it would not have been included in the buffer overlap.
     const diffs = shstRefPts
       .map(
         (pt) =>
           turf.nearestPointOnLine(slicedTargetMapPath, pt).properties.dist,
       )
-      .map((dist) => (Number.isFinite(dist) ? dist : sliceBufferWidth * 2));
+      .map((dist) => (Number.isFinite(dist) ? dist : _maxDistanceKm * 2));
 
-    // avgDiff range: [0, (sliceBufferWidth * 2)]
+    // avgDiff range: [0, (_maxDistanceKm * 2)]
     const avgDiff = _.sum(diffs) / diffs.length;
 
     // weightedAvgDiff range: [1, 2]
-    const weightedAvgDiff = avgDiff / (sliceBufferWidth * 2) + 1;
+    const weightedAvgDiff = avgDiff / (_maxDistanceKm * 2) + 1;
 
     const weight = weightedAvgDiff * shstReferenceLength;
     cachedEdgeWeights[shstRefId] = weight;
