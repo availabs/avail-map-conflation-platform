@@ -139,8 +139,6 @@ test('Matched are discounted', (t) => {
     // @ts-ignore
     const weight = weightFn({ name: tmpe.properties.targetMapId });
 
-    console.log(len, weight);
-
     t.assert(weight === len * discount);
   });
 
@@ -197,8 +195,6 @@ test('Distant are penalized', (t) => {
     // @ts-ignore
     const weight = weightFn({ name: tmpe.properties.targetMapId });
 
-    console.log(len, weight);
-
     t.assert(Math.abs(weight - len * penalty) < 0.001);
   });
 
@@ -207,6 +203,7 @@ test('Distant are penalized', (t) => {
 
 test('Near weights reasonable', (t) => {
   const clonedVicinity = _.cloneDeep(mockVicinity);
+
   // @ts-ignore
   clonedVicinity.targetMapPathEdgeShstMatchedShstReferences = [];
   // @ts-ignore
@@ -214,12 +211,18 @@ test('Near weights reasonable', (t) => {
   // @ts-ignore
   clonedVicinity.vicinitySharedStreetsReferences = [];
 
+  const getMockShstRefId = (targetMapId: string, i: number) =>
+    `${targetMapId}_${i}`;
+
+  const numSlices = 5;
+  const maxTransposeDist = 0.15;
+
   clonedVicinity.targetMapPathEdges.forEach((tmpe) => {
     const len = tmpe.properties.targetMapEdgeLength;
 
-    for (let i = 0; i < 4; ++i) {
-      const start = 0.25 * i * len;
-      const end = 0.25 * (i + 1) * len;
+    for (let i = 0; i < numSlices; ++i) {
+      const start = (1 / numSlices) * i * len;
+      const end = (1 / numSlices) * (i + 1) * len;
 
       // @ts-ignore
       const startPt = turf.along(tmpe, start);
@@ -231,19 +234,23 @@ test('Near weights reasonable', (t) => {
 
       const bearing = turf.bearing(startPt, endPt);
 
-      const translateDirection = bearing <= 0 ? bearing + 180 : bearing - 180;
+      const translateDirection = bearing <= 0 ? bearing + 90 : bearing - 90;
 
       // @ts-ignore
       const alter = turf.transformTranslate(
         // @ts-ignore
         slice,
-        (Math.random() < 0.5 ? -1 : 1) * (0.01 * i), // 5 meters
+        maxTransposeDist * (i / numSlices), // 5 meters
         translateDirection,
-        { mutate: true },
+        { mutate: false },
       );
 
       // @ts-ignore
-      alter.properties.shstReferenceId = `${tmpe.properties.targetMapId}_${i}`;
+      alter.properties.shstReferenceId = getMockShstRefId(
+        tmpe.properties.targetMapId,
+        i,
+      );
+
       // @ts-ignore
       alter.properties.geometryId = alter.properties.shstReferenceId
         .split('')
@@ -264,21 +271,36 @@ test('Near weights reasonable', (t) => {
   });
 
   // @ts-ignore
-  const weightFn = createEdgeWeightFunction(clonedVicinity);
+  const weightFn = createEdgeWeightFunction(
+    clonedVicinity,
+    -Infinity,
+    Infinity,
+  );
 
-  // @ts-ignore
-  clonedVicinity.vicinitySharedStreetsReferences.forEach((sref: any) => {
-    const id = sref.properties.shstReferenceId;
-    const len = sref.properties.shstReferenceLength;
+  const targetMapIds = clonedVicinity.targetMapPathEdges.map(
+    ({ properties: { targetMapId } }) => targetMapId,
+  );
 
-    // @ts-ignore
-    const weight = weightFn({ name: id });
+  for (const targetMapId of targetMapIds) {
+    let prevWeight = -Infinity;
 
-    console.log(id, len, weight);
+    for (let i = 0; i < numSlices; ++i) {
+      const refId = getMockShstRefId(targetMapId, i);
+      // @ts-ignore
+      const ref = clonedVicinity.allVicinitySharedStreetsReferencesById[refId];
+      const len = ref.properties.shstReferenceLength;
 
-    t.assert(weight > len);
-    t.assert(weight < 2 * len);
-  });
+      // @ts-ignore
+      const weight = weightFn({ name: refId });
+
+      t.assert(weight > len);
+      t.assert(weight < 2 * len);
+
+      t.assert(weight > prevWeight);
+
+      prevWeight = weight;
+    }
+  }
 
   t.end();
 });
