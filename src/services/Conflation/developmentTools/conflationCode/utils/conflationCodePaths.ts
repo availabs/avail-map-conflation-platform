@@ -1,13 +1,25 @@
-import { existsSync, readdirSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readdirSync, unlinkSync, symlinkSync } from 'fs';
+import { join, relative, dirname } from 'path';
 
 import conflationDevelopmentDataDir from '../../constants/conflationDevelopmentDataDir';
 import validateTimestamp from '../../utils/validateTimestamp';
 
 export const conflationSrcCodeDir = join(__dirname, '../../..');
-console.log(conflationSrcCodeDir);
 
 const codeBackupsDir = join(conflationDevelopmentDataDir, 'code_backups');
+
+export const differentialCodeBackupsDir = join(codeBackupsDir, 'differential');
+
+export const codeDiffsDir = join(codeBackupsDir, 'diffs');
+
+export const latestDifferentialCodeDiffSymlinkPath = join(
+  codeDiffsDir,
+  'latest_differential.diff',
+);
+export const latestIncrementalCodeDiffSymlinkPath = join(
+  codeDiffsDir,
+  'latest_incremental.diff',
+);
 
 const initialCodeBackupParentDir = join(codeBackupsDir, 'initial');
 
@@ -40,8 +52,6 @@ export function getInitialCodeBackupDirForTimestamp(timestamp: string) {
   );
 }
 
-export const differentialCodeBackupsDir = join(codeBackupsDir, 'differential');
-
 const differentialCodeBackupNamePrefix =
   'conflation_src_code_differential_backup_';
 
@@ -68,8 +78,6 @@ export const getLatestDifferentialCodeBackupTimestamp = () => {
   return tstamps.length ? tstamps[tstamps.length - 1] : null;
 };
 
-export const codeDiffsDir = join(codeBackupsDir, 'diffs');
-
 export function getDifferentialCodeBackupDirForTimestamp(timestamp: string) {
   if (!validateTimestamp(timestamp)) {
     throw new Error(`ERROR: ${timestamp} must be in UNIX timestamp format.`);
@@ -90,5 +98,31 @@ export function getCodeDiffFilePathForTimestamps(
   return join(
     codeDiffsDir,
     `conflation_src_code_diff.${a_timestamp}-${b_timestamp}.diff`,
+  );
+}
+
+export function setLatestDifferentialCodeDiffSymLink(codeDiffFilePath: string) {
+  try {
+    unlinkSync(latestDifferentialCodeDiffSymlinkPath);
+  } catch (err) {
+    // noop
+  }
+
+  symlinkSync(
+    relative(dirname(latestDifferentialCodeDiffSymlinkPath), codeDiffFilePath),
+    latestDifferentialCodeDiffSymlinkPath,
+  );
+}
+
+export function setLatestIncrementalCodeDiffSymLink(codeDiffFilePath: string) {
+  try {
+    unlinkSync(latestIncrementalCodeDiffSymlinkPath);
+  } catch (err) {
+    // noop
+  }
+
+  symlinkSync(
+    relative(dirname(latestIncrementalCodeDiffSymlinkPath), codeDiffFilePath),
+    latestIncrementalCodeDiffSymlinkPath,
   );
 }

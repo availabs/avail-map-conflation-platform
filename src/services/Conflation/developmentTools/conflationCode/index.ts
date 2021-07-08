@@ -61,6 +61,8 @@ export function createConflationCodeDifferentialBackup(timestamp: string) {
       --compare-dest=${initialCodeBackupDir} \
       ${differentialCodeBackupDir}
   `);
+
+  return differentialCodeBackupDir;
 }
 
 export function createConflationCodeDiff(
@@ -98,4 +100,6 @@ export function createConflationCodeDiff(
       > ${diffFilePath}'; (true)
     `,
   );
+
+  return diffFilePath;
 }

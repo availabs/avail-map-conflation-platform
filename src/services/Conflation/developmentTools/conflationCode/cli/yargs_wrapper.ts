@@ -10,6 +10,8 @@ import {
   getDifferentialCodeBackupTimestamps,
   getInitialDifferentialCodeBackupTimestamp,
   getLatestDifferentialCodeBackupTimestamp,
+  setLatestDifferentialCodeDiffSymLink,
+  setLatestIncrementalCodeDiffSymLink,
 } from '../utils/conflationCodePaths';
 
 const timestampBuilderElem = {
@@ -63,7 +65,7 @@ export const runCreateConflationCodeDiff = {
 export const fullConflationCodeSnapshot = {
   command: 'full_conflation_code_snapshot',
   desc:
-    'Create snapshot as well as differential and incremental diff files for the snapshot.',
+    'Create snapshot, differential and incremental diff files, and update the latest_differential.diff and latest_incremental.diff symbolic links.',
   builder: {
     timestamp: timestampBuilderElem,
   },
@@ -79,12 +81,21 @@ export const fullConflationCodeSnapshot = {
 
     if (initial) {
       // Differential diff file
-      createConflationCodeDiff(initial, timestamp);
+      const latestDifferentialDiffPath = createConflationCodeDiff(
+        initial,
+        timestamp,
+      );
+
+      setLatestDifferentialCodeDiffSymLink(latestDifferentialDiffPath);
     }
 
     if (penult && penult !== initial) {
-      // Incremental diff file
-      createConflationCodeDiff(penult, timestamp);
+      const latestIncrementalCodeDiffPath = createConflationCodeDiff(
+        penult,
+        timestamp,
+      );
+
+      setLatestIncrementalCodeDiffSymLink(latestIncrementalCodeDiffPath);
     }
   },
 };
