@@ -1,0 +1,25 @@
+#!/usr/bin/env node
+
+const { exec } = require('child_process');
+const { promisify } = require('util');
+const { join } = require('path');
+
+const execAsync = promisify(exec);
+
+const currentTimestamp = `${Math.round(Date.now() / 1000)}`;
+
+const runCodeBackup = join(__dirname, '../conflationCode/cli/run');
+
+const runBlkbrdDbSnapshot = join(__dirname, '../conflationDatabases/cli/run');
+
+// FIXME: Failure in one may cause corruption in other.
+(async () => {
+  const codeBackup = execAsync(
+    `${runCodeBackup} full_conflation_code_snapshot --timestamp ${currentTimestamp}`,
+  );
+  const dbsBackup = execAsync(
+    `${runBlkbrdDbSnapshot} full_conflation_blackboard_snapshot --timestamp ${currentTimestamp}`,
+  );
+
+  await Promise.all([codeBackup, dbsBackup]);
+})();
