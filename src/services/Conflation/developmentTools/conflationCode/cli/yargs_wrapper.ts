@@ -14,9 +14,8 @@ import {
 
 const timestampBuilderElem = {
   type: 'string',
-  describe: 'timestamp',
-  demand: true,
-  default: `${Math.round(Date.now() / 1000)}`,
+  describe: 'timestamp (defaults to current timestamp)',
+  demand: false,
 };
 
 const existingTimestampBuilderElem = {
@@ -26,14 +25,15 @@ const existingTimestampBuilderElem = {
   choices: getDifferentialCodeBackupTimestamps(),
 };
 
-/*
+const currentTimestamp = `${Math.round(Date.now() / 1000)}`;
+
 export const runCreateConflationCodeInitialBackup = {
   command: 'create_conflation_code_initial_backup',
   desc: 'Create the initial a backup of the Conflation src code.',
   builder: {
     timestamp: timestampBuilderElem,
   },
-  handler: ({ timestamp }) => {
+  handler: ({ timestamp = currentTimestamp }) => {
     createConflationCodeInitialBackup(timestamp);
     createConflationCodeDifferentialBackup(timestamp); // For incrementals
   },
@@ -45,9 +45,9 @@ export const runCreateConflationCodeDifferentialBackup = {
   builder: {
     timestamp: timestampBuilderElem,
   },
-  handler: ({ timestamp }) => createConflationCodeDifferentialBackup(timestamp),
+  handler: ({ timestamp = currentTimestamp }) =>
+    createConflationCodeDifferentialBackup(timestamp),
 };
-*/
 
 export const runCreateConflationCodeDiff = {
   command: 'create_conflation_code_diff',
@@ -67,7 +67,7 @@ export const fullConflationCodeSnapshot = {
   builder: {
     timestamp: timestampBuilderElem,
   },
-  handler: ({ timestamp }) => {
+  handler: ({ timestamp = currentTimestamp }) => {
     const initial = getInitialDifferentialCodeBackupTimestamp();
     const penult = getLatestDifferentialCodeBackupTimestamp();
 
@@ -82,7 +82,7 @@ export const fullConflationCodeSnapshot = {
       createConflationCodeDiff(initial, timestamp);
     }
 
-    if (penult) {
+    if (penult && penult !== initial) {
       // Incremental diff file
       createConflationCodeDiff(penult, timestamp);
     }
