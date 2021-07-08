@@ -55,6 +55,23 @@ These will provide the data for comparative quality metrics and visualizations.
 ./conflationDatabases/cli/run --help
 ```
 
+## Conflation Spatial
+
+Creates
+
+- a [GeoPackage](http://www.geopackage.org/) of all conflation input maps
+  - OSM (soon)
+  - SharedStreets References
+  - NYS RIS
+  - NPMRDS
+
+Converting the maps to this standard will allow analysis and visualization using
+a wide variety of GIS community tools.
+
+```sh
+./conflationSpatial/cli/run --help
+```
+
 ## TODO
 
 ### Set new initial timestamp
