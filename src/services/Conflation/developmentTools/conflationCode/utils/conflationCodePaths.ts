@@ -72,6 +72,12 @@ export const getInitialDifferentialCodeBackupTimestamp = () => {
   return tstamps.length ? tstamps[0] : null;
 };
 
+export const getPenultimateDifferentialCodeBackupTimestamp = () => {
+  const tstamps = getDifferentialCodeBackupTimestamps();
+
+  return tstamps.length > 1 ? tstamps[tstamps.length - 2] : null;
+};
+
 export const getLatestDifferentialCodeBackupTimestamp = () => {
   const tstamps = getDifferentialCodeBackupTimestamps();
 
@@ -101,7 +107,55 @@ export function getCodeDiffFilePathForTimestamps(
   );
 }
 
-export function setLatestDifferentialCodeDiffSymLink(codeDiffFilePath: string) {
+const codeDiffFileNameRE = /^conflation_src_code_diff\.\d{10}-\d{10}\.diff$/;
+
+export function getCodeDiffFileNames() {
+  return existsSync(codeDiffsDir)
+    ? readdirSync(codeDiffsDir, { withFileTypes: true })
+        .filter(
+          (dirent) => dirent.isFile() && codeDiffFileNameRE.test(dirent.name),
+        )
+        .map(({ name }) => name)
+        .sort()
+    : [];
+}
+
+export function getLatestDifferentialCodeDiffFilePath() {
+  const initialTimestamp = getInitialDifferentialCodeBackupTimestamp();
+
+  if (!initialTimestamp) {
+    return null;
+  }
+
+  const differentialCodeDiffFileNameRE = new RegExp(
+    `^conflation_src_code_diff\\.${initialTimestamp}-\\d{10}\\.diff$`,
+  );
+
+  const differentials = getCodeDiffFileNames().filter((p) =>
+    differentialCodeDiffFileNameRE.test(p),
+  );
+
+  return differentials.length
+    ? join(codeDiffsDir, differentials[differentials.length - 1])
+    : null;
+}
+
+// NOTE: Assumes a_timestamp < b_timestamp
+export function getLatestIncrementalCodeDiffFilePath() {
+  const codeDiffFilePaths = getCodeDiffFileNames();
+
+  return codeDiffFilePaths.length
+    ? join(codeDiffsDir, codeDiffFilePaths[codeDiffFilePaths.length - 1])
+    : null;
+}
+
+export function updateLatestDifferentialCodeDiffSymLink() {
+  const codeDiffFilePath = getLatestDifferentialCodeDiffFilePath();
+
+  if (codeDiffFilePath === null) {
+    return;
+  }
+
   try {
     unlinkSync(latestDifferentialCodeDiffSymlinkPath);
   } catch (err) {
@@ -114,7 +168,13 @@ export function setLatestDifferentialCodeDiffSymLink(codeDiffFilePath: string) {
   );
 }
 
-export function setLatestIncrementalCodeDiffSymLink(codeDiffFilePath: string) {
+export function updateLatestIncrementalCodeDiffSymLink() {
+  const codeDiffFilePath = getLatestIncrementalCodeDiffFilePath();
+
+  if (codeDiffFilePath === null) {
+    return;
+  }
+
   try {
     unlinkSync(latestIncrementalCodeDiffSymlinkPath);
   } catch (err) {
@@ -125,4 +185,9 @@ export function setLatestIncrementalCodeDiffSymLink(codeDiffFilePath: string) {
     relative(dirname(latestIncrementalCodeDiffSymlinkPath), codeDiffFilePath),
     latestIncrementalCodeDiffSymlinkPath,
   );
+}
+
+export function updateSymlinks() {
+  updateLatestDifferentialCodeDiffSymLink();
+  updateLatestIncrementalCodeDiffSymLink();
 }

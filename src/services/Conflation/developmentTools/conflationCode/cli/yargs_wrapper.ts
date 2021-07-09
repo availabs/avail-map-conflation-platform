@@ -10,8 +10,7 @@ import {
   getDifferentialCodeBackupTimestamps,
   getInitialDifferentialCodeBackupTimestamp,
   getLatestDifferentialCodeBackupTimestamp,
-  setLatestDifferentialCodeDiffSymLink,
-  setLatestIncrementalCodeDiffSymLink,
+  updateSymlinks,
 } from '../utils/conflationCodePaths';
 
 const timestampBuilderElem = {
@@ -22,7 +21,8 @@ const timestampBuilderElem = {
 
 const existingTimestampBuilderElem = {
   type: 'string',
-  desc: 'Timestamp of an existing differential Conflation code backup.',
+  desc:
+    'Timestamp of an existing differential Conflation code backup. NOTE: a_timestamp should preceed b_timestamp.',
   demand: true,
   choices: getDifferentialCodeBackupTimestamps(),
 };
@@ -81,21 +81,13 @@ export const fullConflationCodeSnapshot = {
 
     if (initial) {
       // Differential diff file
-      const latestDifferentialDiffPath = createConflationCodeDiff(
-        initial,
-        timestamp,
-      );
-
-      setLatestDifferentialCodeDiffSymLink(latestDifferentialDiffPath);
+      createConflationCodeDiff(initial, timestamp);
     }
 
     if (penult && penult !== initial) {
-      const latestIncrementalCodeDiffPath = createConflationCodeDiff(
-        penult,
-        timestamp,
-      );
-
-      setLatestIncrementalCodeDiffSymLink(latestIncrementalCodeDiffPath);
+      createConflationCodeDiff(penult, timestamp);
     }
+
+    updateSymlinks();
   },
 };
