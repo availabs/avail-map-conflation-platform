@@ -357,7 +357,7 @@ CREATE INDEX main.chosen_matches_a_intersect_b_ref_sections_idx
 DROP TABLE IF EXISTS main.assigned_matches_a_except_b;
 
 CREATE TABLE main.assigned_matches_a_except_b (
-  shst_reference_id   INTEGER NOT NULL,
+  shst_reference_id   TEXT NOT NULL,
 
   edge_id             INTEGER NOT NULL,
 
@@ -408,7 +408,7 @@ CREATE INDEX main.assigned_matches_a_except_b_ref_sections_idx
 DROP TABLE IF EXISTS main.assigned_matches_b_except_a;
 
 CREATE TABLE main.assigned_matches_b_except_a (
-  shst_reference_id   INTEGER NOT NULL,
+  shst_reference_id   TEXT NOT NULL,
 
   edge_id             INTEGER NOT NULL,
 
@@ -459,7 +459,7 @@ CREATE INDEX main.assigned_matches_b_except_a_ref_sections_idx
 DROP TABLE IF EXISTS main.assigned_matches_a_intersect_b;
 
 CREATE TABLE main.assigned_matches_a_intersect_b (
-  shst_reference_id   INTEGER NOT NULL,
+  shst_reference_id   TEXT NOT NULL,
 
   edge_id             INTEGER NOT NULL,
 

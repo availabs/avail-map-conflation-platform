@@ -104,7 +104,7 @@ CREATE INDEX main.target_map_edge_chosen_matches_ref_sections_idx
 DROP TABLE IF EXISTS main.target_map_edge_assigned_matches;
 
 CREATE TABLE main.target_map_edge_assigned_matches (
-  shst_reference_id   INTEGER NOT NULL,
+  shst_reference_id   TEXT NOT NULL,
 
   edge_id             INTEGER NOT NULL,
 
