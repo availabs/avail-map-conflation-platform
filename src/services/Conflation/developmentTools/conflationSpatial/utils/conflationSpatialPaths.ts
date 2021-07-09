@@ -21,6 +21,11 @@ export const conflationSpatialBlkbrdSnapshotsDir = join(
   'conflation_blackboard_snapshots',
 );
 
+export const conflationSpatialSnapshotDiffDir = join(
+  conflationSpatialParentDir,
+  'conflation_snapshot_diffs',
+);
+
 export const conflationInputMapsGpkgPath = join(
   conflationSpatialInputMapsDir,
   'conflation_input_maps.gpkg',
@@ -33,5 +38,16 @@ export function getConflationBlkbrdSnapshotGpkgPath(
   return join(
     conflationSpatialBlkbrdSnapshotsDir,
     `${targetMap}_conflation_blackboard_${timestamp}.gpkg`,
+  );
+}
+
+export function getConflationSnapshotDiffGpkgPath(
+  targetMap: string,
+  a_timestamp: string,
+  b_timestamp: string,
+) {
+  return join(
+    conflationSpatialSnapshotDiffDir,
+    `${targetMap}_conflation_blackboards_${a_timestamp}-${b_timestamp}_diff.gpkg`,
   );
 }
