@@ -1,25 +1,61 @@
 #!/usr/bin/env node
 
-const { exec } = require('child_process');
-const { promisify } = require('util');
+const { writeFileSync } = require('fs');
+const { execSync } = require('child_process');
 const { join } = require('path');
 
-const execAsync = promisify(exec);
+require('ts-node').register();
+
+const {
+  default: conflationDevelopmentDataDir,
+} = require('../constants/conflationDevelopmentDataDir.ts');
+
+const latestTimestampFile = join(
+  conflationDevelopmentDataDir,
+  'latest_timestamp',
+);
+
+const targetMaps = ['nys_ris', 'npmrds'];
 
 const currentTimestamp = `${Math.round(Date.now() / 1000)}`;
 
 const runCodeBackup = join(__dirname, '../conflationCode/cli/run');
-
 const runBlkbrdDbSnapshot = join(__dirname, '../conflationDatabases/cli/run');
+const runCreateGpkgs = join(__dirname, '../conflationSpatial/cli/run');
 
-// FIXME: Failure in one may cause corruption in other.
-(async () => {
-  const codeBackup = execAsync(
-    `${runCodeBackup} full_conflation_code_snapshot --timestamp ${currentTimestamp}`,
-  );
-  const dbsBackup = execAsync(
-    `${runBlkbrdDbSnapshot} full_conflation_blackboard_snapshot --timestamp ${currentTimestamp}`,
+function makeSnapshots() {
+  execSync(
+    `${runCodeBackup} \
+        full_conflation_code_snapshot \
+        --timestamp ${currentTimestamp}
+    `,
   );
 
-  await Promise.all([codeBackup, dbsBackup]);
-})();
+  execSync(
+    `${runBlkbrdDbSnapshot} \
+        full_conflation_blackboard_snapshot \
+          --timestamp ${currentTimestamp} \
+          --target_maps ${targetMaps.join(' ')}
+    `,
+  );
+}
+
+function makeGpkgs() {
+  execSync(`${runCreateGpkgs} create_latest_gpkgs`);
+}
+
+function updateSymlinks() {
+  execSync(`${runCodeBackup} update_conflation_code_symlinks`);
+
+  execSync(`${runBlkbrdDbSnapshot} update_conflation_blkbrd_symlinks`);
+
+  execSync(`${runCreateGpkgs} update_conflation_gpkg_symlinks`);
+}
+
+makeSnapshots();
+makeGpkgs();
+updateSymlinks();
+
+console.log('Symlinks updated');
+
+writeFileSync(latestTimestampFile, currentTimestamp);

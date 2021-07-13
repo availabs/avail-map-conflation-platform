@@ -7,9 +7,8 @@ import {
   conflationSrcCodeDir,
   getInitialCodeBackupDir,
   getInitialCodeBackupDirForTimestamp,
-  codeDiffsDir,
-  getDifferentialCodeBackupDirForTimestamp,
-  getCodeDiffFilePathForTimestamps,
+  codeSnapshotFsUtils,
+  codeDiffsFsUtils,
 } from './utils/conflationCodePaths';
 
 const checkTimestamp = (timestamp: string) => {
@@ -24,7 +23,8 @@ export function createConflationCodeInitialBackup(timestamp: string) {
   const initialCodeBackupDir = getInitialCodeBackupDir();
 
   if (initialCodeBackupDir !== null) {
-    throw new Error('Initial conflation code snapshot already exists');
+    console.log('Initial conflation code snapshot already exists');
+    return;
   }
 
   const backupDir = getInitialCodeBackupDirForTimestamp(timestamp);
@@ -48,7 +48,7 @@ export function createConflationCodeDifferentialBackup(timestamp: string) {
     throw new Error('ERROR: Initial conflation code snapshot does not exist');
   }
 
-  const differentialCodeBackupDir = getDifferentialCodeBackupDirForTimestamp(
+  const differentialCodeBackupDir = codeSnapshotFsUtils.getSnapshotPath(
     timestamp,
   );
 
@@ -69,16 +69,16 @@ export function createConflationCodeDiff(
   a_timestamp: string,
   b_timestamp: string,
 ) {
-  const diffBackupDirA = getDifferentialCodeBackupDirForTimestamp(a_timestamp);
-  const diffBackupDirB = getDifferentialCodeBackupDirForTimestamp(b_timestamp);
+  const snapshotDirA = codeSnapshotFsUtils.getSnapshotPath(a_timestamp);
+  const snapshotDirB = codeSnapshotFsUtils.getSnapshotPath(b_timestamp);
 
   const errMsgs: string[] = [];
 
-  if (!existsSync(diffBackupDirA)) {
+  if (!existsSync(snapshotDirA)) {
     errMsgs.push(`Differential backup ${a_timestamp} does not exist.`);
   }
 
-  if (!existsSync(diffBackupDirB)) {
+  if (!existsSync(snapshotDirB)) {
     errMsgs.push(`Differential backup ${b_timestamp} does not exist.`);
   }
 
@@ -86,17 +86,14 @@ export function createConflationCodeDiff(
     throw new Error(errMsgs.join('\n'));
   }
 
-  mkdirSync(codeDiffsDir, { recursive: true });
+  mkdirSync(codeDiffsFsUtils.dir, { recursive: true });
 
-  const diffFilePath = getCodeDiffFilePathForTimestamps(
-    a_timestamp,
-    b_timestamp,
-  );
+  const diffFilePath = codeDiffsFsUtils.getDiffPath([a_timestamp, b_timestamp]);
 
   // https://unix.stackexchange.com/a/156305
   execSync(
     `bash -c \
-      'diff -Nur ${diffBackupDirA} ${diffBackupDirB} \
+      'diff -Nur ${snapshotDirA} ${snapshotDirB} \
       > ${diffFilePath}'; (true)
     `,
   );

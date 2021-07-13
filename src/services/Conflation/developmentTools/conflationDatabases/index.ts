@@ -5,8 +5,8 @@ import Database from 'better-sqlite3';
 
 import {
   getConflationBlkbrdDbPath,
-  getConflationBlkbrdSnapshotPath,
-  getConflationBlkbrdSnapshotsDiffPath,
+  conflationBlkbrdSnapshotsFsUtils,
+  conflationBlkbrdDiffsFsUtils,
 } from './utils/conflationBlkbrdDbPaths';
 
 export function snapshotDatabase(
@@ -99,7 +99,10 @@ export function createBlkbrdDatabaseSnapshot(
     );
   }
 
-  const snapshotPath = getConflationBlkbrdSnapshotPath(targetMap, timestamp);
+  const snapshotPath = conflationBlkbrdSnapshotsFsUtils.getSnapshotPath(
+    targetMap,
+    timestamp,
+  );
 
   mkdirSync(dirname(snapshotPath), { recursive: true });
 
@@ -108,11 +111,18 @@ export function createBlkbrdDatabaseSnapshot(
 
 export function createBlkbrdDatabaseSnapshotsDiff(
   targetMap: string,
-  a_timestamp: string,
-  b_timestamp: string,
+  timestamps: [string, string],
 ) {
-  const snapshotPathA = getConflationBlkbrdSnapshotPath(targetMap, a_timestamp);
-  const snapshotPathB = getConflationBlkbrdSnapshotPath(targetMap, b_timestamp);
+  const [a_timestamp, b_timestamp] = timestamps;
+
+  const snapshotPathA = conflationBlkbrdSnapshotsFsUtils.getSnapshotPath(
+    targetMap,
+    a_timestamp,
+  );
+  const snapshotPathB = conflationBlkbrdSnapshotsFsUtils.getSnapshotPath(
+    targetMap,
+    b_timestamp,
+  );
 
   const errMsgs: string[] = [];
 
@@ -132,10 +142,9 @@ export function createBlkbrdDatabaseSnapshotsDiff(
     throw new Error(errMsgs.join('\n'));
   }
 
-  const diffPath = getConflationBlkbrdSnapshotsDiffPath(
+  const diffPath = conflationBlkbrdDiffsFsUtils.getDiffPath(
     targetMap,
-    a_timestamp,
-    b_timestamp,
+    timestamps,
   );
 
   mkdirSync(dirname(diffPath), { recursive: true });

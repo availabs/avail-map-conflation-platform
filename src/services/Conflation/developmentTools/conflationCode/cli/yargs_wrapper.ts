@@ -7,11 +7,11 @@ import {
 } from '..';
 
 import {
-  getDifferentialCodeBackupTimestamps,
-  getInitialDifferentialCodeBackupTimestamp,
-  getLatestDifferentialCodeBackupTimestamp,
-  updateSymlinks,
+  codeSnapshotFsUtils,
+  codeDiffsFsUtils,
 } from '../utils/conflationCodePaths';
+
+const currentTimestamp = `${Math.round(Date.now() / 1000)}`;
 
 const timestampBuilderElem = {
   type: 'string',
@@ -24,10 +24,7 @@ const existingTimestampBuilderElem = {
   desc:
     'Timestamp of an existing differential Conflation code backup. NOTE: a_timestamp should preceed b_timestamp.',
   demand: true,
-  choices: getDifferentialCodeBackupTimestamps(),
 };
-
-const currentTimestamp = `${Math.round(Date.now() / 1000)}`;
 
 export const runCreateConflationCodeInitialBackup = {
   command: 'create_conflation_code_initial_backup',
@@ -55,8 +52,14 @@ export const runCreateConflationCodeDiff = {
   command: 'create_conflation_code_diff',
   desc: 'Create a diff file based on Conflation differential backups.',
   builder: {
-    a_timestamp: existingTimestampBuilderElem,
-    b_timestamp: existingTimestampBuilderElem,
+    a_timestamp: {
+      ...existingTimestampBuilderElem,
+      choices: codeSnapshotFsUtils.existingSnapshotTimestamps.slice(0, -1),
+    },
+    b_timestamp: {
+      ...existingTimestampBuilderElem,
+      choices: codeSnapshotFsUtils.existingSnapshotTimestamps.slice(1),
+    },
   },
   handler: ({ a_timestamp, b_timestamp }) =>
     createConflationCodeDiff(a_timestamp, b_timestamp),
@@ -70,8 +73,8 @@ export const fullConflationCodeSnapshot = {
     timestamp: timestampBuilderElem,
   },
   handler: ({ timestamp = currentTimestamp }) => {
-    const initial = getInitialDifferentialCodeBackupTimestamp();
-    const penult = getLatestDifferentialCodeBackupTimestamp();
+    const initial = codeSnapshotFsUtils.initialSnapshotTimestamp;
+    const penult = codeSnapshotFsUtils.latestSnapshotTimestamp;
 
     if (!initial) {
       createConflationCodeInitialBackup(timestamp);
@@ -85,9 +88,17 @@ export const fullConflationCodeSnapshot = {
     }
 
     if (penult && penult !== initial) {
+      // Incremental diff file
       createConflationCodeDiff(penult, timestamp);
     }
+  },
+};
 
-    updateSymlinks();
+export const updateSymlinks = {
+  command: 'update_conflation_code_symlinks',
+  desc: 'update the snapshot and diff symlinks',
+  handler: () => {
+    codeSnapshotFsUtils.updateSnapshotSymlinks();
+    codeDiffsFsUtils.updateDiffSymlinks();
   },
 };

@@ -9,6 +9,17 @@ const ndjsonToGeoJsonScript = join(
   '../../../../../../bin/ndjson_to_geojson',
 );
 
+// Because ogr2ogr is noisey.
+enum GdalLogLevel {
+  OFF,
+  ON,
+}
+
+const gdalLogLevel: GdalLogLevel = GdalLogLevel.OFF;
+
+// @ts-ignore
+const stdio = gdalLogLevel === GdalLogLevel.ON ? 'inherit' : 'ignore';
+
 export function createShstReferenceLayer(
   gpkgPath: string,
   outputSqliteDir: string,
@@ -47,7 +58,7 @@ export function createShstReferenceLayer(
               FROM INPUT
           '
       `,
-      { cwd: outputSqliteDir, shell: '/bin/bash' },
+      { cwd: outputSqliteDir, stdio },
     );
   }
 }
@@ -87,7 +98,7 @@ export function createNysRisTargetMapLayer(
               FROM INPUT
           '
       `,
-      { cwd: outputSqliteDir, shell: '/bin/bash' },
+      { cwd: outputSqliteDir, stdio },
     );
   }
 }
@@ -127,7 +138,7 @@ export function createNpmrdsTargetMapLayer(
               FROM INPUT
           '
       `,
-      { cwd: outputSqliteDir, shell: '/bin/bash' },
+      { cwd: outputSqliteDir, stdio },
     );
   }
 }

@@ -1,15 +1,15 @@
 /* eslint-disable import/prefer-default-export */
 
 import {
-  getConflationBlkbrdSnapshotPath,
-  getConflationBlkbrdSnapshotsDiffPath,
+  conflationBlkbrdSnapshotsFsUtils,
+  conflationBlkbrdDiffsFsUtils,
 } from '../conflationDatabases/utils/conflationBlkbrdDbPaths';
 
 import {
   outputSqliteDir,
   conflationInputMapsGpkgPath,
-  getConflationBlkbrdSnapshotGpkgPath,
-  getConflationSnapshotDiffGpkgPath,
+  conflationBlkbrdSnapshotsGpkgFsUtils,
+  conflationBlkbrdDiffsGpkgFsUtils,
 } from './utils/conflationSpatialPaths';
 
 import createAllConflationInputMapsGpkg from './utils/createAllConflationInputMapsGpkg';
@@ -28,12 +28,12 @@ export function createConflationBlkbrdSnapshotGpkg(
   targetMap: string,
   timestamp: string,
 ) {
-  const conflationBlkbrdSnapshotPath = getConflationBlkbrdSnapshotPath(
+  const conflationBlkbrdSnapshotPath = conflationBlkbrdSnapshotsFsUtils.getSnapshotPath(
     targetMap,
     timestamp,
   );
 
-  const conflationBlkbrdSnapshotGpkgPath = getConflationBlkbrdSnapshotGpkgPath(
+  const conflationBlkbrdSnapshotGpkgPath = conflationBlkbrdSnapshotsGpkgFsUtils.getSnapshotPath(
     targetMap,
     timestamp,
   );
@@ -47,19 +47,16 @@ export function createConflationBlkbrdSnapshotGpkg(
 
 export function createConflationSnapshotDiffGpkg(
   targetMap: string,
-  a_timestamp: string,
-  b_timestamp: string,
+  timestamps: [string, string],
 ) {
-  const conflationSnapshotDiffPath = getConflationBlkbrdSnapshotsDiffPath(
+  const conflationSnapshotDiffPath = conflationBlkbrdDiffsFsUtils.getDiffPath(
     targetMap,
-    a_timestamp,
-    b_timestamp,
+    timestamps,
   );
 
-  const conflationSnapshotDiffGpkgPath = getConflationSnapshotDiffGpkgPath(
+  const conflationSnapshotDiffGpkgPath = conflationBlkbrdDiffsGpkgFsUtils.getDiffPath(
     targetMap,
-    a_timestamp,
-    b_timestamp,
+    timestamps,
   );
 
   createDiffGpkg(

@@ -4,6 +4,9 @@ import outputDirectory from '../../../../../constants/outputDirectory';
 
 import conflationDevelopmentDataDir from '../../constants/conflationDevelopmentDataDir';
 
+import SnapshotsByTargetMapFsUtils from '../../utils/SnapshotsByTargetMapFsUtils';
+import DiffsByTargetMapFsUtils from '../../utils/DiffsByTargetMapFsUtils';
+
 export const outputSqliteDir = join(outputDirectory, 'sqlite');
 
 const conflationSpatialParentDir = join(
@@ -31,23 +34,18 @@ export const conflationInputMapsGpkgPath = join(
   'conflation_input_maps.gpkg',
 );
 
-export function getConflationBlkbrdSnapshotGpkgPath(
-  targetMap: string,
-  timestamp: string,
-) {
-  return join(
-    conflationSpatialBlkbrdSnapshotsDir,
-    `${targetMap}_conflation_blackboard_${timestamp}.gpkg`,
-  );
-}
+export const conflationBlkbrdSnapshotsGpkgFsUtils = new SnapshotsByTargetMapFsUtils(
+  {
+    dir: conflationSpatialBlkbrdSnapshotsDir,
+    nameCore: 'conflation_blackboard_snapshot',
+    ext: 'gpkg',
+    autoUpdateSymlinks: true,
+  },
+);
 
-export function getConflationSnapshotDiffGpkgPath(
-  targetMap: string,
-  a_timestamp: string,
-  b_timestamp: string,
-) {
-  return join(
-    conflationSpatialSnapshotDiffDir,
-    `${targetMap}_conflation_blackboards_${a_timestamp}-${b_timestamp}_diff.gpkg`,
-  );
-}
+export const conflationBlkbrdDiffsGpkgFsUtils = new DiffsByTargetMapFsUtils({
+  dir: conflationSpatialSnapshotDiffDir,
+  nameCore: 'conflation_blackboard_diff',
+  ext: 'gpkg',
+  autoUpdateSymlinks: true,
+});

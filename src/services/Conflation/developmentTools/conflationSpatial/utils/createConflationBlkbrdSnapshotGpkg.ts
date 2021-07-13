@@ -11,6 +11,17 @@ import { execSync } from 'child_process';
 import { mkdirSync, unlinkSync } from 'fs';
 import { dirname } from 'path';
 
+// Because ogr2ogr is noisey.
+enum GdalLogLevel {
+  OFF,
+  ON,
+}
+
+const gdalLogLevel: GdalLogLevel = GdalLogLevel.OFF;
+
+// @ts-ignore
+const stdio = gdalLogLevel === GdalLogLevel.ON ? 'inherit' : 'ignore';
+
 function initializeGeoPackage(
   conflationInputMapsGpkgPath: string,
   conflationBlkbrdSnapshotGpkgPath: string,
@@ -28,7 +39,8 @@ function initializeGeoPackage(
               *
             FROM shst_references
         '
-      `,
+    `,
+    { stdio },
   );
 }
 
@@ -50,6 +62,7 @@ function createShstMatchesLayer(
             FROM target_map_edges_shst_matches
         '
     `,
+    { stdio },
   );
 
   execSync(
@@ -72,7 +85,8 @@ function createShstMatchesLayer(
               INNER JOIN target_map_edges_shst_matches AS b
                 ON ( b.shst_reference = a.shst_reference_id )
         '
-      `,
+    `,
+    { stdio },
   );
 
   execSync(
@@ -98,6 +112,7 @@ function createChosenMatchesLayer(
             FROM target_map_edge_chosen_matches
         '
     `,
+    { stdio },
   );
 
   execSync(
@@ -120,7 +135,8 @@ function createChosenMatchesLayer(
               INNER JOIN target_map_edge_chosen_matches AS b
                 ON ( b.shst_reference = a.shst_reference_id )
         '
-      `,
+    `,
+    { stdio },
   );
 
   execSync(
@@ -150,6 +166,7 @@ function createAssignedMatchesLayer(
             FROM target_map_edge_assigned_matches
         '
     `,
+    { stdio },
   );
 
   execSync(
@@ -176,7 +193,8 @@ function createAssignedMatchesLayer(
               INNER JOIN target_map_edge_assigned_matches AS b
                 USING ( shst_reference_id )
         '
-      `,
+    `,
+    { stdio },
   );
 
   execSync(

@@ -165,6 +165,7 @@ function createLayers(
     }
 
     if (successfulDiffTypes.length === 0) {
+      // Nothing to work with. Perhaps the conflation stage was not yet run?
       console.warn(`Unable to create ${matchType} diff layers`);
       return;
     }

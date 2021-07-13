@@ -6,10 +6,11 @@ import {
 } from '..';
 
 import {
-  getExistingBlkbrdSnapshotTimestampsByTargetMap,
-  getInitialBlkbrdSnapshotTimestampForTargetMap,
-  getLatestBlkbrdSnapshotTimestampForTargetMap,
+  conflationBlkbrdSnapshotsFsUtils,
+  conflationBlkbrdDiffsFsUtils,
 } from '../utils/conflationBlkbrdDbPaths';
+
+const targetMaps = ['nys_ris', 'npmrds'];
 
 const timestampBuilderElem = {
   type: 'string',
@@ -26,80 +27,91 @@ const existingTimestampBuilderElem = {
 
 const currentTimestamp = `${Math.round(Date.now() / 1000)}`;
 
-const nysRisBlkbrdSnapshotTimestamps =
-  getExistingBlkbrdSnapshotTimestampsByTargetMap().nys_ris || [];
+const existingBlkbrdSnapshotTimestampsByTargetMap =
+  conflationBlkbrdSnapshotsFsUtils.existingSnapshotTimestampsByTargetMap;
 
-const npmrdsBlkbrdSnapshotTimestamps =
-  getExistingBlkbrdSnapshotTimestampsByTargetMap().npmrds || [];
-
-export const snapshotNysRisConflationBlackboardDatabase = {
-  command: 'create_nys_ris_conflation_blackboard_database_snapshot',
-  desc:
-    'Create a snapshot of the ShstMatches, ChosenMatches, and AssignedMatches in the NYS RIS Conflation Blackboard database.',
-  builder: {
-    timestamp: timestampBuilderElem,
-  },
-  handler: ({ timestamp = currentTimestamp }) =>
-    createBlkbrdDatabaseSnapshot('nys_ris', timestamp),
-};
-
-export const snapshotNpmrdsConflationBlackboardDatabase = {
-  command: 'create_npmrds_conflation_blackboard_database_snapshot',
-  desc:
-    'Create a snapshot of the ShstMatches, ChosenMatches, and AssignedMatches in the NPMRDS Conflation Blackboard database.',
-  builder: {
-    timestamp: timestampBuilderElem,
-  },
-  handler: ({ timestamp = currentTimestamp }) =>
-    createBlkbrdDatabaseSnapshot('npmrds', timestamp),
-};
+const commonExistingBlkbrdSnapshotTimestamps =
+  conflationBlkbrdSnapshotsFsUtils.commonExistingTimestamps;
 
 export const snapshotConflationBlackboardDatabases = {
   command: 'create_conflation_blackboard_database_snapshots',
   desc:
-    'Create a snapshot of the ShstMatches, ChosenMatches, and AssignedMatches in the NYS RIS and NPMRDS Conflation Blackboard databases.',
+    "Create a snapshot of the ShstMatches, ChosenMatches, and AssignedMatches in the TargetMaps' Conflation Blackboard databases.",
   builder: {
+    target_maps: {
+      type: 'array',
+      descript: 'TargetMaps',
+      demand: true,
+      choices: targetMaps,
+      default: targetMaps,
+    },
     timestamp: timestampBuilderElem,
   },
-  handler: ({ timestamp = currentTimestamp }) => {
-    createBlkbrdDatabaseSnapshot('nys_ris', timestamp);
-    createBlkbrdDatabaseSnapshot('npmrds', timestamp);
-  },
+  handler: ({ target_maps, timestamp = currentTimestamp }) =>
+    target_maps.forEach((targetMap: string) =>
+      createBlkbrdDatabaseSnapshot(targetMap, timestamp),
+    ),
 };
 
 export const diffNysRisConflationBlackboardDatabaseSnapshots = {
-  command: 'create_nys_ris_conflation_blackboard_database_snapshots_diff',
+  command: 'nys_ris_create_conflation_blackboard_database_snapshots_diff',
   desc:
     'Create a diff database of two NYS RIS Conflation Blackboard snapshots.',
   builder: {
     a_timestamp: {
       ...existingTimestampBuilderElem,
-      choices: nysRisBlkbrdSnapshotTimestamps,
+      choices:
+        existingBlkbrdSnapshotTimestampsByTargetMap?.nys_ris?.slice(1) || [],
     },
     b_timestamp: {
       ...existingTimestampBuilderElem,
-      choices: nysRisBlkbrdSnapshotTimestamps,
+      choices:
+        existingBlkbrdSnapshotTimestampsByTargetMap?.nys_ris?.slice(0, -1) ||
+        [],
     },
   },
   handler: ({ a_timestamp, b_timestamp }) =>
-    createBlkbrdDatabaseSnapshotsDiff('nys_ris', a_timestamp, b_timestamp),
+    createBlkbrdDatabaseSnapshotsDiff('nys_ris', [a_timestamp, b_timestamp]),
 };
 
 export const diffNpmrdsConflationBlackboardDatabaseSnapshots = {
-  command: 'create_npmrds_conflation_blackboard_database_snapshots_diff',
+  command: 'npmrds_create_conflation_blackboard_database_snapshots_diff',
   desc: 'Create a diff database of two NPMRDS Conflation Blackboard snapshots.',
   builder: {
     a_timestamp: {
       ...existingTimestampBuilderElem,
-      choices: npmrdsBlkbrdSnapshotTimestamps,
+      choices:
+        existingBlkbrdSnapshotTimestampsByTargetMap?.npmrds?.slice(1) || [],
     },
     b_timestamp: {
       ...existingTimestampBuilderElem,
-      choices: npmrdsBlkbrdSnapshotTimestamps,
+      choices:
+        existingBlkbrdSnapshotTimestampsByTargetMap?.npmrds?.slice(0, -1) || [],
     },
   },
   handler: ({ a_timestamp, b_timestamp }) =>
-    createBlkbrdDatabaseSnapshotsDiff('npmrds', a_timestamp, b_timestamp),
+    createBlkbrdDatabaseSnapshotsDiff('npmrds', [a_timestamp, b_timestamp]),
+};
+
+export const diffConflationBlackboardDatabaseSnapshots = {
+  command: 'create_conflation_blackboard_database_snapshots_diff',
+  desc:
+    'Create a diff database for each TargetMap with a conflation blackboard snapshot.',
+  builder: {
+    a_timestamp: {
+      ...existingTimestampBuilderElem,
+      choices:
+        commonExistingBlkbrdSnapshotTimestamps.commonTimestamps?.slice(1) || [],
+    },
+    b_timestamp: {
+      ...existingTimestampBuilderElem,
+      choices:
+        commonExistingBlkbrdSnapshotTimestamps.commonTimestamps?.slice(0, -1) ||
+        [],
+    },
+  },
+  handler: ({ a_timestamp, b_timestamp }) =>
+    createBlkbrdDatabaseSnapshotsDiff('npmrds', [a_timestamp, b_timestamp]),
 };
 
 export const fullConflationBlackboardSnapshot = {
@@ -107,24 +119,45 @@ export const fullConflationBlackboardSnapshot = {
   desc:
     'Create snapshot and diff databases for NYS RIS and NPMRDS Conflation Blackboards.',
   builder: {
+    target_maps: {
+      type: 'array',
+      descript: 'TargetMaps',
+      demand: true,
+      choices: targetMaps,
+      default: targetMaps,
+    },
     timestamp: timestampBuilderElem,
   },
-  handler: ({ timestamp = currentTimestamp }) => {
-    ['nys_ris', 'npmrds'].forEach((targetMap) => {
-      const initial = getInitialBlkbrdSnapshotTimestampForTargetMap(targetMap);
-      const penult = getLatestBlkbrdSnapshotTimestampForTargetMap(targetMap);
+  handler: ({ target_maps, timestamp = currentTimestamp }) => {
+    target_maps.forEach((targetMap: string) => {
+      const initial = conflationBlkbrdSnapshotsFsUtils.getInitialSnapshotTimestampForTargetMap(
+        targetMap,
+      );
+
+      const penult = conflationBlkbrdSnapshotsFsUtils.getLatestSnapshotTimestampForTargetMap(
+        targetMap,
+      );
 
       createBlkbrdDatabaseSnapshot(targetMap, timestamp);
 
       if (initial) {
         // Differential diff db snapshot
-        createBlkbrdDatabaseSnapshotsDiff(targetMap, initial, timestamp);
+        createBlkbrdDatabaseSnapshotsDiff(targetMap, [initial, timestamp]);
       }
 
       if (penult && initial !== penult) {
         // Incremental diff db snapshot
-        createBlkbrdDatabaseSnapshotsDiff(targetMap, penult, timestamp);
+        createBlkbrdDatabaseSnapshotsDiff(targetMap, [penult, timestamp]);
       }
     });
+  },
+};
+
+export const updateSymlinks = {
+  command: 'update_conflation_blkbrd_symlinks',
+  desc: 'update the snapshot and diff symlinks',
+  handler: () => {
+    conflationBlkbrdSnapshotsFsUtils.updateSnapshotSymlinks();
+    conflationBlkbrdDiffsFsUtils.updateDiffSymlinks();
   },
 };

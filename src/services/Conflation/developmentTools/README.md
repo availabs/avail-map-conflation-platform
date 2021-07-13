@@ -90,3 +90,8 @@ Allow backtracking after failed experiments
 0. Rollback src/services/Conflation using the timestamp's differential backup.
 1. Archive all differential dirs/dbs/gpkgs following new "latest" timestamp
 2. Archive all diffs that involved timestamps following the new "latest" timestamp
+
+### TargetMap Names
+
+Regular expressions throughout the code assume `/^[a-z_]$/` matches all Target Map names.
+Add validation of target_map cli parameters.
