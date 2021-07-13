@@ -8,6 +8,8 @@ import availableOsmVersions from '../constants/availableOsmVersions';
 
 import shrinkwrapDatabase from './utils/shrinkwrapDatabase';
 
+import runOsrmToolChain from './utils/runOsrmToolChain';
+
 const command = 'load_osm';
 const desc = `Load the OSM file into SQLite. The OSM PBF files MUST be in ${osmInputDirectory}.`;
 
@@ -33,4 +35,10 @@ export const shrinkwrapOsmDatabase = {
   command: 'shrinkwrap_osm_database',
   desc: 'Make the OSM database Read-Only',
   handler: shrinkwrapDatabase,
+};
+
+export const osrmToolChain = {
+  command: 'run_osrm_tool_chain',
+  desc: 'Run the OSRM tool chain',
+  handler: runOsrmToolChain,
 };

@@ -15,6 +15,8 @@ import validateOsmVersion from './utils/validateOsmVersion';
 
 import { OsmVersion, OsmNode, OsmWay } from './domain/types';
 
+import getExpectedOsmVersionPbfPath from './utils/getExpectedOsmVersionPbfPath';
+
 class OpenStreetMapDao {
   protected connections: {
     // Used for writes
@@ -115,6 +117,10 @@ class OpenStreetMapDao {
         COMMIT;
       `,
     );
+  }
+
+  get osmPbfFilePath() {
+    return getExpectedOsmVersionPbfPath(this.osmVersion);
   }
 
   get insertOsmNodeStmt(): Statement {
