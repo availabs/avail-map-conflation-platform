@@ -183,12 +183,6 @@ export const create_latest_gpkgs = {
           existingBlkbrdDiffTimestampsByTargetMap[targetMap],
         );
 
-        console.log();
-        console.log();
-        console.log(JSON.stringify({ latest }, null, 4));
-        console.log();
-        console.log();
-
         // @ts-ignore
         createConflationSnapshotDiffGpkg(targetMap, latest);
       },

@@ -7,11 +7,20 @@ import conflationDevelopmentDataDir from '../../constants/conflationDevelopmentD
 import SnapshotsByTargetMapFsUtils from '../../utils/SnapshotsByTargetMapFsUtils';
 import DiffsByTargetMapFsUtils from '../../utils/DiffsByTargetMapFsUtils';
 
+import OsmDao from '../../../../../daos/OpenStreetMapDao';
+
+export const { osmPbfFilePath } = OsmDao;
+
 export const outputSqliteDir = join(outputDirectory, 'sqlite');
 
 const conflationSpatialParentDir = join(
   conflationDevelopmentDataDir,
   'conflation_spatial',
+);
+
+export const conflationSpatialArbitraryDir = join(
+  conflationSpatialParentDir,
+  'arbitrary',
 );
 
 export const conflationSpatialInputMapsDir = join(

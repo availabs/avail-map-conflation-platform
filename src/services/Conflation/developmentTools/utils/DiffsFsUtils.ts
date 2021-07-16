@@ -173,8 +173,6 @@ export default class DiffsFsUtils {
       .uniq()
       .value();
 
-    console.log('latestDiffsMetadata');
-    console.log(JSON.stringify({ allTimestamps }, null, 4));
     const [initial = null] = allTimestamps;
 
     // NOTE: a_timestamp guaranteed < b_timestamp, therefore at least two unique.

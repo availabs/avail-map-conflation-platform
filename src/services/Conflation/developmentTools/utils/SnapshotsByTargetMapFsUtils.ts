@@ -97,7 +97,6 @@ export default class SnapshotsByTargetMapFsUtils {
   }
 
   getSnapshotPath(targetMap: string, timestamp: string) {
-    console.log(JSON.stringify({ targetMap, timestamp }, null, 4));
     return join(this.dir, this.getSnapshotName(targetMap, timestamp));
   }
 

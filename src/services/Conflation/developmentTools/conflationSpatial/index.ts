@@ -7,6 +7,7 @@ import {
 
 import {
   outputSqliteDir,
+  osmPbfFilePath,
   conflationInputMapsGpkgPath,
   conflationBlkbrdSnapshotsGpkgFsUtils,
   conflationBlkbrdDiffsGpkgFsUtils,
@@ -20,6 +21,7 @@ export function createDevConflationInputMapsGpkg(overwrite: boolean = false) {
   createAllConflationInputMapsGpkg(
     conflationInputMapsGpkgPath,
     outputSqliteDir,
+    osmPbfFilePath,
     overwrite,
   );
 }
