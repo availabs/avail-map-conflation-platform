@@ -1,5 +1,7 @@
 /* eslint-disable no-restricted-syntax, no-await-in-loop */
 
+// For additional required MBTiles, see https://github.com/availabs/npmrds4/tree/master/tasks/npmrds-mbtiles
+
 import { spawnSync } from 'child_process';
 import { createWriteStream, mkdirSync } from 'fs';
 import { join } from 'path';

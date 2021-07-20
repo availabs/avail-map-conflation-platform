@@ -17,7 +17,6 @@ const getNpmrdsSubgraph = (features: NpmrdsTmcFeature[]) => {
     multigraph: true,
   });
 
-  // For each shstMatch for this shape segment
   for (let i = 0; i < features.length; ++i) {
     const feature = features[i];
     const tmc = feature.id;
