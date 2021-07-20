@@ -42,7 +42,7 @@ const getTargetMapPropertiesFromRawEdge: TargetMapPropertiesFromRawEdgeFn = (
   const networkLevel = functional_class % 10;
 
   // @ts-ignore
-  const isPrimary = overlap_hierarchy > 1;
+  const isPrimary = overlap_hierarchy < 1;
 
   return {
     targetMapId,
