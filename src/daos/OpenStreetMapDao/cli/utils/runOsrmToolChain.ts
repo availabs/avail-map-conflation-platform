@@ -15,8 +15,13 @@ import OsmDao from '../..';
 const osrmNodeModulesDir = join(__dirname, '../../../../../node_modules/osrm');
 
 const osrmExtract = join(osrmNodeModulesDir, 'lib/binding/osrm-extract');
-const osrmPartition = join(osrmNodeModulesDir, 'lib/binding/osrm-partition');
-const osrmCustomize = join(osrmNodeModulesDir, 'lib/binding/osrm-customize');
+
+// Contraction Hierarchies
+const osrmContract = join(osrmNodeModulesDir, 'lib/binding/osrm-contract');
+
+// Multi-Level Dijkstra
+// const osrmPartition = join(osrmNodeModulesDir, 'lib/binding/osrm-partition');
+// const osrmCustomize = join(osrmNodeModulesDir, 'lib/binding/osrm-customize');
 
 const osrmCarProfile = join(osrmNodeModulesDir, 'profiles/car.lua');
 
@@ -44,6 +49,8 @@ export default function buildOsrmFiles() {
     { cwd: osrmDataDir },
   );
 
-  execSync(`${osrmPartition} osm.osrm`, { cwd: osrmDataDir });
-  execSync(`${osrmCustomize} osm.osrm`, { cwd: osrmDataDir });
+  // execSync(`${osrmPartition} osm.osrm`, { cwd: osrmDataDir });
+  // execSync(`${osrmCustomize} osm.osrm`, { cwd: osrmDataDir });
+
+  execSync(`${osrmContract} osm.osrm`, { cwd: osrmDataDir });
 }
