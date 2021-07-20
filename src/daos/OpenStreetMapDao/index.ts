@@ -31,6 +31,7 @@ class OpenStreetMapDao {
   protected readonly preparedWriteStatements!: {
     insertOsmNodeStmt?: Statement;
     insertOsmWayStmt?: Statement;
+    loadOsmWayNodeIdsTableStmt?: Statement;
   };
 
   constructor() {
@@ -179,6 +180,34 @@ class OpenStreetMapDao {
       _.isEmpty(nodeIds) ? null : JSON.stringify(nodeIds),
       tags && JSON.stringify(tags),
     ]);
+  }
+
+  get loadOsmWayNodeIdsTableStmt() {
+    this.preparedWriteStatements.loadOsmWayNodeIdsTableStmt =
+      this.preparedWriteStatements.loadOsmWayNodeIdsTableStmt ||
+      this.dbWriteConnection.prepare(
+        `
+          INSERT INTO osm.osm_way_node_ids (
+            osm_way_id,
+            osm_node_idx,
+            osm_node_id
+          )
+            SELECT
+                a.osm_way_id,
+                b.key AS osm_node_idx,
+                b.value AS osm_node_id
+              FROM osm.osm_ways AS a,
+                json_each(osm_node_ids) AS b
+              ORDER BY a.osm_way_id, b.key
+        `,
+      );
+
+    return this.preparedWriteStatements.loadOsmWayNodeIdsTableStmt;
+  }
+
+  loadOsmWayNodeIdsTable() {
+    console.log('loadOsmWayNodeIdsTable');
+    this.loadOsmWayNodeIdsTableStmt.run();
   }
 
   async bulkLoadOsmWaysAsync(osmWaysIterator: AsyncGenerator<OsmWay>) {
