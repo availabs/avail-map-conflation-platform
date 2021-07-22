@@ -2,9 +2,9 @@
 
 /* eslint-disable no-unused-expressions, jsdoc/require-jsdoc */
 
-const {join} = require("path");
+const { join } = require('path');
 
-const yargs = require("yargs");
+const yargs = require('yargs');
 
 // https://www.npmjs.com/package/ts-node#programmatic
 //   You can require ts-node and register the loader for future requires by using
@@ -12,70 +12,53 @@ const yargs = require("yargs");
 // https://www.npmjs.com/package/ts-node#options-via-tsconfigjson
 //   Most options can be specified by a "ts-node" object in tsconfig.json using
 //   their programmatic, camelCase names.
-require('ts-node').register()
+require('ts-node').register();
+
+const defaultInputDir = join(__dirname, './input');
+const defaultOutputDir = join(__dirname, './output');
 
 // SharedStreets Source Maps
-const SourceMapCommands = require('./src/daos/SourceMapDao/cli/yargs_wrapper')
+const SourceMapCommands = require('./src/daos/SourceMapDao/cli/yargs_wrapper');
 
-const OsmCommands = require("./src/daos/OpenStreetMapDao/cli/yargs_wrapper")
-const NpmrdsCommands = require("./src/daos/NpmrdsDAO/cli/yarg_wrapper")
+const OsmCommands = require('./src/daos/OpenStreetMapDao/cli/yargs_wrapper');
+const NpmrdsCommands = require('./src/daos/NpmrdsDAO/cli/yarg_wrapper');
 const NysRisCommands = require('./src/daos/NysRisDAO/cli/yargs_wrapper');
-const ConflationMapCommands = require("./src/daos/ConflationMapDAO/cli")
+const ConflationMapCommands = require('./src/daos/ConflationMapDAO/cli');
 
-// GTFS
-// const raw_gtfs_into_sqlite = require("./src/pipeline_transforms/raw_gtfs_into_sqlite/yargs_wrapper");
-// const gtfs_as_geojson = require("./src/pipeline_transforms/gtfs_as_geojson/yargs_wrapper");
-// const gtfs_network = require("./src/pipeline_transforms/gtfs_network/yargs_wrapper");
-// const gtfs_osm_network = require("./src/pipeline_transforms/gtfs_osm_network/yargs_wrapper");
-// const scheduled_bus_traffic = require("./src/pipeline_transforms/scheduled_bus_traffic/yargs_wrapper");
-// const gtfs_conflation_map_join = require("./src/pipeline_transforms/gtfs_conflation_map_join/yargs_wrapper");
-// const gtfs_conflation_schedule_join = require("./src/pipeline_transforms/gtfs_conflation_schedule_join/yargs_wrapper");
-
-// const output = require("./src/pipeline_transforms/output/yargs_wrapper");
+const RawGtfsCommands = require('./src/daos/GtfsDAO/raw_gtfs_layer/cli/yargs_wrapper');
 
 const taskCommands = yargs
   .parserConfiguration({
-    "camel-case-expansion": false,
-    "flatten-duplicate-arrays": false,
+    'camel-case-expansion': false,
+    'flatten-duplicate-arrays': false,
   })
-  .option({
-    output_dir: {
-      type: "string",
-      desc:
-        "Path to the output directory. (Can be set using ENV variable AVL_GTFS_CONFLATION_OUTPUT_DIR.)",
-      default:
-        process.env.AVL_GTFS_CONFLATION_OUTPUT_DIR ||
-        join(process.cwd(), "output"),
-    },
-  })
-// .command(raw_gtfs_into_sqlite)
-// .command(gtfs_as_geojson)
-// .command(gtfs_network)
-// .command(gtfs_osm_network)
-// .command(scheduled_bus_traffic)
-// .command(gtfs_conflation_map_join)
-// .command(gtfs_conflation_schedule_join)
-// .command(output);
+  .epilogue(
+    `The default input directory ${defaultInputDir} can be overrode using the AVAIL_MAP_CONFLATION_INPUT_DIR env variable. The default output directory ${defaultOutputDir} can be overrode using the AVAIL_MAP_CONFLATION_OUTPUT_DIR env variable.`,
+  );
 
-Object.keys(OsmCommands).forEach(cmd => {
-  taskCommands.command(OsmCommands[cmd])
-})
+Object.keys(OsmCommands).forEach((cmd) => {
+  taskCommands.command(OsmCommands[cmd]);
+});
 
-Object.keys(SourceMapCommands).forEach(cmd => {
-  taskCommands.command(SourceMapCommands[cmd])
-})
+Object.keys(SourceMapCommands).forEach((cmd) => {
+  taskCommands.command(SourceMapCommands[cmd]);
+});
 
-Object.keys(NpmrdsCommands).forEach(cmd => {
-  taskCommands.command(NpmrdsCommands[cmd])
-})
+Object.keys(NpmrdsCommands).forEach((cmd) => {
+  taskCommands.command(NpmrdsCommands[cmd]);
+});
 
-Object.keys(NysRisCommands).forEach(cmd => {
-  taskCommands.command(NysRisCommands[cmd])
-})
+Object.keys(NysRisCommands).forEach((cmd) => {
+  taskCommands.command(NysRisCommands[cmd]);
+});
 
-Object.keys(ConflationMapCommands).forEach(cmd => {
-  taskCommands.command(ConflationMapCommands[cmd])
-})
+Object.keys(ConflationMapCommands).forEach((cmd) => {
+  taskCommands.command(ConflationMapCommands[cmd]);
+});
+
+Object.keys(RawGtfsCommands).forEach((cmd) => {
+  taskCommands.command(RawGtfsCommands[cmd]);
+});
 
 taskCommands
   .demandCommand()
