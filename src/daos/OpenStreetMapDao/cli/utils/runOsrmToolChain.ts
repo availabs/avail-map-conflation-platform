@@ -23,7 +23,7 @@ const osrmContract = join(osrmNodeModulesDir, 'lib/binding/osrm-contract');
 // const osrmPartition = join(osrmNodeModulesDir, 'lib/binding/osrm-partition');
 // const osrmCustomize = join(osrmNodeModulesDir, 'lib/binding/osrm-customize');
 
-const osrmCarProfile = join(osrmNodeModulesDir, 'profiles/car.lua');
+const osrmCarProfile = join(__dirname, './osrmProfiles/car.nys_ris.lua');
 
 const osrmDataDir = join(outputDirectory, 'osrm');
 
