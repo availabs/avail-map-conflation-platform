@@ -5,9 +5,13 @@ import { Database, Statement } from 'better-sqlite3';
 
 import db from '../../services/DbService';
 
-import { SOURCE_MAP } from '../../constants/databaseSchemaNames';
+import { SOURCE_MAP, OSM } from '../../constants/databaseSchemaNames';
 
 import { getGeometriesConcaveHull } from '../../utils/gis/hulls';
+
+import getShstReferencesForOsmNodeSequences from './utils/getShstReferencesForOsmNodeSequences';
+
+import { OsmNodeId } from '../OpenStreetMapDao/domain/types';
 
 import {
   SharedStreetsReferenceId,
@@ -27,17 +31,29 @@ class SourceMapDao {
     shstIntersectionsStmt?: Statement;
     allShstReferenceFeaturesStmt?: Statement;
     allShstReferenceFeaturesOverlappingPolygonStmt?: Statement;
+    allShstWaySectionNodeMetadataForOsmNodesSeqStmt?: Statement;
+    getShstGeomIdsStmt?: Statement;
   };
+
+  getShstReferencesForOsmNodeSequences: (
+    osmNodeIdsSequence: OsmNodeId[],
+  ) => SharedStreetsReferenceFeature[] | null;
 
   constructor() {
     this._dbReadConnection = null;
 
     this.preparedReadStatements = {};
+
+    // This is rather complicated. Better off decomposing into modules.
+    this.getShstReferencesForOsmNodeSequences = getShstReferencesForOsmNodeSequences.bind(
+      this,
+    );
   }
 
   get dbReadConnection(): Database {
     if (!this._dbReadConnection) {
       this._dbReadConnection = db.openConnectionToDb(SOURCE_MAP, null, 'shst');
+      db.attachDatabaseToConnection(this._dbReadConnection, OSM, null, 'osm');
     }
 
     return this._dbReadConnection;
