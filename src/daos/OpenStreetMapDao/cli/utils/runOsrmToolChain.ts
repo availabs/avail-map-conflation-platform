@@ -27,7 +27,7 @@ const osrmCarProfile = join(__dirname, './osrmProfiles/car.nys_ris.lua');
 
 const osrmDataDir = join(outputDirectory, 'osrm');
 
-export default function buildOsrmFiles() {
+export default function buildOsrmFiles(osrmProfile: string = osrmCarProfile) {
   const { osmPbfFilePath } = OsmDao;
 
   if (!existsSync(osmPbfFilePath)) {
@@ -44,7 +44,7 @@ export default function buildOsrmFiles() {
   execSync(
     `${osrmExtract} \
         osm.pbf \
-        -p ${osrmCarProfile}
+        -p ${osrmProfile}
     `,
     { cwd: osrmDataDir },
   );

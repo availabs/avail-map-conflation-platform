@@ -7,10 +7,10 @@ import {
 
 import {
   outputSqliteDir,
-  osmPbfFilePath,
   conflationInputMapsGpkgPath,
   conflationBlkbrdSnapshotsGpkgFsUtils,
   conflationBlkbrdDiffsGpkgFsUtils,
+  getOsmPbfFilePath,
 } from './utils/conflationSpatialPaths';
 
 import createAllConflationInputMapsGpkg from './utils/createAllConflationInputMapsGpkg';
@@ -21,7 +21,7 @@ export function createDevConflationInputMapsGpkg(overwrite: boolean = false) {
   createAllConflationInputMapsGpkg(
     conflationInputMapsGpkgPath,
     outputSqliteDir,
-    osmPbfFilePath,
+    getOsmPbfFilePath(),
     overwrite,
   );
 }

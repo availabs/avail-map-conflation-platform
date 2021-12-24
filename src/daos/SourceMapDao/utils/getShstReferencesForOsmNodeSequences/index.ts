@@ -12,6 +12,7 @@ import {
 } from '../../domain/types';
 
 function getSql(fName: string) {
+  console.log('getSql', fName);
   return readFileSync(join(__dirname, './sql/', fName), {
     encoding: 'utf8',
   });
@@ -71,6 +72,7 @@ function getShstReferencesStmt() {
 export default function getShstReferencesChainForOsmNodesSequence(
   osmNodeIdsSequence: number[],
 ): SharedStreetsReferenceFeature[] | null {
+  console.time('     getShstReferencesChainForOsmNodesSequence');
   type Response1Row = {
     shst_geometry_id: number;
     osm_metadata_way_section_idx: number;
@@ -189,15 +191,15 @@ export default function getShstReferencesChainForOsmNodesSequence(
 
   const queryPairs = _.uniqWith(
     // FIXME: Bring forward/backward back in.
-    // orderedOsmMetaMatches.reduce((acc, { shst_geometry_id, fwd, bwd }) => {
-    orderedOsmMetaMatches.reduce((acc, { shst_geometry_id }) => {
-      // if (fwd) {
-      acc.push({ geometryId: shst_geometry_id, isForward: true });
-      // }
+    orderedOsmMetaMatches.reduce((acc, { shst_geometry_id, fwd, bwd }) => {
+      // orderedOsmMetaMatches.reduce((acc, { shst_geometry_id }) => {
+      if (fwd) {
+        acc.push({ geometryId: shst_geometry_id, isForward: true });
+      }
 
-      // if (bwd) {
-      acc.push({ geometryId: shst_geometry_id, isForward: false });
-      // }
+      if (bwd) {
+        acc.push({ geometryId: shst_geometry_id, isForward: false });
+      }
 
       return acc;
     }, []),
@@ -210,5 +212,6 @@ export default function getShstReferencesChainForOsmNodesSequence(
     .all([JSON.stringify(queryPairs)])
     .map((f: string) => JSON.parse(f));
 
+  console.timeEnd('     getShstReferencesChainForOsmNodesSequence');
   return shstReferences;
 }

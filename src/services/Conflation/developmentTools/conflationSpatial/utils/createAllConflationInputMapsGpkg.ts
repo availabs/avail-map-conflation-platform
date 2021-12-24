@@ -15,7 +15,7 @@ enum GdalLogLevel {
   ON,
 }
 
-const gdalLogLevel: GdalLogLevel = GdalLogLevel.OFF;
+const gdalLogLevel: GdalLogLevel = GdalLogLevel.ON;
 
 // @ts-ignore
 const stdio = gdalLogLevel === GdalLogLevel.ON ? 'inherit' : 'ignore';

@@ -113,14 +113,14 @@ export async function getOsmMatchNodes(
       overview: 'false',
     });
 
-    console.log(JSON.stringify({ result }, null, 4));
+    // console.log(JSON.stringify({ result }, null, 4));
 
     const { matchings } = result;
 
     const allNodes: { confidence: number; legNodes: number[][] }[] = _.flatten(
       matchings
         .filter(({ confidence }) => {
-          console.error(JSON.stringify({ confidence }, null, 4));
+          // console.error(JSON.stringify({ confidence }, null, 4));
           return confidence >= confidenceGTE;
         })
         .map(({ confidence, legs }) => {

@@ -1,8 +1,16 @@
+--  TODO: To accomodate non-compliant GTFS feeds, PRIMARY KEYs were removed
+--        from the following tables:
+--          * stops
+--          * routes
+--          * stop_times
+--        We MUST inspect the code to determine whether duplicates would cause
+--        calculation/analysis errors.
+
 DROP TABLE IF EXISTS gtfs.agency ;
 
 CREATE TABLE gtfs.agency (
-  agency_id        TEXT PRIMARY KEY,
-  agency_name      TEXT,
+  agency_name      TEXT PRIMARY KEY,
+  agency_id        TEXT,
   agency_url       TEXT,
   agency_timezone  TEXT,
   agency_lang      TEXT,
@@ -15,7 +23,8 @@ CREATE TABLE gtfs.agency (
 DROP TABLE IF EXISTS gtfs.stops ;
 
 CREATE TABLE gtfs.stops (
-  stop_id              TEXT PRIMARY KEY,
+  -- stop_id              TEXT PRIMARY KEY,
+  stop_id              TEXT,
   stop_code            TEXT,
   stop_name            TEXT,
   stop_desc            TEXT,
@@ -26,13 +35,15 @@ CREATE TABLE gtfs.stops (
   location_type        INTEGER,
   stop_timezone        TEXT,
   wheelchair_boarding  INTEGER
-) WITHOUT ROWID ;
+--  ) WITHOUT ROWID ;
+);
 
 
 DROP TABLE IF EXISTS gtfs.routes ;
 
 CREATE TABLE gtfs.routes (
-  route_id          TEXT PRIMARY KEY,
+  --  route_id          TEXT PRIMARY KEY,
+  route_id          TEXT,
   agency_id         TEXT,
   route_short_name  TEXT,
   route_long_name   TEXT,
@@ -41,7 +52,8 @@ CREATE TABLE gtfs.routes (
   route_url         TEXT,
   route_color       TEXT,
   route_text_color  TEXT
-) WITHOUT ROWID ;
+--  ) WITHOUT ROWID ;
+) ;
 
 
 DROP TABLE IF EXISTS gtfs.trips ;
@@ -78,10 +90,11 @@ CREATE TABLE gtfs.stop_times (
   pickup_type          INTEGER,
   drop_off_type        INTEGER,
   shape_dist_traveled  REAL,
-  timepoint            INTEGER,
+  timepoint            INTEGER
 
-  PRIMARY KEY (trip_id, stop_sequence)
-) WITHOUT ROWID;
+  --  PRIMARY KEY (trip_id, stop_sequence)
+--  ) WITHOUT ROWID;
+) ;
 
 CREATE INDEX IF NOT EXISTS gtfs.stop_times_trip_id_stop_id_idx
   ON stop_times (trip_id, stop_id) ;
@@ -165,9 +178,11 @@ CREATE TABLE gtfs.frequencies (
 DROP TABLE IF EXISTS gtfs.transfers ;
 
 CREATE TABLE gtfs.transfers (
-  from_stop_id      TEXT NOT NULL,
-  to_stop_id        TEXT NOT NULL,
-  transfer_type     INTEGER NOT NULL CHECK (transfer_type IN (0, 1, 2, 3)),
+  -- NOTE According to GTFS spec, from/to_stop_ids and transfer_type are REQUIRED.
+  --   However, need to accomodate non-compliant feeds.
+  from_stop_id      TEXT,
+  to_stop_id        TEXT,
+  transfer_type     INTEGER CHECK (transfer_type IS NULL OR transfer_type IN (0, 1, 2, 3)),
   min_transfer_time INTEGER
 );
 

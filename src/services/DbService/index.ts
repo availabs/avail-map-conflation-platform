@@ -1,4 +1,4 @@
-import { existsSync, chmodSync } from 'fs';
+import { existsSync, chmodSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
 import { sync as mkdirpSync } from 'mkdirp';
@@ -29,15 +29,18 @@ const tmpSqliteDir = join(outputDirectory, 'tmp');
 
 mkdirpSync(tmpSqliteDir);
 
-const databaseFileExists = (
-  databaseSchemaName: DatabaseSchemaName,
-  databaseDirectory?: DatabaseDirectory | null,
-) => existsSync(join(databaseDirectory || sqliteDir, databaseSchemaName));
-
 const getDatabaseFilePathForSchemaName = (
   databaseSchemaName: string,
   databaseDirectory?: DatabaseDirectory | null,
 ) => join(databaseDirectory || sqliteDir, databaseSchemaName);
+
+const databaseFileExists = (
+  databaseSchemaName: DatabaseSchemaName,
+  databaseDirectory?: DatabaseDirectory | null,
+) =>
+  existsSync(
+    getDatabaseFilePathForSchemaName(databaseSchemaName, databaseDirectory),
+  );
 
 const attachDatabaseToConnection = (
   xdb: SqliteDatabase,
@@ -45,6 +48,10 @@ const attachDatabaseToConnection = (
   databaseDirectory: DatabaseDirectory | null = null,
   alias: string | null = null,
 ) => {
+  if (databaseDirectory) {
+    mkdirSync(databaseDirectory, { recursive: true });
+  }
+
   const databaseFilePath = getDatabaseFilePathForSchemaName(
     databaseSchemaName,
     databaseDirectory,
@@ -55,11 +62,8 @@ const attachDatabaseToConnection = (
   );
 };
 
-const detachDatabaseFromConnection = (
-  xdb: SqliteDatabase,
-  databaseSchemaName: DatabaseSchemaName | string,
-) => {
-  xdb.exec(`DETACH DATABASE '${databaseSchemaName}';`);
+const detachDatabaseFromConnection = (xdb: SqliteDatabase, alias: string) => {
+  xdb.exec(`DETACH DATABASE '${alias}';`);
 };
 
 /**
@@ -74,6 +78,10 @@ const openConnectionToDb = (
   // const xdb = new Database(IN_MEMORY, { verbose: console.log });
   const xdb = new Database(IN_MEMORY, config);
   xdb.pragma('foreign_keys=ON');
+
+  if (databaseDirectory) {
+    mkdirSync(databaseDirectory, { recursive: true });
+  }
 
   attachDatabaseToConnection(xdb, databaseSchemaName, databaseDirectory, alias);
 

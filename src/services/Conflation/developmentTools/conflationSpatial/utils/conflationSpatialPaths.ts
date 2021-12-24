@@ -9,8 +9,6 @@ import DiffsByTargetMapFsUtils from '../../utils/DiffsByTargetMapFsUtils';
 
 import OsmDao from '../../../../../daos/OpenStreetMapDao';
 
-export const { osmPbfFilePath } = OsmDao;
-
 export const outputSqliteDir = join(outputDirectory, 'sqlite');
 
 const conflationSpatialParentDir = join(
@@ -58,3 +56,7 @@ export const conflationBlkbrdDiffsGpkgFsUtils = new DiffsByTargetMapFsUtils({
   ext: 'gpkg',
   autoUpdateSymlinks: true,
 });
+
+export function getOsmPbfFilePath() {
+  return OsmDao.osmPbfFilePath;
+}

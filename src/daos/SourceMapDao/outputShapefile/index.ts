@@ -109,7 +109,8 @@ export default function outputShapefile({
   const iter = SourceMapDao.makeSharedStreetsReferenceFeaturesIterator();
 
   for (const shstReference of iter) {
-    const layerName = // 'shared_streets';
+    // const layerName = 'shared_streets';
+    const layerName =
       shstRoadClassEnumDecoder[shstReference.properties.minOsmRoadClass];
 
     const layer = getLayer(layerName);
