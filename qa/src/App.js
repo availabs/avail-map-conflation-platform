@@ -1,24 +1,42 @@
-import React from "react";
+import React from 'react';
 
-import AvlMap from "./AvlMap"
-// import TransitLayerFactory from './layers/TransitLayer'
-import qaLayerFactory from 'layer/npmrd-qs.layer'
+import {BrowserRouter as Router, Switch, Route} from 'react-router-dom';
+
+import qaLayerFactory from 'layer-new/npmrd-qa.layer';
+import AvlMap from './AvlMap';
+import TargetMapPathVicinityView from './views/TargetMapPathVicinityView'
+import ConflationAnalyisView from './views/ConflationAnalyisView'
 
 function App() {
-  const qaLayer = qaLayerFactory({active: true});
+  const qaLayer = qaLayerFactory({active: false});
+
   return (
-    <div style={{ height: "100vh" }}>
-      <AvlMap
-        layers={[qaLayer]}
-        dragPan={true}
-        styles={[{
-          name:'blank', 
-          style:'mapbox://styles/am3081/ckdsuik5w1b2x19n5d9lkow78'
-        }]}
-        sidebar={false}
-        header="Conflation QA"/>
+    <div style={{height: '100vh'}}>
+      <Router>
+        <Switch>
+          <Route exact path="/">
+            <AvlMap
+              layers={[qaLayer]}
+              dragPan={true}
+              styles={[
+                {
+                  name: 'blank',
+                  style: 'mapbox://styles/am3081/ckdsuik5w1b2x19n5d9lkow78',
+                },
+              ]}
+              sidebar={false}
+              header="Conflation QA"
+            />
+          </Route>
+          <Route exact path="/target-map-path-vicinity/:targetMapPathId">
+            <TargetMapPathVicinityView />
+          </Route>
+          <Route exact path="/conflation-analysis/:targetMap">
+            <ConflationAnalyisView />
+          </Route>
+        </Switch>
+      </Router>
     </div>
-    
   );
 }
 

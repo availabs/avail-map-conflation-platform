@@ -55,7 +55,7 @@ const logger = Winston.createLogger({
         Winston.format.json(),
         Winston.format.prettyPrint(),
       ),
-      level: 'warn',
+      level: 'error',
       prettyPrint: true,
       colorize: true,
       silent: false,
@@ -66,12 +66,16 @@ const logger = Winston.createLogger({
 
 // If nothing logged to the log file, delete it.
 process.on('exit', () => {
-  if (existsSync(filename)) {
-    const { size } = statSync(filename);
-    if (size === 0) {
-      unlinkSync(filename);
-      console.error('deleted empty logfile.');
+  try {
+    if (existsSync(filename)) {
+      const { size } = statSync(filename);
+      if (size === 0) {
+        unlinkSync(filename);
+        console.error('deleted empty logfile.');
+      }
     }
+  } catch (err) {
+    //
   }
 });
 

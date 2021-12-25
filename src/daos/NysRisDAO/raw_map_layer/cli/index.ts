@@ -1,18 +1,28 @@
 /* eslint-disable no-restricted-syntax, no-await-in-loop */
 
-import { dirname } from 'path';
 import { strict as assert } from 'assert';
 
 import * as turf from '@turf/turf';
 import _ from 'lodash';
-import gdal from 'gdal';
-import tar from 'tar';
+import gdal, { Dataset } from 'gdal';
+
+import TargetMapDAO from '../../../../utils/TargetMapDatabases/TargetMapDAO';
+
+import parseNysRisVersion from '../utils/parseNysRisVersion';
+
+import getExpectedNysRisVersionZipPath from './utils/getExpectedNysRisVersionZipPath';
+
+import { NysRoadInventorySystemFeature } from '../domain/types';
 
 import {
   loadNysRis,
   NysRoadInventorySystemGeodatabaseEntry,
   NysRoadInventorySystemGeodatabaseEntryIterator,
 } from '../loaders';
+
+import { NYS_RIS as SCHEMA } from '../../../../constants/databaseSchemaNames';
+
+gdal.verbose();
 
 const timerId = 'load nys ris';
 
@@ -24,9 +34,23 @@ const handleGdbEntry = (
 ): NysRoadInventorySystemGeodatabaseEntry | null => {
   const { fid } = feature;
   try {
-    const properties: any = _.mapKeys(feature.fields.toObject(), (_v, k) =>
-      k.toLowerCase(),
-    );
+    const properties: any = _.mapKeys(feature.fields.toObject(), (_v, k) => {
+      const p = k.replace(/_{2,}/g, '_').toLowerCase();
+
+      if (p === 'olap_hierarchy') {
+        return 'overlap_hierarchy';
+      }
+
+      if (p === 'ramp_dest_dot') {
+        return 'ramp_dest_dot_id';
+      }
+
+      if (p === 'percent_peak_combp') {
+        return 'percent_peak_combo';
+      }
+
+      return p;
+    });
 
     properties.fid = fid;
 
@@ -74,86 +98,64 @@ const handleGdbEntry = (
 
     return { properties, shape };
   } catch (err) {
-    console.error('NYS RIS FID:', fid);
-    console.error(err);
+    console.warn('Error loading NYS RIS FID:', fid, '---', err.message);
     return null;
   }
 };
 
+function getGdbDataset(nys_ris_version: string): Dataset {
+  const gdbZipPath = getExpectedNysRisVersionZipPath(nys_ris_version);
+
+  // $ ogrinfo \
+  //   -al -so -ro \
+  //   /vsizip/rensselaer-county_nys-ris-20200921.gdb.zip/rensselaer-county_nys-ris-20200921.gdb \
+  //   | head -1
+  //
+  //   INFO: Open of `/vsizip/rensselaer-county_nys-ris-20200921.gdb.zip/rensselaer-county_nys-ris-20200921.gdb'
+
+  const dataset = gdal.open(`/vsizip/${gdbZipPath}/${nys_ris_version}.gdb`);
+
+  return dataset;
+}
+
 function* makeNysRisGeodatabaseIterator(
-  nys_ris_geodatabase_tgz: string,
-  county: string | null = null,
+  dataset: Dataset,
 ): NysRoadInventorySystemGeodatabaseEntryIterator {
-  let gdbtableFile: null | string = null;
-
-  tar.list({
-    file: nys_ris_geodatabase_tgz,
-    sync: true,
-    onentry: (readEntry) => {
-      const { type, size, path } = readEntry;
-      // @ts-ignore
-      if (type === 'File' && size > 0 && path.match(/\.gdbtable/)) {
-        // @ts-ignore
-        gdbtableFile = path;
-      }
-    },
-  });
-
-  if (gdbtableFile === null) {
-    throw new Error(`No .gdbtable file found in ${nys_ris_geodatabase_tgz}.`);
-  }
-
-  const gdbtableFileDir =
-    dirname(gdbtableFile) === '.' ? '' : `/${dirname(gdbtableFile)}`;
-
-  gdal.verbose();
-
-  const dataset = gdal.open(
-    `/vsitar/${nys_ris_geodatabase_tgz}${gdbtableFileDir}`,
-  );
-
   const { features } = dataset.layers.get(0);
 
   let feature: null | gdal.Feature = null;
 
-  let n = 0;
-  let m = 0;
-
   // eslint-disable-next-line no-cond-assign
   while ((feature = features.next())) {
     const d = handleGdbEntry(feature);
-    ++n;
-
     if (d !== null) {
-      if (
-        county !== null &&
-        d.properties?.county_name?.toUpperCase() !== county.toUpperCase()
-      ) {
-        continue;
-      }
-
-      ++m;
       yield d;
     }
   }
-
-  if (county !== null) {
-    console.log(
-      `${county} matched ${m} of ${n} entries in the NYS RIS Geodatabase.`,
-    );
-  }
 }
 
-export default async ({ nys_ris_geodatabase_tgz, county }) => {
+export default async ({ nys_ris_version }) => {
   console.time(timerId);
 
   try {
-    const nysRisEntryIterator = makeNysRisGeodatabaseIterator(
-      nys_ris_geodatabase_tgz,
-      county?.toUpperCase(),
+    const { extractArea } = parseNysRisVersion(nys_ris_version);
+
+    const dataset = getGdbDataset(nys_ris_version);
+
+    const nysRisEntryIterator = makeNysRisGeodatabaseIterator(dataset);
+
+    await loadNysRis(nysRisEntryIterator);
+
+    const targetMapDao = new TargetMapDAO<NysRoadInventorySystemFeature>(
+      SCHEMA,
     );
 
-    loadNysRis(nysRisEntryIterator);
+    targetMapDao.targetMapIsCenterline = true;
+    targetMapDao.mapVersion = nys_ris_version;
+
+    if (extractArea) {
+      targetMapDao.mapExtractArea = extractArea;
+    }
   } catch (err) {
     console.error(err);
     process.exit(1);

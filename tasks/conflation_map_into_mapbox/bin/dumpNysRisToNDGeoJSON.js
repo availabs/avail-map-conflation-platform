@@ -41,7 +41,7 @@ const {
 
 db.setOutputDirectory(output_dir);
 
-const targetMapDao = new TargetMapDAO(null, SCHEMA);
+const targetMapDao = new TargetMapDAO(SCHEMA);
 
 const outputStream = createWriteStream(
   join(__dirname, '../derived_data/nys_ris_2019.ndjson'),

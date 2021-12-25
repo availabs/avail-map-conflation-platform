@@ -15,7 +15,7 @@ export const npmrd2019Source = {
 }
 
 export const ris2019Source = {
-    id: 'npmrd2019Source',
+    id: 'ris2019Source',
     source: {
         type: 'vector',
         url: 'https://tiles.availabs.org/data/nys_ris_2019.json'
@@ -184,7 +184,7 @@ export const npmrdsPaint = (NETWORK_LEVEL, WIDTH_MULT,OFFSET_MULT, COLOR) => ({
     [55, 65],
     0,
     [70, 80],
-    0,
+    2,
     [75, 85],
     0,
     1
@@ -206,7 +206,7 @@ export const npmrdsPaint = (NETWORK_LEVEL, WIDTH_MULT,OFFSET_MULT, COLOR) => ({
     [55, 65],
     0,
     [70, 80],
-    0,
+    2,
     [75, 85],
     0,
     1
@@ -228,7 +228,7 @@ export const npmrdsPaint = (NETWORK_LEVEL, WIDTH_MULT,OFFSET_MULT, COLOR) => ({
     [55, 65],
     1,
     [70, 80],
-    0.5,
+    2,
     [75, 85],
     0,
     1
@@ -248,11 +248,11 @@ export const npmrdsPaint = (NETWORK_LEVEL, WIDTH_MULT,OFFSET_MULT, COLOR) => ({
     [50, 60],
     8,
     [55, 65],
-    0,
-    [70, 80],
     1,
+    [70, 80],
+    2,
     [75, 85],
-    0,
+    2,
     1
   ]
 ]
@@ -277,6 +277,20 @@ export const npmrdsStyle =  {
   "type": "line",
   "source": "npmrd2019Source",
   "source-layer": "npmrds_2019",
+  beneath: 'road-label',
+  layout: {
+    'visibility': 'visible',
+    'line-join': 'bevel',
+    'line-cap': 'square'
+  },
+  paint: npmrdsPaint('f_system',w,o,'#6495ED')
+};
+
+export const risStyle =  {
+  "id": "nys_ris",
+  "type": "line",
+  "source": "ris2019Source",
+  "source-layer": "nys_ris_2019",
   beneath: 'road-label',
   layout: {
     'visibility': 'visible',

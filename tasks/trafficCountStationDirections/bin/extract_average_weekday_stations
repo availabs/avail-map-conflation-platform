@@ -1,0 +1,14 @@
+#!/bin/bash
+
+set -e
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null
+
+for f in ./highway_data_service_counts_scrape/average_weekday*; do
+  zcat "$f" |
+    awk -F, 'BEGIN{ OFS="," } NR>1{ print $1, $16, $19 }' |
+    sed 's/"//g; s/[[:space:]]*//g; /^$/d;'
+done |
+  sort -u
+
+popd >/dev/null

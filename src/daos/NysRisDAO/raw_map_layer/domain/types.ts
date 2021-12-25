@@ -1,6 +1,8 @@
 import * as turf from '@turf/turf';
 
-export type NysRisDirection = 1 | 2;
+export type NysRisVersion = string;
+
+export type NysRisDirection = 0 | 1 | 2;
 
 export interface NysRoadInventorySystemProperties {
   readonly fid: number;
@@ -110,7 +112,7 @@ export interface NysRoadInventorySystemProperties {
   // Transportation Program and Emergency Relief Program.  Consists of roadways
   // functionally classified other than Rural/Urban Local or Rural Minor
   // Collector.
-  readonly federal_aid_highway__stp_er_: string | null;
+  readonly federal_aid_highway_stp_er_: string | null;
 
   // National Highway System; a system of nationally significant roads as
   // designated by NYSDOT and the Federal Highway Administration (FHWA)
@@ -352,17 +354,9 @@ export interface NysRoadInventorySystemProperties {
 
   readonly yr_scored: number | null;
 
-  readonly ss_2007: string | null;
-  readonly ss_2008: string | null;
-  readonly ss_2009: string | null;
-  readonly ss_2010: string | null;
-  readonly ss_2011: string | null;
-  readonly ss_2012: string | null;
-  readonly ss_2013: string | null;
-  readonly ss_2014: string | null;
-  readonly ss_2015: string | null;
-  readonly ss_2016: string | null;
-  readonly ss_2017: string | null;
+  // NOTE: ss_<year> columns excluded because they vary across RIS GDBs
+  // readonly ss_2007?: string | null;
+
   readonly dom_distr: string | null;
 
   // Most recent International Roughness Index, a measure of pavement roughness
@@ -459,7 +453,7 @@ export interface NysRoadInventorySystemProperties {
 
   // The number of combination trucks (classes 8-13) in the high hour as a
   // percentage of the AADT
-  readonly percent_peak_combp: number | null;
+  readonly percent_peak_combo: number | null;
 
   // The number of single unit trucks (classes 4-7) in an average day of the year
   readonly aadt_single_unit: number | null;
@@ -477,5 +471,6 @@ export interface NysRoadInventorySystemProperties {
 
 export interface NysRoadInventorySystemFeature
   extends turf.Feature<turf.LineString | turf.MultiLineString> {
+  id: number;
   properties: NysRoadInventorySystemProperties;
 }

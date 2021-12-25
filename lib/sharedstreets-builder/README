@@ -1,0 +1,13 @@
+# SharedStreets Tileset Builder
+
+## sharedstreets-builder
+
+> The SharedStreets Builder application converts OpenStreetMap data
+> to SharedStreets protocol buffer tiles.
+
+[release](https://github.com/sharedstreets/sharedstreets-builder/releases/tag/0.3.2)
+
+## OSM Data Source
+
+NYS Region OSM data downloaded from
+  [geofabrik](http://download.geofabrik.de/north-america/us/new-york.html#)

@@ -1,0 +1,19 @@
+#!/bin/bash
+
+set -e
+
+pushd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null
+
+mkdir -p csv_schemas
+
+for f in ./highway_data_service_counts_scrape/short_count_vehicle_class*; do
+  zcat "$f" |
+    grep -E '^R' |
+    head -1 |
+    sed 's/"//g; s/[[:space:]]*//g; /^$/d;'
+done |
+  sort -u |
+  tr ',' '\n' |
+  nl -ba > ./csv_schemas/short_count_vehicle_class
+
+popd >/dev/null

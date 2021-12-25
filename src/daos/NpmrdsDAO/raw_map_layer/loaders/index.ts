@@ -156,7 +156,7 @@ const prepareNpmrdsShapefileInsertStmt = (
 ) =>
   xdb.prepare(
     `
-      INSERT INTO ${SCHEMA}.npmrds_shapefile(
+      INSERT OR IGNORE INTO ${SCHEMA}.npmrds_shapefile(
         ${npmrdsShapefileColumns}
       ) VALUES(${npmrdsShapefileColumns.map((c) =>
         c === 'feature' ? 'json(?)' : '?',
@@ -171,6 +171,16 @@ const prepareNpmrdsShapefileGeopolyInsertStmt = (xdb: Database) =>
         _shape,
         tmc
       ) VALUES (?, ?) ;
+    `,
+  );
+
+const prepareInsertFailedShapefileFeatureStmt = (xdb: Database) =>
+  xdb.prepare(
+    `
+      INSERT INTO ${SCHEMA}._qa_failed_npmrds_shapefile_inserts (
+        tmc,
+        feature
+      ) VALUES(?, json(?)) ;
     `,
   );
 
@@ -250,6 +260,10 @@ async function loadNpmrdsShapefile(
     xdb,
   );
 
+  const insertFailedShapefileFeature = prepareInsertFailedShapefileFeatureStmt(
+    xdb,
+  );
+
   const nonNullColumnsTracker = npmrdsShapefileColumns.reduce((acc, c) => {
     acc[c] = false;
     return acc;
@@ -278,7 +292,15 @@ async function loadNpmrdsShapefile(
 
     const values = npmrdsShapefileColumns.map(getValuesForCols);
 
-    npmrdsShapefileInsertStmt.run(values);
+    const { changes: success } = npmrdsShapefileInsertStmt.run(values);
+
+    if (!success) {
+      const { tmc } = feature.properties;
+
+      insertFailedShapefileFeature.run([tmc, JSON.stringify(feature)]);
+
+      continue;
+    }
 
     // Coordinates of the feature's bounding polygon.
     const polyCoords = getBufferPolygonCoords(feature);

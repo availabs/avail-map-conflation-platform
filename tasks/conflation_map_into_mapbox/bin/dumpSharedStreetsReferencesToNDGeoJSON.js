@@ -3,23 +3,18 @@
 /* eslint-disable no-restricted-syntax */
 
 /*
-  CREATE TABLE __SCHEMA__.shst_reference_forms_of_way
-    AS
-      SELECT
-          column1 AS element,
-          column2 as value
-        FROM (
-          VALUES
-            ('Undefined',            0),
-            ('Motorway',             1),
-            ('MultipleCarriageway',  2),
-            ('SingleCarriageway',    3),
-            ('Roundabout',           4),
-            ('TrafficSquare',        5),
-            ('SlipRoad',             6),
-            ('Other',                7)
-        )
-  ;
+  // https://github.com/sharedstreets/sharedstreets-types/blob/master/index.ts
+  export enum RoadClass {
+    Motorway = 0,
+    Trunk = 1,
+    Primary = 2,
+    Secondary = 3,
+    Tertiary = 4,
+    Residential = 5,
+    Unclassified = 6,
+    Service = 7,
+    Other = 8,
+  }
 */
 
 const { createWriteStream } = require('fs');
@@ -66,14 +61,14 @@ const iter = SourceMapDao.makeSharedStreetsReferenceFeaturesIterator();
 let id = 0;
 for (const shstRef of iter) {
   const {
-    properties: { shstReferenceId, formOfWay },
+    properties: { shstReferenceId, roadClass },
   } = shstRef;
 
   shstRef.id = id++;
 
   const properties = {
     s: shstReferenceId,
-    n: formOfWay ? formOfWay - 1 : 6,
+    n: roadClass ?? 6,
   };
 
   shstRef.properties = properties;

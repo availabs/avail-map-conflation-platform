@@ -1,19 +1,31 @@
 node_modules/
+data
 data/
 notes/
 cdta/
 cdta_outputs/
 output/
 npmrds_shp/
+logs/
 
 # https://stackoverflow.com/a/32262670/3970755
 *.bak
+*.bak.*
 *.bak[0-9]
 *.bak[0-9][0-9]
 
 *.tar.gz
 *.tar.xz
+*.tgz
 
 backups/
 
 test.js
+
+*.spec.js
+*.spec.ts
+
+*.geojson
+
+// Directories ending with timestamp
+*.[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]/

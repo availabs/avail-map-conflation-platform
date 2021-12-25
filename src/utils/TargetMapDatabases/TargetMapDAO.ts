@@ -1,11 +1,11 @@
 /* eslint-disable no-restricted-syntax, no-underscore-dangle */
 
-// Massive violation of single responsibility principle.
+// FIXME: Massive violation of single responsibility principle.
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-import { Statement } from 'better-sqlite3';
+import { Database, Statement } from 'better-sqlite3';
 import * as turf from '@turf/turf';
 import _ from 'lodash';
 
@@ -16,6 +16,7 @@ import db from '../../services/DbService';
 import getGeoProximityKey from '../getGeoProximityKey';
 
 import lineMerge from '../gis/lineMerge';
+import getBufferPolygonCoords from '../getBufferPolygonCoords';
 
 const ascendingNumberComparator = (a: number, b: number) => a - b;
 
@@ -23,58 +24,12 @@ const initializeTargetMapDatabaseTemplateSql = readFileSync(
   join(__dirname, './initialize_target_map_database.sql'),
 ).toString();
 
-export interface RawTargetMapFeatureFeature
+export type TargetMapSchema = string;
+
+export interface RawTargetMapFeature
   extends turf.Feature<turf.LineString | turf.MultiLineString> {
-  id: number;
-  properties: turf.Feature['properties'] & { lineartmc: string };
-  geometry: turf.LineString | turf.MultiLineString;
+  id: number | string;
 }
-
-export interface TargetMapEdgeFeature
-  extends turf.Feature<turf.LineString | turf.MultiLineString> {
-  id: number;
-  properties: turf.Feature['properties'] & { lineartmc: string };
-  geometry: turf.LineString | turf.MultiLineString;
-}
-
-// NOTE: This is a dupe of src/daos/SourceMapDao/domain/types.SharedStreetsMatchFeature
-export interface PreloadedSharedStreetsMatchFeature
-  extends turf.Feature<turf.LineString> {
-  properties: Record<string, any> & {
-    readonly shstReferenceId: string;
-    readonly shstGeometryId: string;
-    readonly shstFromIntersectionId: string;
-    readonly shstToIntersectionId: string;
-    readonly referenceLength: number;
-    readonly section: [number, number];
-    readonly gisReferenceId: string;
-    readonly gisGeometryId: string;
-    readonly gisTotalSegments: number;
-    readonly gisSegmentIndex: number;
-    readonly gisFromIntersectionId: string;
-    readonly gisToIntersectionId: string;
-    readonly startSideOfStreet: 'right' | 'left';
-    readonly endSideOfStreet: 'right' | 'left';
-    readonly sideOfStreet: 'right' | 'left' | 'unknown';
-    readonly score: number;
-    readonly matchType: 'string';
-  };
-  geometry: turf.LineString;
-}
-
-export interface SharedStreetsMatchFeature
-  extends PreloadedSharedStreetsMatchFeature {
-  id: number;
-}
-
-export type SharedStreetsMatchMetadata = {
-  shst_match_id: number;
-  shst_reference: string;
-  shst_ref_start: number;
-  shst_ref_end: number;
-};
-
-export type TargetMapEntityLabel = string;
 
 export type PreloadedTargetMapNode = {
   lon: number;
@@ -95,9 +50,21 @@ export type TargetMapId = number | string;
 export type PreloadedTargetMapEdge = {
   startCoord: Position;
   endCoord: Position;
-  properties: { targetMapId: TargetMapId } & Record<string, any>;
+  properties: Record<string, any> & {
+    targetMapId: TargetMapId;
+    targetMapEdgeLength: number;
+    isUnidirectional: boolean | 0 | 1;
+    roadName: string;
+    routeNumber: number;
+    networkLevel: number;
+    isPrimary: boolean;
+  };
   coordinates: [number, number][] | [number, number][][];
 };
+
+export type TargetMapPropertiesFromRawEdgeFn = (
+  feature: RawTargetMapFeature,
+) => TargetMapEdgeFeature['properties'];
 
 export type TargetMapEdge = {
   id: TargetMapEdgeId;
@@ -105,8 +72,21 @@ export type TargetMapEdge = {
   labels: TargetMapEntityLabel[];
 };
 
+export interface TargetMapEdgeFeature
+  extends turf.Feature<turf.LineString | turf.MultiLineString> {
+  id: TargetMapEdge['id'];
+  properties: TargetMapEdge['properties'];
+  geometry: turf.LineString | turf.MultiLineString;
+}
+export type TargetMapEntityLabel = string;
+
+export type TargetMapEdgesGeoproximityIterator = Generator<TargetMapEdgeFeature>;
+
 export type PreloadedTargetMapPath = {
-  properties?: Record<string, any>;
+  properties?: Record<string, any> & {
+    targetMapMesoId: string;
+    targetMapPathBearing: number | null;
+  };
   edgeIdSequence: TargetMapEdgeId[];
 };
 
@@ -114,9 +94,10 @@ export type TargetMapPathId = number;
 
 export type TargetMapPath = PreloadedTargetMapPath & {
   id: TargetMapPathId;
-  properties: Record<string, any>;
-  labels: TargetMapEntityLabel[];
+  // labels: TargetMapEntityLabel[];
 };
+
+export type TargetMapPathEdgeIdx = number;
 
 export type TargetMapPathEdgeFeature = TargetMapEdgeFeature & {
   properties: {
@@ -125,105 +106,208 @@ export type TargetMapPathEdgeFeature = TargetMapEdgeFeature & {
   };
 };
 
-export type TargetMapPathEdgeMatches = {
-  targetMapPathEdge: TargetMapPathEdgeFeature;
-  shstMatches: SharedStreetsMatchFeature[] | null;
+export type TargetMapPathEdgeFeatures = TargetMapPathEdgeFeature[];
+
+export type TargetMapMetadata = {
+  targetMapIsCenterline?: boolean;
 };
 
-export type TargetMapPathMatches = TargetMapPathEdgeMatches[];
-
-export interface TargetMapPathChosenMatchesMetadata {
-  pathLength: number;
-  chosenMatchesTotalLength: number;
-  numEdges: number;
-  numEdgesWithChosenMatches: number;
-  edgeMatchesLengthRatios: number[];
-}
-
-export type TargetMapPathEdgeChosenMatches =
-  | (SharedStreetsMatchFeature['id'] | null)[][]
-  | null;
-
-export type TargetMapPathMatchesIterator = Generator<{
-  targetMapPathId: TargetMapPathId;
-  targetMapPathMatches: TargetMapPathEdgeMatches[] | null;
-}>;
-
-export type TargetMapPathChosenMatches = {
-  targetMapPathId: TargetMapPathId;
-  chosenShstMatches: TargetMapPathEdgeChosenMatches[] | null;
-  chosenShstMatchesMetadata: TargetMapPathChosenMatchesMetadata | null;
-};
+export type QueryPolygon = turf.Feature<turf.Polygon>;
 
 const getEdgeIdsWhereClause = (n: number | null) =>
   n !== null && n > -1
     ? `WHERE ( edge_id IN (${new Array(n).fill('?')}) )`
     : '';
 
-export default class TargetMapDAO {
-  private readonly db: any;
+export default class TargetMapDAO<T extends RawTargetMapFeature> {
+  readonly targetMapSchema: TargetMapSchema;
 
-  private readonly schema: string | null;
+  private readonly dbReadConnection: Database;
 
-  private readonly preparedStatements: {
-    insertNodeStmt?: Statement;
-    insertEdgeStmt?: Statement;
-    insertPathStmt?: Statement;
+  private readonly dbWriteConnection: Database;
+
+  private readonly preparedReadStatements: {
+    targetMapDatabaseIsInitializedStmt?: Statement;
+    queryTargetMapMetadataStmt?: Statement;
+    tableIsCleanStmt?: Record<string, Statement>;
     allTargetMapPathIdsStmt?: Statement;
-    insertPathEdgeStmt?: Statement;
-    insertPathLabelStmt?: Statement;
     targetMapIdsForEdgeIdsStmts?: Record<number, Statement>;
     edgeIdsForTargetMapIdsStmts?: Record<number, Statement>;
     allPathsTraversingEdgesStmt?: Record<number, Statement>;
-    deleteAllPathsWithLabelStmt?: Statement;
+    prepareTargetMapPathEdgesStmt?: Statement;
     rawEdgeFeaturesStmt?: Statement;
     allRawEdgeFeaturesStmt?: Statement;
+    filteredRawEdgeFeaturesStmt?: Statement;
     groupedRawEdgeFeaturesStmt?: Record<number, Record<number, Statement>>;
-    targetMapEdgeFeaturesStmt?: Record<number, Statement>;
-    insertShstMatchStmt?: Statement;
-    insertPathShstMatchSegmentStmt?: Statement;
-    allShstMatchFeaturesStmt?: Statement;
-    shstMatchMetadataByTargetMapIdStmt?: Statement;
-    truncateMatchesTablesStmt?: Statement;
-    truncatePathMatchChainsTablesStmt?: Statement;
-    shstMatchesForPathStmt?: Record<number, Record<number, Statement>>;
-    insertPathChosenMatchesStmt?: Statement;
-    insertPathChosenMatchesMetadataStmt?: Statement;
-    truncatePathChosenMatchesStmt?: Statement;
-    truncateEdgeChosenMatchesStmt?: Statement;
-    insertOptimalTargetMapEdgeChosenMatchesStmt?: Statement;
-    targetMapEdgesChosenMatchesStmt?: Statement;
+    targetMapEdgeFeaturesStmt?: Statement;
+    targetMapEdgesOverlappingPolyStmt?: Statement;
   };
 
-  constructor(xdb?: any, schema?: string | null) {
-    this.db = xdb ?? db;
-    this.schema = schema || null;
+  private readonly preparedWriteStatements: {
+    updateTargetMapMetadata?: Statement;
+    truncateTableStatements?: Record<string, Statement>;
+    setTargetMapIsCenterlineStmt?: Statement;
+    insertNodeStmt?: Statement;
+    insertEdgeStmt?: Statement;
+    insertEdgeGeopolyStmt?: Statement;
+    insertPathStmt?: Statement;
+    insertPathEdgeStmt?: Statement;
+    insertPathLabelStmt?: Statement;
+    updatePathPropertiesStmt?: Statement;
+    deleteAllPathsWithLabelStmt?: Statement;
+  };
 
-    // Initialize the INSERT prepared statements.
-    this.preparedStatements = {};
+  constructor(targetMapSchema: TargetMapSchema) {
+    this.targetMapSchema = targetMapSchema;
+
+    this.dbReadConnection = db.openConnectionToDb(this.targetMapSchema);
+    this.dbWriteConnection = db.openConnectionToDb(this.targetMapSchema);
+
+    this.preparedReadStatements = {};
+    this.preparedWriteStatements = {};
+
+    if (!this.targetMapDatabaseIsInitialized) {
+      this.initializeTargetMapDatabase();
+    }
   }
 
-  private get schemaQualifier() {
-    return this.schema === null ? '' : `${this.schema}.`;
+  closeConnections() {
+    this.dbReadConnection.close();
+    this.dbWriteConnection.close();
+  }
+
+  private get targetMapDatabaseIsInitializedStmt(): Statement {
+    this.preparedReadStatements.targetMapDatabaseIsInitializedStmt =
+      this.preparedReadStatements.targetMapDatabaseIsInitializedStmt ||
+      this.dbReadConnection.prepare(
+        `
+          SELECT EXISTS (
+            SELECT 1
+              FROM ${this.targetMapSchema}.sqlite_master
+              WHERE (
+                ( type = 'table' )
+                AND
+                ( name = 'target_map_metadata' )
+              )
+          );
+        `,
+      );
+
+    // @ts-ignore
+    return this.preparedReadStatements.targetMapDatabaseIsInitializedStmt;
+  }
+
+  get targetMapDatabaseIsInitialized() {
+    return this.targetMapDatabaseIsInitializedStmt.raw().get()[0] === 1;
   }
 
   /**
    * WARNING: Drops all existing tables in the TargetMapDatabase.
    */
-  initializeTargetMapDatabase() {
+  private initializeTargetMapDatabase() {
     const sql = initializeTargetMapDatabaseTemplateSql.replace(
-      /__SCHEMA_QUALIFIER__/g,
-      this.schemaQualifier,
+      /__SCHEMA__/g,
+      this.targetMapSchema,
     );
 
-    this.db.exec(sql);
+    this.dbWriteConnection.exec(sql);
+  }
+
+  private get queryTargetMapMetadataStmt(): Statement {
+    if (!this.preparedReadStatements.queryTargetMapMetadataStmt) {
+      this.preparedReadStatements.queryTargetMapMetadataStmt = this.dbReadConnection.prepare(
+        `
+          SELECT
+              metadata
+            FROM ${this.targetMapSchema}.target_map_metadata ;
+        `,
+      );
+    }
+
+    // @ts-ignore
+    return this.preparedReadStatements.queryTargetMapMetadataStmt;
+  }
+
+  getMetadataProperty(key: string): any {
+    const targetMapMetadata = JSON.parse(
+      this.queryTargetMapMetadataStmt.raw().get()[0],
+    );
+
+    return targetMapMetadata[key] ?? null;
+  }
+
+  setMetadataProperty(key: string, value: any = null) {
+    this.updateTargetMapMetadataStmt.run([key, JSON.stringify(value)]);
+  }
+
+  get targetMapIsCenterline() {
+    return this.getMetadataProperty('targetMapIsCenterline');
+  }
+
+  set targetMapIsCenterline(targetMapIsCenterline: boolean) {
+    this.setMetadataProperty('targetMapIsCenterline', targetMapIsCenterline);
+  }
+
+  get mapYear() {
+    return this.getMetadataProperty('mapYear');
+  }
+
+  set mapYear(year: number) {
+    this.setMetadataProperty('mapYear', year);
+  }
+
+  get mapVersion() {
+    return this.getMetadataProperty('mapVersion');
+  }
+
+  set mapVersion(mapVersion: string) {
+    this.setMetadataProperty('mapVersion', mapVersion);
+  }
+
+  set mapExtractArea(mapExtractArea: string) {
+    this.setMetadataProperty('mapExtractArea', mapExtractArea);
+  }
+
+  get mapExtractArea() {
+    return this.getMetadataProperty('mapExtractArea');
+  }
+
+  // https://en.wikipedia.org/wiki/Eulerian_path
+  get targetMapPathsAreEulerian() {
+    const targetMapMetadata = JSON.parse(
+      this.queryTargetMapMetadataStmt.raw().get()[0],
+    );
+
+    return !!targetMapMetadata.targetMapPathsAreEulerian;
+  }
+
+  // Should be TRUE for NPMRDS & NYS_RIS, false for GTFS.
+  set targetMapPathsAreEulerian(targetMapPathsAreEulerian: boolean) {
+    this.updateTargetMapMetadataStmt.run([
+      'targetMapPathsAreEulerian',
+      JSON.stringify(targetMapPathsAreEulerian),
+    ]);
+  }
+
+  private get updateTargetMapMetadataStmt(): Statement {
+    if (!this.preparedWriteStatements.updateTargetMapMetadata) {
+      this.preparedWriteStatements.updateTargetMapMetadata = this.dbWriteConnection.prepare(
+        `
+          UPDATE ${this.targetMapSchema}.target_map_metadata
+            SET metadata = json_set(metadata, '$.' || ?, json(?))
+        `,
+      );
+    }
+
+    // @ts-ignore
+    return this.preparedWriteStatements.updateTargetMapMetadata;
   }
 
   private get insertNodeStmt(): Statement {
-    if (!this.preparedStatements.insertNodeStmt) {
-      this.preparedStatements.insertNodeStmt = this.db.prepare(
+    if (!this.preparedWriteStatements.insertNodeStmt) {
+      this.preparedWriteStatements.insertNodeStmt = this.dbWriteConnection.prepare(
         `
-          INSERT OR IGNORE INTO ${this.schemaQualifier}target_map_ppg_nodes (
+          INSERT OR IGNORE INTO ${this.targetMapSchema}.target_map_ppg_nodes (
             lon,
             lat,
             properties
@@ -233,7 +317,7 @@ export default class TargetMapDAO {
     }
 
     // @ts-ignore
-    return this.preparedStatements.insertNodeStmt;
+    return this.preparedWriteStatements.insertNodeStmt;
   }
 
   insertNode({
@@ -257,10 +341,10 @@ export default class TargetMapDAO {
   }
 
   private get insertEdgeStmt(): Statement {
-    if (!this.preparedStatements.insertEdgeStmt) {
-      this.preparedStatements.insertEdgeStmt = this.db.prepare(
+    if (!this.preparedWriteStatements.insertEdgeStmt) {
+      this.preparedWriteStatements.insertEdgeStmt = this.dbWriteConnection.prepare(
         `
-          INSERT INTO ${this.schemaQualifier}target_map_ppg_edges (
+          INSERT INTO ${this.targetMapSchema}.target_map_ppg_edges (
             from_node_id,
             to_node_id,
             geoprox_key,
@@ -273,8 +357,8 @@ export default class TargetMapDAO {
                 ? AS geoprox_key,
                 json(?) AS properties,
                 json(?) AS coordinates
-              FROM ${this.schemaQualifier}target_map_ppg_nodes AS a
-                CROSS JOIN ${this.schemaQualifier}target_map_ppg_nodes AS b
+              FROM ${this.targetMapSchema}.target_map_ppg_nodes AS a
+                CROSS JOIN ${this.targetMapSchema}.target_map_ppg_nodes AS b
               WHERE (
                 (
                   ( a.lon = ? )
@@ -292,7 +376,22 @@ export default class TargetMapDAO {
     }
 
     // @ts-ignore
-    return this.preparedStatements.insertEdgeStmt;
+    return this.preparedWriteStatements.insertEdgeStmt;
+  }
+
+  private get insertEdgeGeopolyStmt(): Statement {
+    if (!this.preparedWriteStatements.insertEdgeGeopolyStmt) {
+      this.preparedWriteStatements.insertEdgeGeopolyStmt = this.dbWriteConnection.prepare(
+        `
+          INSERT INTO ${this.targetMapSchema}.target_map_ppg_edges_geopoly_idx (
+            _shape,
+            edge_id
+          ) VALUES (json(?), ?) ;`,
+      );
+    }
+
+    // @ts-ignore
+    return this.preparedWriteStatements.insertEdgeGeopolyStmt;
   }
 
   insertEdge({
@@ -301,36 +400,70 @@ export default class TargetMapDAO {
     properties,
     coordinates,
   }: PreloadedTargetMapEdge): TargetMapEdgeId | null {
-    const geoproxKey = getGeoProximityKey(coordinates);
+    try {
+      const geoproxKey = getGeoProximityKey(coordinates);
 
-    const { changes, lastInsertRowid } = this.insertEdgeStmt.run([
-      geoproxKey,
-      JSON.stringify(properties),
-      JSON.stringify(coordinates),
-      startLon,
-      startLat,
-      endLon,
-      endLat,
-    ]);
+      const { changes, lastInsertRowid } = this.insertEdgeStmt.run([
+        geoproxKey,
+        JSON.stringify(properties),
+        JSON.stringify(coordinates),
+        startLon,
+        startLat,
+        endLon,
+        endLat,
+      ]);
 
-    if (changes === 0) {
-      return null;
+      if (changes === 0) {
+        return null;
+      }
+
+      const edgeId = +lastInsertRowid;
+
+      // Coordinates of the feature's bounding polygon.
+      // @ts-ignore
+      const feature = Array.isArray(coordinates?.[0]?.[0])
+        ? // @ts-ignore
+          turf.multiLineString(coordinates)
+        : // @ts-ignore
+          turf.lineString(coordinates);
+
+      const polyCoords = getBufferPolygonCoords(feature);
+
+      const geopolyShape = _.first(polyCoords);
+
+      this.insertEdgeGeopolyStmt.run([JSON.stringify(geopolyShape), edgeId]);
+
+      return edgeId;
+    } catch (err) {
+      console.error(
+        JSON.stringify(
+          {
+            startCoord: [startLon, startLat],
+            endCoord: [endLon, endLat],
+            properties,
+            coordinates,
+          },
+          null,
+          4,
+        ),
+      );
+      throw err;
     }
-
-    const edgeId = +lastInsertRowid;
-
-    return edgeId;
   }
 
-  private *makePreloadedTargetMapEdgesIterator(): Generator<
-    PreloadedTargetMapEdge
-  > {
+  // The rawEdgeIsUnidirectional function is called for each RawTargetMapFeature to determine
+  //   whether the Feature represents a uni-directional or bi-directional segment of road.
+  private *makePreloadedTargetMapEdgesIterator(
+    getTargetMapPropertiesFromRawEdge: (
+      feature: T,
+    ) => TargetMapEdgeFeature['properties'],
+  ): Generator<PreloadedTargetMapEdge> {
     const rawEdgesIter = this.makeRawEdgeFeaturesIterator();
 
     // Cannot do in database using SQL because we need to compute GeoProx keys
     //   The alternative it to iterate over the table while simultaneously mutating it.
     for (const feature of rawEdgesIter) {
-      const { id: targetMapId } = feature;
+      const properties = getTargetMapPropertiesFromRawEdge(feature);
 
       const mergedLineStrings = lineMerge(feature).sort(
         (a, b) => turf.length(b) - turf.length(a),
@@ -343,8 +476,6 @@ export default class TargetMapDAO {
       const [end_longitude, end_latitude] = longestLineStringCoords[
         longestLineStringCoords.length - 1
       ];
-
-      const properties = { targetMapId };
 
       const startCoord: turf.Position = [start_longitude, start_latitude];
       const endCoord: turf.Position = [end_longitude, end_latitude];
@@ -363,90 +494,96 @@ export default class TargetMapDAO {
     }
   }
 
-  // eslint-disable-next-line import/prefer-default-export
-  loadMicroLevel(initialize: boolean) {
-    const xdb = this.db.openLoadingConnectionToDb(this.schema);
-
-    // @ts-ignore
-    xdb.unsafeMode(true);
-
-    const xTargetMapDao = new TargetMapDAO(xdb, this.schema);
-
+  // The rawEdgeIsUnidirectional function is called for each RawTargetMapFeature to determine
+  //   whether the Feature represents a uni-directional or bi-directional segment of road.
+  loadMicroLevel(
+    clean: boolean = true,
+    getTargetMapPropertiesFromRawEdge: TargetMapPropertiesFromRawEdgeFn,
+  ) {
     try {
-      xdb.exec('BEGIN EXCLUSIVE;');
+      this.dbWriteConnection.exec('BEGIN;');
 
-      if (initialize) {
-        xTargetMapDao.initializeTargetMapDatabase();
+      if (clean) {
+        this.initializeTargetMapDatabase();
       }
 
-      const edgesIterator = xTargetMapDao.makePreloadedTargetMapEdgesIterator();
+      const edgesIterator = this.makePreloadedTargetMapEdgesIterator(
+        getTargetMapPropertiesFromRawEdge,
+      );
 
       for (const edge of edgesIterator) {
+        const feature = Array.isArray(edge.coordinates[0][0])
+          ? // @ts-ignore
+            turf.multiLineString(edge.coordinates)
+          : // @ts-ignore
+            turf.lineString(edge.coordinates);
+
+        edge.properties.targetMapEdgeLength = turf.length(feature);
+
         const {
           startCoord: [startLon, startLat],
           endCoord: [endLon, endLat],
         } = edge;
 
-        xTargetMapDao.insertNode({
+        this.insertNode({
           lon: startLon,
           lat: startLat,
           properties: null,
         });
 
-        xTargetMapDao.insertNode({
+        this.insertNode({
           lon: endLon,
           lat: endLat,
           properties: null,
         });
 
-        const edgeId = xTargetMapDao.insertEdge(edge);
-        console.log(edgeId);
+        this.insertEdge(edge);
       }
 
-      xdb.exec('COMMIT');
+      this.dbWriteConnection.exec('COMMIT');
     } catch (err) {
+      this.dbWriteConnection.exec('ROLLBACK;');
       console.error(err);
-      xdb.exec('ROLLBACK;');
       throw err;
-    } finally {
-      this.db.closeLoadingConnectionToDb(xdb);
     }
   }
 
   private get insertPathStmt(): Statement {
-    if (!this.preparedStatements.insertPathStmt) {
-      this.preparedStatements.insertPathStmt = this.db.prepare(
+    if (!this.preparedWriteStatements.insertPathStmt) {
+      this.preparedWriteStatements.insertPathStmt = this.dbWriteConnection.prepare(
         `
-          INSERT INTO ${this.schemaQualifier}target_map_ppg_paths (
+          INSERT INTO ${this.targetMapSchema}.target_map_ppg_paths (
               properties
             ) VALUES (json(?)) ;`,
       );
     }
 
     // @ts-ignore
-    return this.preparedStatements.insertPathStmt;
+    return this.preparedWriteStatements.insertPathStmt;
   }
 
   private get insertPathEdgeStmt(): Statement {
-    if (!this.preparedStatements.insertPathEdgeStmt) {
-      this.preparedStatements.insertPathEdgeStmt = this.db.prepare(
+    this.preparedWriteStatements.insertPathEdgeStmt =
+      this.preparedWriteStatements.insertPathEdgeStmt ||
+      this.dbWriteConnection.prepare(
         `
-          INSERT INTO ${this.schemaQualifier}target_map_ppg_path_edges (
+          INSERT INTO ${this.targetMapSchema}.target_map_ppg_path_edges (
             path_id,
             path_edge_idx,
             edge_id
           ) VALUES (?, ?, ?) ;`,
       );
-    }
 
     // @ts-ignore
-    return this.preparedStatements.insertPathEdgeStmt;
+    return this.preparedWriteStatements.insertPathEdgeStmt;
   }
 
   insertPath({
-    properties,
     edgeIdSequence,
+    properties,
   }: PreloadedTargetMapPath): TargetMapPathId | null {
+    this.dbWriteConnection.exec('SAVEPOINT insert_path;');
+
     const { changes, lastInsertRowid } = this.insertPathStmt.run([
       properties && JSON.stringify(properties),
     ]);
@@ -463,8 +600,14 @@ export default class TargetMapDAO {
 
         this.insertPathEdgeStmt.run([pathId, pathIdx, edgeId]);
       }
+
+      this.dbWriteConnection.exec('RELEASE SAVEPOINT insert_path;');
     } catch (err) {
-      console.log(JSON.stringify({ properties, edgeIdSequence }, null, 4));
+      this.dbWriteConnection.exec(
+        'ROLLBACK TRANSACTION TO SAVEPOINT insert_path;',
+      );
+
+      console.error(JSON.stringify({ properties, edgeIdSequence }, null, 4));
       throw err;
     }
 
@@ -472,10 +615,10 @@ export default class TargetMapDAO {
   }
 
   private get insertPathLabelStmt(): Statement {
-    if (!this.preparedStatements.insertPathLabelStmt) {
-      this.preparedStatements.insertPathLabelStmt = this.db.prepare(
+    if (!this.preparedWriteStatements.insertPathLabelStmt) {
+      this.preparedWriteStatements.insertPathLabelStmt = this.dbWriteConnection.prepare(
         `
-          INSERT OR IGNORE INTO ${this.schemaQualifier}target_map_ppg_path_labels (
+          INSERT OR IGNORE INTO ${this.targetMapSchema}.target_map_ppg_path_labels (
             path_id,
             label
           ) VALUES (?, ?) ;`,
@@ -483,7 +626,7 @@ export default class TargetMapDAO {
     }
 
     // @ts-ignore
-    return this.preparedStatements.insertPathLabelStmt;
+    return this.preparedWriteStatements.insertPathLabelStmt;
   }
 
   insertPathLabel({
@@ -496,40 +639,97 @@ export default class TargetMapDAO {
     this.insertPathLabelStmt.run([pathId, label]);
   }
 
-  private prepareTargetMapIdsForEdgeIdsStmt(numEdgeIds: number) {
-    this.preparedStatements.targetMapIdsForEdgeIdsStmts =
-      this.preparedStatements.targetMapIdsForEdgeIdsStmts || {};
+  private get updatePathPropertiesStmt(): Statement {
+    this.preparedWriteStatements.updatePathPropertiesStmt =
+      this.preparedWriteStatements.updatePathPropertiesStmt ||
+      this.dbWriteConnection.prepare(
+        `
+          UPDATE ${this.targetMapSchema}.target_map_ppg_paths
+            SET properties = json_set(properties, '$.' || ?, json(?))
+            WHERE ( path_id = ? )
+        `,
+      );
 
-    if (!this.preparedStatements.targetMapIdsForEdgeIdsStmts[numEdgeIds]) {
-      this.preparedStatements.targetMapIdsForEdgeIdsStmts[
+    // @ts-ignore
+    return this.preparedWriteStatements.updatePathPropertiesStmt;
+  }
+
+  updatePathProperties(pathId: number, key: string, value: any) {
+    this.updatePathPropertiesStmt.run([key, JSON.stringify(value), pathId]);
+  }
+
+  truncatePathTables() {
+    this.dbWriteConnection.exec(`
+      DELETE FROM ${this.targetMapSchema}.target_map_ppg_path_labels ;
+      DELETE FROM ${this.targetMapSchema}.target_map_ppg_path_edges ;
+      DELETE FROM ${this.targetMapSchema}.target_map_ppg_paths;
+    `);
+  }
+
+  bulkLoadPaths(
+    pathIterator: Generator<PreloadedTargetMapPath>,
+    pathLevel: string,
+    clean: boolean,
+  ) {
+    try {
+      this.dbWriteConnection.exec('BEGIN;');
+
+      if (clean) {
+        this.truncatePathTables();
+      }
+
+      for (const { edgeIdSequence, properties } of pathIterator) {
+        const pathId = this.insertPath({ edgeIdSequence, properties });
+
+        if (pathId !== null) {
+          this.insertPathLabel({
+            pathId,
+            label: pathLevel,
+          });
+        }
+      }
+
+      this.dbWriteConnection.exec('COMMIT;');
+    } catch (err) {
+      this.dbWriteConnection.exec('ROLLBACK;');
+      throw err;
+    }
+  }
+
+  private prepareTargetMapIdsForEdgeIdsStmt(numEdgeIds: number) {
+    this.preparedReadStatements.targetMapIdsForEdgeIdsStmts =
+      this.preparedReadStatements.targetMapIdsForEdgeIdsStmts || {};
+
+    if (!this.preparedReadStatements.targetMapIdsForEdgeIdsStmts[numEdgeIds]) {
+      this.preparedReadStatements.targetMapIdsForEdgeIdsStmts[
         numEdgeIds
-      ] = this.db.prepare(
+      ] = this.dbReadConnection.prepare(
         `
           SELECT
               edge_id,
               target_map_id
-            FROM ${this.schemaQualifier}target_map_ppg_edge_id_to_target_map_id
+            FROM ${this.targetMapSchema}.target_map_ppg_edge_id_to_target_map_id
             WHERE ( edge_id IN (${new Array(numEdgeIds).fill('?')}) ) ;
         `,
       );
     }
 
-    return this.preparedStatements.targetMapIdsForEdgeIdsStmts[numEdgeIds];
+    return this.preparedReadStatements.targetMapIdsForEdgeIdsStmts[numEdgeIds];
   }
 
   private get allTargetMapPathIdsStmt(): Statement {
-    if (!this.preparedStatements.allTargetMapPathIdsStmt) {
-      this.preparedStatements.allTargetMapPathIdsStmt = this.db.prepare(
+    if (!this.preparedReadStatements.allTargetMapPathIdsStmt) {
+      this.preparedReadStatements.allTargetMapPathIdsStmt = this.dbReadConnection.prepare(
         `
           SELECT
               path_id
-            FROM ${this.schemaQualifier}target_map_ppg_paths
+            FROM ${this.targetMapSchema}.target_map_ppg_paths
             ORDER BY 1 ;`,
       );
     }
 
     // @ts-ignore
-    return this.preparedStatements.allTargetMapPathIdsStmt;
+    return this.preparedReadStatements.allTargetMapPathIdsStmt;
   }
 
   *makeTargetMapPathIdsIterator(): Generator<TargetMapPathId> {
@@ -537,6 +737,50 @@ export default class TargetMapDAO {
 
     for (const [pathId] of iter) {
       yield pathId;
+    }
+  }
+
+  private get preparedTargetMapPathEdgesStmt(): Statement {
+    this.preparedReadStatements.prepareTargetMapPathEdgesStmt =
+      this.preparedReadStatements.prepareTargetMapPathEdgesStmt ||
+      this.dbReadConnection.prepare(
+        `
+          SELECT
+              path_edge_idx,
+              feature
+            FROM ${this.targetMapSchema}.target_map_ppg_path_edges
+              INNER JOIN ${this.targetMapSchema}.target_map_ppg_edge_line_features
+                USING (edge_id)
+            WHERE ( path_id = ? ) ;`,
+      );
+
+    return this.preparedReadStatements.prepareTargetMapPathEdgesStmt;
+  }
+
+  getMergedTargetMapPath(pathId: TargetMapPathId) {
+    const result = this.preparedTargetMapPathEdgesStmt.all([pathId]);
+
+    const coords = _(result)
+      .sortBy('path_edge_idx')
+      .map((r) => turf.getCoords(JSON.parse(r.feature)))
+      .flattenDeep()
+      .chunk(2)
+      .value();
+
+    const lineString = turf.lineString(
+      coords,
+      { targetMapPathId: pathId },
+      { id: pathId },
+    );
+
+    return lineString;
+  }
+
+  *makeMergedTargetMapPathIterator(): Generator<turf.Feature<turf.LineString>> {
+    const iter = this.allTargetMapPathIdsStmt.raw().iterate();
+
+    for (const [pathId] of iter) {
+      yield this.getMergedTargetMapPath(pathId);
     }
   }
 
@@ -561,24 +805,24 @@ export default class TargetMapDAO {
   }
 
   private prepareEdgeIdsForTargetMapIdsStmt(numIds: number) {
-    this.preparedStatements.edgeIdsForTargetMapIdsStmts =
-      this.preparedStatements.edgeIdsForTargetMapIdsStmts || {};
+    this.preparedReadStatements.edgeIdsForTargetMapIdsStmts =
+      this.preparedReadStatements.edgeIdsForTargetMapIdsStmts || {};
 
-    if (!this.preparedStatements.edgeIdsForTargetMapIdsStmts[numIds]) {
-      this.preparedStatements.edgeIdsForTargetMapIdsStmts[
+    if (!this.preparedReadStatements.edgeIdsForTargetMapIdsStmts[numIds]) {
+      this.preparedReadStatements.edgeIdsForTargetMapIdsStmts[
         numIds
-      ] = this.db.prepare(
+      ] = this.dbReadConnection.prepare(
         `
           SELECT
               edge_id,
               target_map_id
-            FROM ${this.schemaQualifier}target_map_ppg_edge_id_to_target_map_id
+            FROM ${this.targetMapSchema}.target_map_ppg_edge_id_to_target_map_id
             WHERE ( target_map_id IN (${new Array(numIds).fill('?')}) ) ;
         `,
       );
     }
 
-    return this.preparedStatements.edgeIdsForTargetMapIdsStmts[numIds];
+    return this.preparedReadStatements.edgeIdsForTargetMapIdsStmts[numIds];
   }
 
   transformTargetMapIdSequenceToEdgeIdSequence(
@@ -604,24 +848,24 @@ export default class TargetMapDAO {
   }
 
   private prepareAllPathsTraversingEdgesStmt(numEdgeIds: number) {
-    this.preparedStatements.allPathsTraversingEdgesStmt =
-      this.preparedStatements.allPathsTraversingEdgesStmt || {};
+    this.preparedReadStatements.allPathsTraversingEdgesStmt =
+      this.preparedReadStatements.allPathsTraversingEdgesStmt || {};
 
-    if (!this.preparedStatements.allPathsTraversingEdgesStmt[numEdgeIds]) {
+    if (!this.preparedReadStatements.allPathsTraversingEdgesStmt[numEdgeIds]) {
       const whereClause = getEdgeIdsWhereClause(numEdgeIds);
 
-      this.preparedStatements.allPathsTraversingEdgesStmt[
+      this.preparedReadStatements.allPathsTraversingEdgesStmt[
         numEdgeIds
-      ] = this.db.prepare(
+      ] = this.dbReadConnection.prepare(
         `
           SELECT
               json_group_array(DISTINCT path_id)
-            FROM ${this.schemaQualifier}target_map_ppg_path_edges
+            FROM ${this.targetMapSchema}.target_map_ppg_path_edges
             ${whereClause} ;`,
       );
     }
 
-    return this.preparedStatements.allPathsTraversingEdgesStmt[numEdgeIds];
+    return this.preparedReadStatements.allPathsTraversingEdgesStmt[numEdgeIds];
   }
 
   getAllPathsTraversingEdges(queryParams: {
@@ -641,22 +885,22 @@ export default class TargetMapDAO {
   }
 
   private get deleteAllPathsWithLabelStmt(): Statement {
-    if (!this.preparedStatements.deleteAllPathsWithLabelStmt) {
-      this.preparedStatements.deleteAllPathsWithLabelStmt = this.db.prepare(
+    if (!this.preparedWriteStatements.deleteAllPathsWithLabelStmt) {
+      this.preparedWriteStatements.deleteAllPathsWithLabelStmt = this.dbWriteConnection.prepare(
         `
           DELETE
-            FROM ${this.schemaQualifier}target_map_ppg_paths
+            FROM ${this.targetMapSchema}.target_map_ppg_paths
             WHERE path_id IN (
               SELECT
                   path_id
-                FROM ${this.schemaQualifier}target_map_ppg_path_labels
+                FROM ${this.targetMapSchema}.target_map_ppg_path_labels
                 WHERE ( label = ? )
             ) ; `,
       );
     }
 
     // @ts-ignore
-    return this.preparedStatements.deleteAllPathsWithLabelStmt;
+    return this.preparedWriteStatements.deleteAllPathsWithLabelStmt;
   }
 
   deleteAllPathsWithLabel(label: string): number {
@@ -668,11 +912,11 @@ export default class TargetMapDAO {
   }
 
   private get rawEdgeFeaturesStmt(): Statement {
-    if (!this.preparedStatements.rawEdgeFeaturesStmt) {
+    if (!this.preparedReadStatements.rawEdgeFeaturesStmt) {
       const sql = `
         SELECT
             feature
-          FROM ${this.schemaQualifier}raw_target_map_features
+          FROM ${this.targetMapSchema}.raw_target_map_features
           WHERE target_map_id IN (
             SELECT
                 value
@@ -683,16 +927,16 @@ export default class TargetMapDAO {
           ORDER BY target_map_id ;
       `;
 
-      this.preparedStatements.rawEdgeFeaturesStmt = this.db.prepare(sql);
+      this.preparedReadStatements.rawEdgeFeaturesStmt = this.dbReadConnection.prepare(
+        sql,
+      );
     }
 
     // @ts-ignore
-    return this.preparedStatements.rawEdgeFeaturesStmt;
+    return this.preparedReadStatements.rawEdgeFeaturesStmt;
   }
 
-  getRawEdgeFeatures(
-    targetMapIds: TargetMapId[],
-  ): RawTargetMapFeatureFeature[] {
+  getRawEdgeFeatures(targetMapIds: TargetMapId[]): RawTargetMapFeature[] {
     const features = this.rawEdgeFeaturesStmt
       .raw()
       .all([JSON.stringify(targetMapIds)])
@@ -702,24 +946,56 @@ export default class TargetMapDAO {
   }
 
   private get allRawEdgeFeaturesStmt(): Statement {
-    if (!this.preparedStatements.allRawEdgeFeaturesStmt) {
+    if (!this.preparedReadStatements.allRawEdgeFeaturesStmt) {
       const sql = `
         SELECT
             feature
-          FROM ${this.schemaQualifier}raw_target_map_features
+          FROM ${this.targetMapSchema}.raw_target_map_features
           ORDER BY target_map_id;
       `;
 
-      this.preparedStatements.allRawEdgeFeaturesStmt = this.db.prepare(sql);
+      this.preparedReadStatements.allRawEdgeFeaturesStmt = this.dbReadConnection.prepare(
+        sql,
+      );
     }
 
     // @ts-ignore
-    return this.preparedStatements.allRawEdgeFeaturesStmt;
+    return this.preparedReadStatements.allRawEdgeFeaturesStmt;
   }
 
   // Can be wrapped to create induced subgraph iterators.
-  *makeRawEdgeFeaturesIterator(): Generator<RawTargetMapFeatureFeature> {
+  *makeRawEdgeFeaturesIterator(): Generator<T> {
     const iter = this.allRawEdgeFeaturesStmt.raw().iterate();
+
+    for (const [f] of iter) {
+      const feature = JSON.parse(f);
+
+      yield feature;
+    }
+  }
+
+  private get filteredRawEdgeFeaturesStmt(): Statement {
+    this.preparedReadStatements.filteredRawEdgeFeaturesStmt =
+      this.preparedReadStatements.filteredRawEdgeFeaturesStmt ||
+      this.dbReadConnection.prepare(
+        `
+          SELECT
+              feature
+            FROM ${this.targetMapSchema}.raw_target_map_features
+            WHERE ( json_extract(feature, '$.properties.' || ?) = ? )
+            ORDER BY target_map_id;
+        `,
+      );
+
+    return this.preparedReadStatements.filteredRawEdgeFeaturesStmt;
+  }
+
+  // Can be wrapped to create induced subgraph iterators.
+  *makeFilteredRawEdgeFeaturesIterator(
+    key: string,
+    value: string | number,
+  ): Generator<T> {
+    const iter = this.filteredRawEdgeFeaturesStmt.raw().iterate([key, value]);
 
     for (const [f] of iter) {
       const feature = JSON.parse(f);
@@ -735,13 +1011,15 @@ export default class TargetMapDAO {
     // eslint-disable-next-line no-param-reassign
     numIds = numIds === null ? -1 : numIds;
 
-    this.preparedStatements.groupedRawEdgeFeaturesStmt =
-      this.preparedStatements.groupedRawEdgeFeaturesStmt || {};
+    this.preparedReadStatements.groupedRawEdgeFeaturesStmt =
+      this.preparedReadStatements.groupedRawEdgeFeaturesStmt || {};
 
-    this.preparedStatements.groupedRawEdgeFeaturesStmt[numProps] =
-      this.preparedStatements.groupedRawEdgeFeaturesStmt[numProps] || {};
+    this.preparedReadStatements.groupedRawEdgeFeaturesStmt[numProps] =
+      this.preparedReadStatements.groupedRawEdgeFeaturesStmt[numProps] || {};
 
-    if (!this.preparedStatements.groupedRawEdgeFeaturesStmt[numProps][numIds]) {
+    if (
+      !this.preparedReadStatements.groupedRawEdgeFeaturesStmt[numProps][numIds]
+    ) {
       const groupPropsSelectClauses = _.range(0, numProps)
         .map(
           (i) =>
@@ -760,19 +1038,21 @@ export default class TargetMapDAO {
             json_group_array(
               json(feature)
             ) AS stringified_features_arr
-          FROM ${this.schemaQualifier}raw_target_map_features
+          FROM ${this.targetMapSchema}.raw_target_map_features
           ${whereClause}
           GROUP BY ${groupBySeq}
           ORDER BY ${groupBySeq} ;
       `;
 
-      this.preparedStatements.groupedRawEdgeFeaturesStmt[numProps][
+      this.preparedReadStatements.groupedRawEdgeFeaturesStmt[numProps][
         numIds
-      ] = this.db.prepare(sql);
+      ] = this.dbReadConnection.prepare(sql);
     }
 
     // @ts-ignore
-    return this.preparedStatements.groupedRawEdgeFeaturesStmt[numProps][numIds];
+    return this.preparedReadStatements.groupedRawEdgeFeaturesStmt[numProps][
+      numIds
+    ];
   }
 
   // Can be wrapped to create induced subgraph iterators.
@@ -781,7 +1061,7 @@ export default class TargetMapDAO {
     groupByRawProperties: { 0: string } & Array<string>;
   }): Generator<
     Record<string, any> & {
-      features: RawTargetMapFeatureFeature[];
+      features: RawTargetMapFeature[];
     }
   > {
     const { targetMapIds = null, groupByRawProperties } = queryParams;
@@ -815,552 +1095,129 @@ export default class TargetMapDAO {
     }
   }
 
-  private prepareTargetMapEdgeFeaturesStmt(
-    numEdgeIds: number | null,
-  ): Statement {
-    // eslint-disable-next-line no-param-reassign
-    numEdgeIds = numEdgeIds === null ? -1 : numEdgeIds;
-
-    this.preparedStatements.targetMapEdgeFeaturesStmt =
-      this.preparedStatements.targetMapEdgeFeaturesStmt || {};
-
-    if (!this.preparedStatements.targetMapEdgeFeaturesStmt[numEdgeIds]) {
-      const whereClause = getEdgeIdsWhereClause(numEdgeIds);
-
-      this.preparedStatements.targetMapEdgeFeaturesStmt[
-        numEdgeIds
-      ] = this.db.prepare(
+  get targetMapEdgeFeaturesStmt(): Statement {
+    if (!this.preparedReadStatements.targetMapEdgeFeaturesStmt) {
+      this.preparedReadStatements.targetMapEdgeFeaturesStmt = this.dbReadConnection.prepare(
         `
+          WITH cte_specified_edge_ids(edge_ids_arr) AS (
+            SELECT json(?) AS edge_ids_arr
+          ), cte_specified_geopoly(bounding_geopoly) AS (
+            SELECT json(?) AS bounding_geopoly
+          )
           SELECT
               feature
-            FROM ${this.schemaQualifier}target_map_ppg_edge_line_features
-            ${whereClause}
-            ORDER BY geoprox_key; `,
-      );
-    }
-
-    return this.preparedStatements.targetMapEdgeFeaturesStmt[numEdgeIds];
-  }
-
-  *makeTargetMapEdgeFeaturesIterator(queryParams?: {
-    edgeIds: TargetMapEdgeId[];
-  }): Generator<TargetMapEdgeFeature> {
-    const { edgeIds = null } = queryParams || {};
-
-    const iterQuery = this.prepareTargetMapEdgeFeaturesStmt(
-      edgeIds && edgeIds.length,
-    );
-
-    const iter: IterableIterator<string> =
-      edgeIds === null
-        ? iterQuery.raw().iterate()
-        : iterQuery.raw().iterate(edgeIds);
-
-    for (const [featureStr] of iter) {
-      const feature = JSON.parse(featureStr);
-
-      yield feature;
-    }
-  }
-
-  private get insertShstMatchStmt(): Statement {
-    if (!this.preparedStatements.insertShstMatchStmt) {
-      this.preparedStatements.insertShstMatchStmt = this.db.prepare(
-        `
-          INSERT OR IGNORE INTO ${this.schemaQualifier}target_map_edges_shst_matches (
-            edge_id,
-            shst_reference,
-            section_start,
-            section_end,
-            feature_len_km,
-            feature
-          ) VALUES (?, ?, ?, ?, ?, json(?)) ; `,
-      );
-    }
-
-    // @ts-ignore
-    return this.preparedStatements.insertShstMatchStmt;
-  }
-
-  insertShstMatch(
-    shstMatchFeature: PreloadedSharedStreetsMatchFeature,
-  ): SharedStreetsMatchFeature['id'] | null {
-    const {
-      properties: {
-        shstReferenceId,
-        section: [section_start, section_end],
-        pp_id: edgeId,
-      },
-    } = shstMatchFeature;
-
-    const featureLenKm = _.round(turf.length(shstMatchFeature), 6);
-
-    const { changes, lastInsertRowid } = this.insertShstMatchStmt.run([
-      `${edgeId}`,
-      `${shstReferenceId}`,
-      `${section_start}`,
-      `${section_end}`,
-      `${featureLenKm}`,
-      `${JSON.stringify(shstMatchFeature)}`,
-    ]);
-
-    if (changes === 0) {
-      return null;
-    }
-
-    const shstMatchId = +lastInsertRowid;
-
-    return shstMatchId;
-  }
-
-  private get allShstMatchFeaturesStmt(): Statement {
-    if (!this.preparedStatements.allShstMatchFeaturesStmt) {
-      this.preparedStatements.allShstMatchFeaturesStmt = this.db.prepare(
-        `
-          SELECT
-              json_set(
-                feature,
-                '$.id',
-                shst_match_id
-              ) as shst_match_feature
-            FROM ${this.schemaQualifier}target_map_edges_shst_matches ;`,
-      );
-    }
-
-    // @ts-ignore
-    return this.preparedStatements.allShstMatchFeaturesStmt;
-  }
-
-  *makeAllShstMatchesIterator(): Generator<
-    turf.Feature<turf.LineString | turf.MultiLineString>
-  > {
-    const iter = this.allShstMatchFeaturesStmt.raw().iterate();
-
-    for (const [featureStr] of iter) {
-      const feature = JSON.parse(featureStr);
-
-      yield feature;
-    }
-  }
-
-  private get shstMatchMetadataByTargetMapIdStmt(): Statement {
-    if (!this.preparedStatements.shstMatchMetadataByTargetMapIdStmt) {
-      this.preparedStatements.shstMatchMetadataByTargetMapIdStmt = this.db.prepare(
-        `
-          SELECT
-              target_map_id,
-              json_group_array(
-                json_object(
-                  'shst_match_id',
-                  shst_match_id,
-                  'shst_reference',
-                  shst_reference,
-                  'shst_ref_start',
-                  section_start,
-                  'shst_ref_end',
-                  section_end
-                )
-              ) as shst_matches_metadata
-            FROM ${this.schemaQualifier}target_map_edges_shst_matches
-              INNER JOIN ${this.schemaQualifier}target_map_ppg_edge_id_to_target_map_id
-                USING (edge_id)
-            GROUP BY target_map_id
-          ;`,
-      );
-    }
-
-    // @ts-ignore
-    return this.preparedStatements.shstMatchMetadataByTargetMapIdStmt;
-  }
-
-  *makeShstMatchMetadataByTargetMapIdIterator(): Generator<{
-    targetMapId: RawTargetMapFeatureFeature['id'];
-    shstMatchesMetadata: SharedStreetsMatchMetadata[];
-  }> {
-    const iter = this.shstMatchMetadataByTargetMapIdStmt.raw().iterate();
-
-    for (const [targetMapId, shstMatchesMetadataStr] of iter) {
-      const shstMatchesMetadata = JSON.parse(shstMatchesMetadataStr);
-
-      yield { targetMapId, shstMatchesMetadata };
-    }
-  }
-
-  private get truncateMatchesTablesStmt(): Statement {
-    if (!this.preparedStatements.truncateMatchesTablesStmt) {
-      this.preparedStatements.truncateMatchesTablesStmt = this.db.prepare(
-        `DELETE FROM ${this.schemaQualifier}target_map_edges_shst_matches;`,
-      );
-    }
-
-    // @ts-ignore
-    return this.preparedStatements.truncateMatchesTablesStmt;
-  }
-
-  truncateMatchesTables() {
-    this.truncateMatchesTablesStmt.run();
-  }
-
-  private get shstMatchesForPathStmt(): Statement {
-    if (!this.preparedStatements.shstMatchesForPathStmt) {
-      // TODO TODO TODO This belongs in a VIEW
-      this.preparedStatements.shstMatchesForPathStmt = this.db.prepare(
-        `
-          SELECT
-              -- An array of {targetMapEdge, shstMatches}, for each path
-              json_group_array(
-                json_object(
-                  'targetMapPathEdge',
-                  json_set(
-                    ppg_edges.feature,
-                    '$.properties.targetMapPathId',
-                    path_id,
-                    '$.properties.targetMapPathIdx',
-                    path_edge_idx
-                  ),
-
-                  'shstMatches',
-                  NULLIF(
-                    json(shst_matches),
-                    json('[null]')
+            FROM ${this.targetMapSchema}.target_map_ppg_edge_line_features
+            WHERE (
+              ( -- No filtering specified, return all.
+                ( SELECT json(edge_ids_arr) = json('null') FROM cte_specified_edge_ids )
+                AND
+                ( SELECT bounding_geopoly = 'null' FROM cte_specified_geopoly )
+              )
+              OR
+              ( -- UNION of the edgeList and the edges overlapping the specified geopoly
+                ( -- EdgeId in the specified list
+                  edge_id IN (
+                    SELECT
+                        value AS edge_id
+                      FROM cte_specified_edge_ids, json_each(edge_ids_arr)
                   )
                 )
-              ) AS unorderedPathWithMatches
-            FROM (
-                SELECT
-                    path_id,
-                    path_edge_idx,
-                    edge_id,
-                    -- For each Edge, an array of all the ShstMatches
-                    json_group_array(
-                      -- Set the DB generated ID as the feature ID.
-                      json_set(
-                        matches.feature,
-                        '$.id',
-                        matches.shst_match_id
-                      )
-                    ) AS shst_matches
-                  FROM ${this.schemaQualifier}target_map_ppg_path_edges AS ppg_paths
-                    LEFT OUTER JOIN ${this.schemaQualifier}target_map_edges_shst_matches AS matches
-                      USING (edge_id)
-                  GROUP BY path_id, path_edge_idx, edge_id
-              ) AS agg_path_matches
-                INNER JOIN ${this.schemaQualifier}target_map_ppg_edge_line_features AS ppg_edges
-                  USING (edge_id)
-            WHERE (path_id = ?)
-          ;
-        `,
-      );
-    }
-
-    // @ts-ignore
-    return this.preparedStatements.shstMatchesForPathStmt;
-  }
-
-  *makeTargetMapPathMatchesIterator(queryParams?: {
-    pathIds: TargetMapPathId[];
-  }): TargetMapPathMatchesIterator {
-    const pathIdsIter =
-      queryParams?.pathIds ?? this.makeTargetMapPathIdsIterator();
-
-    for (const targetMapPathId of pathIdsIter) {
-      // We get the matches on-demand so that the chooser can insert matches as needed.
-      //  EG: Match mutations or gap-filling "matches"
-      const unorderedTargetMapEdgeMatchesStr = this.shstMatchesForPathStmt
-        .raw()
-        .get([targetMapPathId]);
-
-      if (!unorderedTargetMapEdgeMatchesStr) {
-        yield { targetMapPathId, targetMapPathMatches: null };
-        continue;
-      }
-
-      // Guaranteed to be grouped by path_id, however
-      //  the order of the edges along the path is not guaranteed.
-      const unorderedTargetMapEdgeMatches: TargetMapPathEdgeMatches[] = JSON.parse(
-        unorderedTargetMapEdgeMatchesStr,
-      );
-
-      const pathEdgeIdxPath = [
-        'targetMapPathEdge',
-        'properties',
-        'targetMapPathIdx',
-      ];
-
-      // Sort by the path edges topologically.
-      const orderedTargetMapEdgeMatches = unorderedTargetMapEdgeMatches.sort(
-        (a, b) => _.get(a, pathEdgeIdxPath) - _.get(b, pathEdgeIdxPath),
-      );
-
-      const targetMapPathMatches = orderedTargetMapEdgeMatches.map((e) =>
-        _.omit(e, 'path_id'),
-      );
-
-      yield { targetMapPathId, targetMapPathMatches };
-    }
-  }
-
-  private get insertPathChosenMatchesMetadataStmt() {
-    if (!this.preparedStatements.insertPathChosenMatchesMetadataStmt) {
-      this.preparedStatements.insertPathChosenMatchesMetadataStmt = this.db.prepare(
-        `
-          INSERT INTO ${this.schemaQualifier}target_map_paths_shst_match_chains_metadata (
-            path_id,
-            metadata
-          ) VALUES(?, json(?)) ; `,
-      );
-    }
-
-    // @ts-ignore
-    return this.preparedStatements.insertPathChosenMatchesMetadataStmt;
-  }
-
-  private get insertPathChosenMatchesStmt() {
-    if (!this.preparedStatements.insertPathChosenMatchesStmt) {
-      this.preparedStatements.insertPathChosenMatchesStmt = this.db.prepare(
-        `
-          INSERT INTO ${this.schemaQualifier}target_map_paths_shst_match_chains (
-            path_id,
-            path_edge_idx,
-            edge_chain_idx,
-            edge_chain_link_idx,
-            shst_match_id
-          ) VALUES(?, ?, ?, ?, ?) ; `,
-      );
-    }
-
-    // @ts-ignore
-    return this.preparedStatements.insertPathChosenMatchesStmt;
-  }
-
-  insertPathChosenMatches(
-    targetMapPathChosenMatches: TargetMapPathChosenMatches,
-  ) {
-    console.log(JSON.stringify({ targetMapPathChosenMatches }, null, 4));
-
-    const {
-      targetMapPathId,
-      chosenShstMatches,
-      chosenShstMatchesMetadata,
-    } = targetMapPathChosenMatches;
-
-    if (chosenShstMatches === null) {
-      return;
-    }
-
-    this.insertPathChosenMatchesMetadataStmt?.run([
-      targetMapPathId,
-      JSON.stringify(chosenShstMatchesMetadata),
-    ]);
-
-    // TODO: All of this should be moved into the
-    //       TargetMapDAO.insertTargetMapPathChosenMatches method
-    for (
-      let pathEdgeIdx = 0;
-      pathEdgeIdx < chosenShstMatches.length;
-      ++pathEdgeIdx
-    ) {
-      const pathEdgeChosenMatches = chosenShstMatches[pathEdgeIdx];
-
-      // FIXME: Why is pathEdgeChosenMatches sometimes undefined?
-      //        For targetMapPathId 319, using the debugger to inspect the array,
-      //          the last pathEdgeChosenMatch is NULL. It is undefined in
-      //          for loop condition below.
-      if (
-        pathEdgeChosenMatches === null ||
-        pathEdgeChosenMatches === undefined
-      ) {
-        continue;
-      }
-
-      for (
-        let edgeChainIdx = 0;
-        edgeChainIdx < pathEdgeChosenMatches.length;
-        ++edgeChainIdx
-      ) {
-        const pathEdgeChosenMatchesChain = pathEdgeChosenMatches[edgeChainIdx];
-
-        if (pathEdgeChosenMatchesChain === null) {
-          continue;
-        }
-
-        for (
-          let edgeChainLinkIdx = 0;
-          edgeChainLinkIdx < pathEdgeChosenMatchesChain.length;
-          ++edgeChainLinkIdx
-        ) {
-          const shstMatchId = pathEdgeChosenMatchesChain[edgeChainLinkIdx];
-
-          if (shstMatchId !== null) {
-            this.insertPathChosenMatchesStmt?.run([
-              targetMapPathId,
-              pathEdgeIdx,
-              edgeChainIdx,
-              edgeChainLinkIdx,
-              shstMatchId,
-            ]);
-          }
-        }
-      }
-    }
-  }
-
-  private get truncatePathChosenMatchesStmt() {
-    if (!this.preparedStatements.truncatePathChosenMatchesStmt) {
-      this.preparedStatements.truncatePathChosenMatchesStmt = this.db.prepare(
-        `
-          DELETE FROM ${this.schemaQualifier}target_map_paths_shst_match_chains_metadata ;
-        `,
-      );
-    }
-
-    // @ts-ignore
-    return this.preparedStatements.truncatePathChosenMatchesStmt;
-  }
-
-  truncatePathChosenMatches() {
-    this.truncatePathChosenMatchesStmt?.run();
-  }
-
-  private get truncateEdgeChosenMatchesStmt() {
-    if (!this.preparedStatements.truncateEdgeChosenMatchesStmt) {
-      this.preparedStatements.truncateEdgeChosenMatchesStmt = this.db.prepare(
-        `
-          DELETE FROM ${this.schemaQualifier}target_map_paths_edge_optimal_matches ;
-        `,
-      );
-    }
-
-    // @ts-ignore
-    return this.preparedStatements.truncateEdgeChosenMatchesStmt;
-  }
-
-  private get insertOptimalTargetMapEdgeChosenMatchesStmt() {
-    if (!this.preparedStatements.insertOptimalTargetMapEdgeChosenMatchesStmt) {
-      this.preparedStatements.insertOptimalTargetMapEdgeChosenMatchesStmt = this.db.prepare(
-        `
-          INSERT INTO ${this.schemaQualifier}target_map_paths_edge_optimal_matches
-            SELECT
-                path_id,
-                path_edge_idx,
-                edge_chain_idx,
-                edge_chain_link_idx
-              FROM (
-                SELECT
-                    path_id,
-                    path_edge_idx,
-                    row_number() OVER (
-                      PARTITION BY edge_id
-                      ORDER BY chosen_matches_err
-                    ) AS chosen_edge_match_rank
-                  FROM (
-                    -- Edges are many-to-may with Paths.
-                    -- Matches are chosen for Paths
-                    -- Here, we find the Path chosen matches
-                    --   for a Path Edge that best fits that Edge
-                    --   across all the Paths to which that Edge is a member.
+                OR
+                ( -- Edges overlap the Polygon
+                  edge_id IN (
                     SELECT
-                        path_id,
-                        path_edge_idx,
-                        MAX(
-                          ( 1 - edge_matches_length_ratio ),
-                          ( edge_matches_length_ratio - 1 )
-                        ) AS chosen_matches_err
-                      FROM target_map_paths_shst_match_chains
-                        INNER JOIN (
-                          SELECT
-                              path_id,
-                              key AS path_edge_idx,
-                              value AS edge_matches_length_ratio
-                            FROM target_map_paths_shst_match_chains_metadata,
-                              json_each(metadata, '$.edgeMatchesLengthRatios')
-                        ) USING (path_id, path_edge_idx)
-                  ) AS sub_ranked_match_choices_for_edges
-                    INNER JOIN target_map_ppg_path_edges
-                      USING (path_id, path_edge_idx)
+                        edge_id
+                      FROM ${this.targetMapSchema}.target_map_ppg_edges_geopoly_idx
+                      WHERE geopoly_overlap(
+                        _shape,
+                        ( SELECT bounding_geopoly FROM cte_specified_geopoly )
+                      )
+                  )
                 )
-                INNER JOIN target_map_paths_shst_match_chains
-                  USING (path_id, path_edge_idx)
-              WHERE ( chosen_edge_match_rank = 1 ) ; `,
+              )
+            )
+            ORDER BY geoprox_key;
+        `,
       );
     }
 
     // @ts-ignore
-    return this.preparedStatements.insertOptimalTargetMapEdgeChosenMatchesStmt;
+    return this.preparedReadStatements.targetMapEdgeFeaturesStmt;
   }
 
-  populateTargetMapEdgeChosenMatches() {
-    this.truncateEdgeChosenMatchesStmt?.run();
+  *makeTargetMapEdgesGeoproximityIterator(queryParams?: {
+    edgeIds?: TargetMapEdgeId[] | null;
+    boundingPolygon?: QueryPolygon | null;
+  }): TargetMapEdgesGeoproximityIterator {
+    const { edgeIds = null, boundingPolygon = null } = queryParams || {};
 
-    this.insertOptimalTargetMapEdgeChosenMatchesStmt?.run();
+    const specifiedGeoPoly =
+      boundingPolygon && turf.getCoords(boundingPolygon)[0];
+
+    const iterQuery = this.targetMapEdgeFeaturesStmt;
+
+    const iter: IterableIterator<string> = iterQuery
+      .raw()
+      .iterate([JSON.stringify(edgeIds), JSON.stringify(specifiedGeoPoly)]);
+
+    for (const [featureStr] of iter) {
+      const feature = JSON.parse(featureStr);
+
+      yield feature;
+    }
   }
 
-  get targetMapEdgesChosenMatchesStmt() {
-    if (!this.preparedStatements.targetMapEdgesChosenMatchesStmt) {
-      this.preparedStatements.targetMapEdgesChosenMatchesStmt = this.db.prepare(
+  private get targetMapEdgesOverlappingPolyStmt(): Statement {
+    if (!this.preparedReadStatements.targetMapEdgesOverlappingPolyStmt) {
+      // TODO TODO TODO This belongs in a VIEW
+      this.preparedReadStatements.targetMapEdgesOverlappingPolyStmt = this.dbReadConnection.prepare(
         `
           SELECT
-              edge_id,
-              target_map_id,
-              json_group_array(
-                json_object(
-                  'edgeChainIdx',
-                  edge_chain_idx,
-                  'edgeChainLinkIdx',
-                  edge_chain_link_idx,
-                  'shstMatchId',
-                  shst_match_id,
-                  'shstMatchFeature',
-                  json(feature)
-                )
-              ) AS chosenMatches
-            FROM ${this.schemaQualifier}target_map_edge_chosen_matches
-              INNER JOIN ${this.schemaQualifier}target_map_ppg_edge_id_to_target_map_id
-                USING (edge_id)
-            GROUP BY edge_id, target_map_id
+              edge_features.feature AS targetMapPathEdge
+            FROM ${this.targetMapSchema}.target_map_ppg_edge_line_features AS edge_features
+              INNER JOIN (
+                SELECT
+                    edge_id
+                  FROM ${this.targetMapSchema}.target_map_ppg_edges_geopoly_idx
+                  WHERE geopoly_overlap(_shape, ?) -- GeoPoly Coords is 1st bound param.
+              ) USING (edge_id)
+            WHERE (
+              edge_id NOT IN (
+                SELECT
+                    value AS edge_id
+                  FROM (
+                    SELECT json(?) AS target_map_id_arr -- Excluded TargetMapEdgeIds is 2nd bound params.
+                  ) AS t, json_each(t.target_map_id_arr)
+              )
+            ) ;
         `,
       );
     }
 
     // @ts-ignore
-    return this.preparedStatements.targetMapEdgesChosenMatchesStmt;
+    return this.preparedReadStatements.targetMapEdgesOverlappingPolyStmt;
   }
 
-  *makeTargetMapEdgesChosenMatchesIterator() {
-    const iter = this.targetMapEdgesChosenMatchesStmt?.raw().iterate();
+  getTargetMapEdgesOverlappingPoly(
+    boundingPolyCoords: number[][],
+    queryParams: { excludedTargetMapEdges?: number[] },
+  ): TargetMapEdge[] {
+    const { excludedTargetMapEdges } = queryParams || {};
 
-    // @ts-ignore
-    for (const [edgeId, targetMapId, chosenMatchesStr] of iter) {
-      const chosenMatches = _(JSON.parse(chosenMatchesStr))
-        .sortBy(['edgeChainIdx', 'edgeChainLinkIdx'])
-        .map(
-          ({
-            edgeChainIdx,
-            edgeChainLinkIdx,
-            shstMatchId,
-            shstMatchFeature,
-          }) => {
-            Object.assign(shstMatchFeature.properties, {
-              shstMatchId,
-              targetMapEdgeChainIdx: edgeChainIdx,
-              targetMapEdgeChainLinkIdx: edgeChainLinkIdx,
-            });
+    const excluded = _.isEmpty(excludedTargetMapEdges)
+      ? []
+      : excludedTargetMapEdges;
 
-            return shstMatchFeature;
-          },
-        )
-        .value();
+    const targetMapEdges = this.targetMapEdgesOverlappingPolyStmt
+      .raw()
+      .all([JSON.stringify(boundingPolyCoords[0]), JSON.stringify(excluded)])
+      .map(([targetMapPathEdgeStr]) => JSON.parse(targetMapPathEdgeStr));
 
-      const chosenMatchesFeatureCollection = turf.featureCollection(
-        chosenMatches,
-      );
-
-      yield { edgeId, targetMapId, chosenMatchesFeatureCollection };
-    }
+    return targetMapEdges;
   }
 
   vacuumDatabase() {
-    const schema = this.schema || '';
-    this.db.exec(`VACUUM ${schema};`);
+    const targetMapSchema = this.targetMapSchema || '';
+    this.dbWriteConnection.exec(`VACUUM ${targetMapSchema};`);
   }
 }

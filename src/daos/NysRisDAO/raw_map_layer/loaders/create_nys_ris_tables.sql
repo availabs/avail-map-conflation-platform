@@ -1,6 +1,8 @@
-DROP TABLE IF EXISTS __SCHEMA__.nys_ris;
+DROP TABLE IF EXISTS nys_ris.ris_segment_federal_directions ;
+DROP TABLE IF EXISTS nys_ris.nys_traffic_counts_station_year_directions ;
+DROP TABLE IF EXISTS nys_ris.roadway_inventory_system;
 
-CREATE TABLE __SCHEMA__.nys_ris (
+CREATE TABLE nys_ris.roadway_inventory_system (
   fid                           INTEGER PRIMARY KEY,
   region                        INTEGER NOT NULL,
   gis_id                        INTEGER NOT NULL,
@@ -98,17 +100,9 @@ CREATE TABLE __SCHEMA__.nys_ris (
   work_yr                       INTEGER,
   work_type                     TEXT,
   yr_scored                     INTEGER,
-  ss_2007                       TEXT,
-  ss_2008                       TEXT,
-  ss_2009                       TEXT,
-  ss_2010                       TEXT,
-  ss_2011                       TEXT,
-  ss_2012                       TEXT,
-  ss_2013                       TEXT,
-  ss_2014                       TEXT,
-  ss_2015                       TEXT,
-  ss_2016                       TEXT,
-  ss_2017                       TEXT,
+
+  -- ss_<year> fields excluded added because the names vary across RIS version
+
   dom_distr                     TEXT,
   iri                           INTEGER,
   iri_year                      INTEGER,
@@ -149,46 +143,108 @@ CREATE TABLE __SCHEMA__.nys_ris (
   CHECK(json_valid(feature) OR feature IS NULL),
 
   CHECK (beg_mp < end_mp),
-  CHECK (direction = 1 OR direction = 2),
-  CHECK (functional_class IN (1, 2, 4, 6, 7, 8, 9, 11, 12, 14, 16, 17, 18, 19))
+  CHECK (direction BETWEEN 0 AND 2),
+  CHECK (functional_class BETWEEN 1 AND 19)
 ) WITHOUT ROWID;
 
-DROP INDEX IF EXISTS __SCHEMA__.nys_ris_roadname_idx ;
+DROP INDEX IF EXISTS nys_ris.nys_ris_roadname_idx ;
 
-CREATE INDEX __SCHEMA__.nys_ris_roadname_idx
-  ON nys_ris (road_name) ;
+CREATE INDEX nys_ris.nys_ris_roadname_idx
+  ON roadway_inventory_system (road_name) ;
 
-DROP INDEX IF EXISTS __SCHEMA__.nys_ris_begin_description_idx ;
+DROP INDEX IF EXISTS nys_ris.nys_ris_begin_description_idx ;
 
-CREATE INDEX __SCHEMA__.nys_ris_begin_description_idx
-  ON nys_ris (begin_description) ;
+CREATE INDEX nys_ris.nys_ris_begin_description_idx
+  ON roadway_inventory_system (begin_description) ;
 
-DROP INDEX IF EXISTS __SCHEMA__.nys_ris_end_description_idx ;
+DROP INDEX IF EXISTS nys_ris.nys_ris_end_description_idx ;
 
-CREATE INDEX __SCHEMA__.nys_ris_end_description_idx
-  ON nys_ris (end_description) ;
+CREATE INDEX nys_ris.nys_ris_end_description_idx
+  ON roadway_inventory_system (end_description) ;
 
 -- Create a spatial index on the geometry
-DROP TABLE IF EXISTS __SCHEMA__.nys_ris_geopoly_idx;
+DROP TABLE IF EXISTS nys_ris.nys_ris_geopoly_idx;
 
-CREATE VIRTUAL TABLE __SCHEMA__.nys_ris_geopoly_idx
+CREATE VIRTUAL TABLE nys_ris.nys_ris_geopoly_idx
   USING geopoly(fid) ;
 
-DROP TABLE IF EXISTS __SCHEMA__._qa_nys_ris_entries_without_geometries ;
+DROP TABLE IF EXISTS nys_ris._qa_nys_ris_entries_without_geometries ;
 
-CREATE TABLE __SCHEMA__._qa_nys_ris_entries_without_geometries (
+CREATE TABLE nys_ris._qa_nys_ris_entries_without_geometries (
   fid         INTEGER PRIMARY KEY,
   properties  TEXT NOT NULL,
 
   CHECK (json_valid(properties))
 ) WITHOUT ROWID;
 
-DROP VIEW IF EXISTS raw_target_map_features ;
+DROP TABLE IF EXISTS nys_ris._qa_failed_roadway_inventory_system_inserts ;
 
-CREATE VIEW __SCHEMA__.raw_target_map_features
+CREATE TABLE nys_ris._qa_failed_roadway_inventory_system_inserts (
+  fid       INTEGER PRIMARY KEY,
+  gis_id    INTEGER,
+  beg_mp    REAL,
+  end_mp    REAL,
+  feature   TEXT NOT NULL
+) WITHOUT ROWID;
+
+DROP TABLE IF EXISTS nys_ris.fhwa_direction_of_travel_code_descriptions ;
+
+CREATE TABLE nys_ris.fhwa_direction_of_travel_code_descriptions (
+  federal_direction  INTEGER PRIMARY KEY,
+  description        TEXT NOT NULL
+) WITHOUT ROWID;
+
+INSERT INTO nys_ris.fhwa_direction_of_travel_code_descriptions (
+  federal_direction,
+  description
+) VALUES
+  ( 1 , 'North'),
+  ( 2 , 'Northeast'),
+  ( 3 , 'East'),
+  ( 4 , 'Southeast'),
+  ( 5 , 'South'),
+  ( 6 , 'Southwest'),
+  ( 7 , 'West'),
+  ( 8 , 'Northwest')
+;
+
+CREATE TABLE nys_ris.nys_traffic_counts_station_year_directions (
+  rc_station         TEXT,
+  year               INTEGER,
+  federal_direction  INTEGER,
+
+  PRIMARY KEY (rc_station, year, federal_direction),
+
+  FOREIGN KEY(federal_direction)
+    REFERENCES fhwa_direction_of_travel_code_descriptions(federal_direction)
+) WITHOUT ROWID ;
+
+CREATE TABLE nys_ris.ris_segment_federal_directions (
+  fid                 INTEGER PRIMARY KEY,
+  rc_station          TEXT,
+  traffic_count_year  INTEGER,
+  federal_directions  TEXT, -- JSON
+
+  FOREIGN KEY(fid) REFERENCES roadway_inventory_system(fid)
+) WITHOUT ROWID;
+
+-- Should be created by the load traffic_count_station_year_directions.
+--   Creating a dummy here for the view below.
+CREATE TABLE IF NOT EXISTS nys_ris.ris_segment_federal_directions (
+  fid                 INTEGER PRIMARY KEY,
+  rc_station          TEXT,
+  traffic_count_year  INTEGER,
+  federal_directions  TEXT, -- JSON
+
+  FOREIGN KEY(fid) REFERENCES roadway_inventory_system(fid)
+) WITHOUT ROWID;
+
+DROP VIEW IF EXISTS nys_ris.raw_target_map_features ;
+
+CREATE VIEW nys_ris.raw_target_map_features
   AS
     SELECT
-        fid AS target_map_id,
+        ( gis_id || ':' || beg_mp ) AS target_map_id,
         json_set(
           json_set(
             json(feature),
@@ -197,6 +253,8 @@ CREATE VIEW __SCHEMA__.raw_target_map_features
             json_patch(
               json_patch(
                 json_object(
+                  '_route_id_',                    ( gis_id || ':' || county_name ),
+
                   'fid',                           fid,
                   'region',                        region,
                   'gis_id',                        gis_id,
@@ -299,18 +357,7 @@ CREATE VIEW __SCHEMA__.raw_target_map_features
                   'crack_seal_yr',                 crack_seal_yr,
                   'work_yr',                       work_yr,
                   'work_type',                     work_type,
-                  'yr_scored',                     yr_scored,
-                  'ss_2007',                       ss_2007,
-                  'ss_2008',                       ss_2008,
-                  'ss_2009',                       ss_2009,
-                  'ss_2010',                       ss_2010,
-                  'ss_2011',                       ss_2011,
-                  'ss_2012',                       ss_2012,
-                  'ss_2013',                       ss_2013,
-                  'ss_2014',                       ss_2014,
-                  'ss_2015',                       ss_2015,
-                  'ss_2016',                       ss_2016,
-                  'ss_2017',                       ss_2017
+                  'yr_scored',                     yr_scored
                 ),
                 json_object(
                   'dom_distr',                     dom_distr,
@@ -344,14 +391,19 @@ CREATE VIEW __SCHEMA__.raw_target_map_features
                   'aadt_single_unit',              aadt_single_unit,
                   'aadt_combo',                    aadt_combo,
                   'pavement_layer',                pavement_layer,
-                  'shape_length',                  shape_length
+                  'shape_length',                  shape_length,
+                  'tds_rc_station',                tds.rc_station,
+                  'tds_traffic_count_year',        tds.traffic_count_year,
+                  'tds_federal_directions',        json(tds.federal_directions)
                 )
               )
             )
           ),
           '$.id',
-          fid
+          ( gis_id || ':' || beg_mp )
         ) as feature
-    FROM nys_ris
+    FROM roadway_inventory_system
+      LEFT OUTER JOIN ris_segment_federal_directions AS tds
+        USING (fid)
     WHERE ( feature IS NOT NULL )
 ;

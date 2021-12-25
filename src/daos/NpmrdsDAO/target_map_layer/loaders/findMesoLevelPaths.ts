@@ -105,6 +105,12 @@ export default function findMesoLevelPaths(
     }),
   );
 
+  // Creates a minimal splice where there was a multiedges.
+  //   The minimal splice includes only the adjacent edges to the multiedge.
+  //   We are simply trying to get connectivity for the TMPath.
+  //     While having the entire paths may help deductions if the
+  //       adjacent TMPEdges include False matches, for now we keep things simple.
+  //   TODO: Consider cloning the entire path for each splice.
   const splices = needToSpice.reduce((acc: string[][], [i, j, tmcs]) => {
     const tmcPath = tmcPaths[i];
 

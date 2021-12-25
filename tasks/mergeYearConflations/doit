@@ -1,0 +1,8 @@
+#!/bin/bash
+
+tile-join --no-tile-size-limit --rename-layer major:2016_major --rename-layer local:2016_local --rename-layer paths:2016_paths -o conflation_map.2016-renamed.mbtiles conflation_map.2016.mbtiles
+tile-join --no-tile-size-limit --rename-layer major:2017_major --rename-layer local:2017_local --rename-layer paths:2017_paths -o conflation_map.2017-renamed.mbtiles conflation_map.2017.mbtiles
+tile-join --no-tile-size-limit --rename-layer major:2018_major --rename-layer local:2018_local --rename-layer paths:2018_paths -o conflation_map.2018-renamed.mbtiles conflation_map.2018.mbtiles
+tile-join --no-tile-size-limit --rename-layer major:2019_major --rename-layer local:2019_local --rename-layer paths:2019_paths -o conflation_map.2019-renamed.mbtiles conflation_map.2019.mbtiles
+tile-join --no-tile-size-limit --rename-layer major:2020_major --rename-layer local:2020_local --rename-layer paths:2020_paths -o conflation_map.2020-renamed.mbtiles conflation_map.2020.mbtiles
+tile-join --no-tile-size-limit -o conflation_map.0_6_0.mbtiles conflation_map.2016-renamed.mbtiles conflation_map.2017-renamed.mbtiles conflation_map.2018-renamed.mbtiles conflation_map.2019-renamed.mbtiles conflation_map.2020-renamed.mbtiles 

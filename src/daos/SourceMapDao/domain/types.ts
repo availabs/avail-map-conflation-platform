@@ -1,12 +1,36 @@
+// https://github.com/sharedstreets/sharedstreets-types/blob/3c1d5822ff4943ae063f920e018dd3e349213c8c/index.ts
+
+// TODO TODO TODO
+//   SharedStreetsGeometry forward/backReference is string.
+//     Within this project it is string | null.
+//     This was done so in the database the column is NULL
+//       where in the SharedStreetsGeometry tile entry is is an empty string.
+
 import * as turf from '@turf/turf';
 
 import {
   FormOfWay as SharedStreetsFormOfWay,
   RoadClass as SharedStreetsRoadClass,
+  SharedStreetsIntersection,
 } from 'sharedstreets-types';
 
 export { SharedStreetsFormOfWay };
 export { SharedStreetsRoadClass };
+
+export type SharedStreetsOsmTileSource = string;
+export type SharedStreetsBuilderVersion = string;
+
+export type SharedStreetsTilesetBuildMetadata = {
+  shst_osm_tile_source: SharedStreetsOsmTileSource;
+  shst_builder_version: SharedStreetsBuilderVersion;
+};
+
+export type SharedStreetsRoadwayRoadClass = Omit<
+  SharedStreetsRoadClass,
+  'Other'
+>;
+
+export type SharedStreetsIntersectionId = SharedStreetsIntersection['id'];
 
 export interface SharedStreetsLocationReference {
   sequence: number;
@@ -25,10 +49,13 @@ export interface OsmMetadataWaySection {
   one_way: 0 | 1;
   roundabout: 0 | 1;
   link: 0 | 1;
+  nodeIds: number[];
   name: string;
 }
 
 export type OsmHighwayType = string;
+
+export type SharedStreetsReferenceLength = number;
 
 export interface SharedStreetsReferenceFeature
   extends turf.Feature<turf.LineString> {
@@ -41,34 +68,26 @@ export interface SharedStreetsReferenceFeature
     fromIntersectionId: string;
     toIntersectionId: string;
     locationReferences: SharedStreetsLocationReference[];
+    isForward: boolean;
     osmMetadataWaySections: OsmMetadataWaySection[];
     osmHighwayTypes: OsmHighwayType[];
+    minOsmRoadClass: SharedStreetsRoadClass;
+    maxOsmRoadClass: SharedStreetsRoadClass;
+    distinctOsmRoadClasses: SharedStreetsRoadClass[];
+    shstReferenceLength: SharedStreetsReferenceLength;
+    isUnidirectional: boolean | 0 | 1;
   };
 }
 
-export interface SharedStreetsMatchFeature
-  extends turf.Feature<turf.LineString> {
+export interface SharedStreetsIntersectionFeature
+  extends turf.Feature<turf.Point> {
+  id: SharedStreetsIntersectionId;
   properties: {
-    shstReferenceId: string;
-    shstGeometryId: string;
-    shstFromIntersectionId: string;
-    shstToIntersectionId: string;
-    referenceLength: number;
-    section: [number, number];
-    gisReferenceId: string;
-    gisGeometryId: string;
-    gisTotalSegments: number;
-    gisSegmentIndex: number;
-    gisFromIntersectionId: string;
-    gisToIntersectionId: string;
-    startSideOfStreet: 'right' | 'left';
-    endSideOfStreet: 'right' | 'left';
-    sideOfStreet: 'right' | 'left' | 'unknown';
-    score: number;
-    matchType: string;
-    pp_targetmapid: string | number;
-    pp_id: number;
-    pp_osrm_assisted: boolean;
-    pp_match_index: number;
+    id: SharedStreetsIntersectionId;
+    nodeId: number | string;
+    inboundReferenceIds: Array<SharedStreetsReferenceId>;
+    outboundReferenceIds: Array<SharedStreetsReferenceId>;
   };
 }
+
+export type SharedStreetsGeometryId = SharedStreetsReferenceFeature['properties']['geometryId'];

@@ -1,94 +1,98 @@
 /* eslint-disable no-restricted-syntax */
 
-import { strict as assert } from 'assert';
-
-import db from '../../../../services/DbService';
+import DbService from '../../../../services/DbService';
 
 import { NPMRDS as SCHEMA } from '../../../../constants/databaseSchemaNames';
 
-import TargetMapDAO from '../../../../utils/TargetMapDatabases/TargetMapDAO';
+import TargetMapDAO, {
+  PreloadedTargetMapPath,
+} from '../../../../utils/TargetMapDatabases/TargetMapDAO';
 
 import { NpmrdsTmcFeature } from '../../raw_map_layer/domain';
 
-import nysFipsCodes from '../../constants/nysFipsCodes';
+import getBearing from '../../../../utils/gis/getBearing';
 
 import findMesoLevelPaths from './findMesoLevelPaths';
 
-const MESO_LEVEL_PATH = 'MESO_LEVEL_PATH';
+type NpmrdsTargetMapDao = TargetMapDAO<NpmrdsTmcFeature>;
+
+function* makePreloadedTargetMapEdgesIterator(
+  targetMapDao: NpmrdsTargetMapDao,
+): Generator<PreloadedTargetMapPath> {
+  const edgesByLinearTmcIterator = targetMapDao.makeGroupedRawEdgeFeaturesIterator(
+    {
+      groupByRawProperties: ['_route_id_'],
+    },
+  );
+
+  // @ts-ignore
+  for (const {
+    _route_id_,
+    features,
+  }: {
+    features: NpmrdsTmcFeature[];
+  } of edgesByLinearTmcIterator) {
+    const cleanedPathId = _route_id_.toLowerCase().replace(/[^a-z0-9:]+/g, '_');
+
+    const featuresById = features.reduce((acc, feature) => {
+      acc[feature.id] = feature;
+      return acc;
+    }, {});
+
+    // @ts-ignore
+    const tmcPaths = findMesoLevelPaths(features);
+
+    for (let i = 0; i < tmcPaths.length; ++i) {
+      const tmcsSequence = tmcPaths[i];
+
+      const edgeIdSequence = targetMapDao.transformTargetMapIdSequenceToEdgeIdSequence(
+        tmcsSequence,
+      );
+
+      const targetMapPath = tmcsSequence.map((id) => featuresById[id]);
+
+      const targetMapPathBearing = getBearing(targetMapPath);
+
+      const targetMapMesoId = `${cleanedPathId}:${i}`;
+
+      // TODO: Properties should include bearing.
+      const properties = {
+        targetMapMesoId,
+        targetMapPathBearing,
+      };
+
+      yield { properties, edgeIdSequence };
+    }
+  }
+}
 
 // eslint-disable-next-line import/prefer-default-export
 export default async function loadMesoLevelPaths() {
-  const xdb = db.openLoadingConnectionToDb(SCHEMA);
+  const db = DbService.openConnectionToDb(SCHEMA);
 
-  // @ts-ignore
-  xdb.unsafeMode(true);
+  const targetMapDao = new TargetMapDAO<NpmrdsTmcFeature>(SCHEMA);
 
   try {
-    xdb.exec('BEGIN EXCLUSIVE;');
+    db.pragma(`${SCHEMA}.journal_mode = WAL`);
 
-    const targetMapDao = new TargetMapDAO(xdb, SCHEMA);
+    targetMapDao.targetMapPathsAreEulerian = true;
 
-    targetMapDao.deleteAllPathsWithLabel(MESO_LEVEL_PATH);
-
-    const edgesByLinearTmcIterator = targetMapDao.makeGroupedRawEdgeFeaturesIterator(
-      {
-        groupByRawProperties: ['lineartmc', 'county'],
-      },
+    const preloadedTargetMapEdgesIterator = makePreloadedTargetMapEdgesIterator(
+      targetMapDao,
     );
 
-    // @ts-ignore
-    for (const {
-      lineartmc,
-      county,
-      features,
-    }: {
-      features: NpmrdsTmcFeature[];
-    } of edgesByLinearTmcIterator) {
-      // All target map features need to have Paths to get chosen matches.
-      // if (features.length < 2) {
-      // continue;
-      // }
-
-      const countyName = county.replace(/ /g, '_').toLowerCase();
-      const fipsCode = nysFipsCodes[countyName];
-
-      assert(fipsCode !== undefined);
-
-      // @ts-ignore
-      const tmcPaths = findMesoLevelPaths(features);
-
-      for (let i = 0; i < tmcPaths.length; ++i) {
-        const tmcsSequence = tmcPaths[i];
-
-        const edgeIdSequence = targetMapDao.transformTargetMapIdSequenceToEdgeIdSequence(
-          tmcsSequence,
-        );
-
-        const targetMapMesoId = `${lineartmc}:${fipsCode}:${i}`;
-
-        // TODO: Properties should include bearing.
-        const properties = {
-          targetMapMesoId,
-        };
-
-        const pathId = targetMapDao.insertPath({ properties, edgeIdSequence });
-
-        if (pathId !== null) {
-          targetMapDao.insertPathLabel({
-            pathId,
-            label: 'MESO_LEVEL_PATH',
-          });
-        }
-      }
-    }
-
-    xdb.exec('COMMIT');
+    targetMapDao.bulkLoadPaths(
+      preloadedTargetMapEdgesIterator,
+      'MESO_LEVEL',
+      true,
+    );
 
     targetMapDao.vacuumDatabase();
   } catch (err) {
-    xdb.exec('ROLLBACK;');
+    console.error();
     throw err;
   } finally {
-    db.closeLoadingConnectionToDb(xdb);
+    targetMapDao.closeConnections();
+    db.pragma(`${SCHEMA}.journal_mode = DELETE`);
   }
 }

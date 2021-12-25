@@ -1,3 +1,5 @@
+/* eslint-disable no-restricted-syntax */
+
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -5,7 +7,7 @@ import * as turf from '@turf/turf';
 import _ from 'lodash';
 
 import { Database } from 'better-sqlite3';
-import db from '../../../../services/DbService';
+import DbService from '../../../../services/DbService';
 
 import getBufferPolygonCoords from '../../../../utils/getBufferPolygonCoords';
 
@@ -30,12 +32,12 @@ export type NysRoadInventorySystemGeodatabaseEntry = {
 export interface NysRoadInventorySystemGeodatabaseEntryIterator
   extends Generator<NysRoadInventorySystemGeodatabaseEntry, void, unknown> {}
 
-const createNysRisTables = (xdb: any) => {
+const createNysRisTables = (db: any) => {
   const sql = readFileSync(join(__dirname, './create_nys_ris_tables.sql'))
     .toString()
     .replace(/__SCHEMA__/g, SCHEMA);
 
-  xdb.exec(sql);
+  db.exec(sql);
 };
 
 const compareSchemas = (
@@ -80,12 +82,12 @@ const getColumnValueFromEntry = (
 };
 
 const prepareInsertGdbEntryStmt = (
-  xdb: Database,
+  db: Database,
   nysRisTableColumns: readonly string[],
 ) =>
-  xdb.prepare(
+  db.prepare(
     `
-      INSERT INTO ${SCHEMA}.nys_ris (
+      INSERT OR IGNORE INTO nys_ris.roadway_inventory_system (
         ${nysRisTableColumns}
       ) VALUES(${nysRisTableColumns.map((c) =>
         c === 'feature' ? 'json(?)' : ' ? ',
@@ -93,20 +95,32 @@ const prepareInsertGdbEntryStmt = (
     `,
   );
 
-const prepareInsertGdbEntryMissingGeometryStmt = (xdb: Database) =>
-  xdb.prepare(
+const prepareInsertFailedGdbEntryStmt = (db: Database) =>
+  db.prepare(
     `
-      INSERT INTO ${SCHEMA}._qa_nys_ris_entries_without_geometries (
+      INSERT INTO nys_ris._qa_failed_roadway_inventory_system_inserts (
+        gis_id,
+        beg_mp,
+        end_mp,
+        feature
+      ) VALUES(?, ?, ?, json(?)) ;
+    `,
+  );
+
+const prepareInsertGdbEntryMissingGeometryStmt = (db: Database) =>
+  db.prepare(
+    `
+      INSERT INTO nys_ris._qa_nys_ris_entries_without_geometries (
         fid,
         properties
       ) VALUES(?, json(?));
     `,
   );
 
-const prepareGeoPolyIdxStmt = (xdb: Database) =>
-  xdb.prepare(
+const prepareGeoPolyIdxStmt = (db: Database) =>
+  db.prepare(
     `
-      INSERT INTO ${SCHEMA}.nys_ris_geopoly_idx(
+      INSERT INTO nys_ris.nys_ris_geopoly_idx(
         _shape,
         fid
       ) VALUES(json(?), ?) ;
@@ -114,11 +128,11 @@ const prepareGeoPolyIdxStmt = (xdb: Database) =>
   );
 
 const loadNysRisGeodatabase = (
-  xdb: Database,
+  db: Database,
   geodatabaseEntriesIterator: NysRoadInventorySystemGeodatabaseEntryIterator,
 ) => {
-  const nysRisTableColumns: readonly string[] = xdb
-    .pragma("table_info('nys_ris')")
+  const nysRisTableColumns: readonly string[] = db
+    .pragma("table_info('roadway_inventory_system')")
     .map(({ name }) => (name === 'primary' ? '"primary"' : name));
 
   const nonNullColumnsTracker = nysRisTableColumns.reduce((acc, c) => {
@@ -126,12 +140,14 @@ const loadNysRisGeodatabase = (
     return acc;
   }, {});
 
-  const insertGdbEntryStmt = prepareInsertGdbEntryStmt(xdb, nysRisTableColumns);
+  const insertGdbEntryStmt = prepareInsertGdbEntryStmt(db, nysRisTableColumns);
 
-  const updateGeoPolyIdxStmt = prepareGeoPolyIdxStmt(xdb);
+  const insertFailedGdbEntryStmt = prepareInsertFailedGdbEntryStmt(db);
+
+  const updateGeoPolyIdxStmt = prepareGeoPolyIdxStmt(db);
 
   const insertGdbEntryMissingGeometryStmt = prepareInsertGdbEntryMissingGeometryStmt(
-    xdb,
+    db,
   );
 
   let comparedSchemas = false;
@@ -163,18 +179,20 @@ const loadNysRisGeodatabase = (
 
     const values = nysRisTableColumns.map(getValuesForCols);
 
-    // console.log(
-    // JSON.stringify(
-    // nysRisTableColumns.reduce((acc, k, i) => {
-    // acc[k] = values[i];
-    // return acc;
-    // }, {}),
-    // null,
-    // 4,
-    // ),
-    // );
+    const { changes: success } = insertGdbEntryStmt.run(values);
 
-    insertGdbEntryStmt.run(values);
+    if (!success) {
+      const { gis_id, beg_mp, end_mp } = properties;
+
+      insertFailedGdbEntryStmt.run([
+        gis_id,
+        beg_mp,
+        end_mp,
+        JSON.stringify(entry),
+      ]);
+
+      continue;
+    }
 
     if (shape) {
       // Coordinates of the feature's bounding polygon.
@@ -209,21 +227,22 @@ const loadNysRisGeodatabase = (
 export async function loadNysRis(
   geodatabaseEntriesIterator: NysRoadInventorySystemGeodatabaseEntryIterator,
 ) {
-  const xdb = db.openLoadingConnectionToDb(SCHEMA);
+  const db = DbService.openConnectionToDb(SCHEMA, null, 'nys_ris');
 
   try {
-    xdb.exec('BEGIN EXCLUSIVE;');
+    db.exec('BEGIN;');
 
-    createNysRisTables(xdb);
+    createNysRisTables(db);
 
-    loadNysRisGeodatabase(xdb, geodatabaseEntriesIterator);
+    loadNysRisGeodatabase(db, geodatabaseEntriesIterator);
 
-    xdb.exec('COMMIT');
+    db.exec('COMMIT');
   } catch (err) {
-    xdb.exec('ROLLBACK;');
-    throw err;
+    db.exec('ROLLBACK;');
+    console.error(err);
+    process.exit(1);
   } finally {
-    xdb.exec(`VACUUM ${SCHEMA}; `);
-    db.closeLoadingConnectionToDb(xdb);
+    db.exec(`VACUUM nys_ris; `);
+    db.close();
   }
 }

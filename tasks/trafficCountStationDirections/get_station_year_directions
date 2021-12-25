@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set -e
+
+echo 'rc_station,year,federal_direction' > station_year_directions
+
+cat \
+  <( ./bin/extract_average_weekday_stations ) \
+  <( ./bin/extract_short_count_stations ) \
+  | sort -u \
+  | gzip -9 \
+  >> station_year_directions.csv.gz
