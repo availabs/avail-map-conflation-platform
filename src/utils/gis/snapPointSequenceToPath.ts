@@ -27,9 +27,7 @@ export type OptimalTargetMapPointToSourceLineSegmentSnapStat = TargetMapPointToS
 
 export type OptimalTargetMapPointToSourceLineSegmentSnaps = OptimalTargetMapPointToSourceLineSegmentSnapStat[];
 
-type TargetMapPointToSourceLineSegmentSnapStatsTable = Array<
-  TargetMapPointToSourceLineSegmentSnapStats
->[];
+type TargetMapPointToSourceLineSegmentSnapStatsTable = Array<TargetMapPointToSourceLineSegmentSnapStats>[];
 
 function segmentSourceLineString(
   sourceLineString: turf.Feature<turf.LineString>,
