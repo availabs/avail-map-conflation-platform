@@ -1,0 +1,6 @@
+*.tgz
+*.gz
+highway_data_service_counts_scrape
+highway_data_service_counts_scrape*/
+data_archive*/
+csv_schemas*/
