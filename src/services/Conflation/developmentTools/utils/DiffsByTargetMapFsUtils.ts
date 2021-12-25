@@ -122,7 +122,7 @@ export default class DiffsByTargetMapFsUtils {
   }
 
   getLatestIncrementalDiffSymlinkName(targetMap: string) {
-    return `${this.nameCore}.${targetMap}.latest_incremental{this.extension}`;
+    return `${this.nameCore}.${targetMap}.latest_incremental${this.extension}`;
   }
 
   getLatestIncrementalDiffSymlinkPath(targetMap: string) {
