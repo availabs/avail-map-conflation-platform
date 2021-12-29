@@ -72,7 +72,7 @@ const main = async ({ osm_version }: { osm_version: OsmVersion }) => {
 
       osmElementEmitter.emit('done');
 
-      return OsmDao.finalizeDatabase();
+      return OsmDao.loadOsmWayNodeIdsTable();
     },
   );
 };

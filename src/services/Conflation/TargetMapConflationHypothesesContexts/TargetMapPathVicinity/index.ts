@@ -69,7 +69,7 @@ const SHST_ONEWAY_STREETS_OFFSET = -250 / 1000;
 export default class TargetMapPathVicinity<T extends RawTargetMapFeature> {
   private readonly bbDao: TargetMapConflationBlackboardDao<T>;
 
-  readonly targetMapPathMatchesRecord: TargetMapPathMatchesRecord;
+  readonly targetMapPathShstMatchesRecord: TargetMapPathMatchesRecord;
 
   readonly sharedStreetsMatchedReferenceIds: Set<SharedStreetsReferenceId>;
 
@@ -155,11 +155,11 @@ export default class TargetMapPathVicinity<T extends RawTargetMapFeature> {
   constructor(
     bbDao: TargetMapConflationBlackboardDao<T>,
     targetMapPathId: TargetMapPathId,
-    // targetMapPathMatchesRecord: TargetMapPathMatchesRecord,
+    // targetMapPathShstMatchesRecord: TargetMapPathMatchesRecord,
   ) {
     this.bbDao = bbDao;
 
-    this.targetMapPathMatchesRecord = bbDao.getTargetMapPathMatches(
+    this.targetMapPathShstMatchesRecord = bbDao.getTargetMapPathShstMatches(
       targetMapPathId,
     );
 
@@ -292,7 +292,9 @@ export default class TargetMapPathVicinity<T extends RawTargetMapFeature> {
     this.targetMapPathEdgeShstMatchedShstGeometryIds = this.targetMapPathEdgeShstMatchedShstReferences.map(
       (edgeMatchedRefs) => [
         ...new Set(
-          edgeMatchedRefs.map(({ properties: { geometryId } }) => geometryId),
+          edgeMatchedRefs
+            .filter((e) => e)
+            .map(({ properties: { geometryId } }) => geometryId),
         ),
       ],
     );
@@ -401,7 +403,7 @@ export default class TargetMapPathVicinity<T extends RawTargetMapFeature> {
   }
 
   get targetMapPathMatches(): TargetMapPathMatches | null {
-    return this.targetMapPathMatchesRecord.targetMapPathMatches;
+    return this.targetMapPathShstMatchesRecord.targetMapPathMatches;
   }
 
   get targetMapPathsAreEulerian() {
@@ -409,7 +411,7 @@ export default class TargetMapPathVicinity<T extends RawTargetMapFeature> {
   }
 
   get targetMapPathId(): TargetMapPathId {
-    return this.targetMapPathMatchesRecord.targetMapPathId;
+    return this.targetMapPathShstMatchesRecord.targetMapPathId;
   }
 
   get targetMapPathEdgesFeatureCollection() {

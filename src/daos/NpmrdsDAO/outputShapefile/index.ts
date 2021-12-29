@@ -289,9 +289,9 @@ const addShstMatchesLayer = (
   }
 };
 
-// const addChosenShstMatchesLayer = (dataset) => {
+// const addChosenMatchesLayer = (dataset) => {
 // const layer = dataset.layers.create(
-// `chosen_shst_matches`,
+// `chosen_matches`,
 // wgs84,
 // gdal.LineString,
 // );
@@ -309,7 +309,7 @@ const addShstMatchesLayer = (
 // addFieldToLayer(layer, name, type);
 // }
 
-// const iter = GtfsOsmNetworkDAO.makeAllChosenShstMatchesIterator();
+// const iter = GtfsOsmNetworkDAO.makeAllChosenMatchesIterator();
 
 // for (const shstMatch of iter) {
 // const gdalFeature = new gdal.Feature(layer);

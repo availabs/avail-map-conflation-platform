@@ -1,0 +1,27 @@
+#!/usr/bin/env node
+
+const { watch } = require('fs');
+const { exec } = require('child_process');
+const { promisify } = require('util');
+const { join } = require('path');
+
+const execAsync = promisify(exec);
+
+require('ts-node').register();
+
+const {
+  default: conflationDevelopmentDataDir,
+} = require('../constants/conflationDevelopmentDataDir');
+
+const runCodeBackup = join(__dirname, '../conflationCode/cli/run');
+const runBlkbrdDbSnapshot = join(__dirname, '../conflationDatabases/cli/run');
+const runCreateGpkgs = join(__dirname, '../conflationSpatial/run');
+
+const latestTimestampFile = join(
+  conflationDevelopmentDataDir,
+  'latest_timestamp',
+);
+
+async function updateSymlinks() {}
+
+watch(latestTimestampFile, updateSymlinks);

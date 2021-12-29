@@ -56,7 +56,7 @@ function* makePreloadedTargetMapEdgesIterator(
     // }
 
     // @ts-ignore
-    // TODO: Is it guaranteed that the sequential segments connect end to end?
+    // TODO: Is it guaranteed that the sequential segments connect end to end? Ans: NO.
     //       Do there exist cases where directions reverse within same gis_ids?
     const paths = findMesoLevelPaths(features);
 

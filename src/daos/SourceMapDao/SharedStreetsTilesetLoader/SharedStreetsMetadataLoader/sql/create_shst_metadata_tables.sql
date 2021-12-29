@@ -28,14 +28,10 @@ DROP TABLE IF EXISTS shst.shst_metadata ;
 CREATE TABLE shst.shst_metadata (
   _id                 INTEGER PRIMARY KEY AUTOINCREMENT,
   geometry_id         TEXT,
-  osm_metadata_name   TEXT -- SharedStreetsMetadata.OSMMetadata.name property
+  osm_metadata_name   TEXT, -- SharedStreetsMetadata.OSMMetadata.name property
+
+  UNIQUE (geometry_id)
 ) ;
-
--- For JOINing with shst.shst_geometries
-CREATE INDEX shst.shst_metadata_geometry_id_idx
-  ON shst_metadata (geometry_id) ;
-
-
 
 -- ========== shst_metadata_gis_metadata  ==========
 --

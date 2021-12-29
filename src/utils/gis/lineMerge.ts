@@ -282,6 +282,7 @@ const segmentize = (
     coords.map((positions) =>
       _(positions)
         .flattenDeep()
+        .map((c) => _.round(c, 6))
         .chunk(2)
         .filter(
           (position, i, collection) => !_.isEqual(position, collection[i - 1]),
@@ -300,8 +301,8 @@ const segmentize = (
   return featureSegments;
 };
 
-// https://postgis.net/docs/ST_LineMerge.html
-// Returns a (set of) LineString(s) formed by sewing together the constituent line work of a MULTILINESTRING.
+//  https://postgis.net/docs/ST_LineMerge.html
+//    Returns a (set of) LineString(s) formed by sewing together the constituent line work of a MULTILINESTRING.
 export default function lineMerge(
   feature: turf.Feature<turf.LineString | turf.MultiLineString>,
 ): turf.Feature<turf.LineString>[] {
@@ -310,10 +311,12 @@ export default function lineMerge(
   //   b) serves as an Identity function for testing
   const edgeFeatures = segmentize(feature);
   const graph = edgeFeaturesToGraph(edgeFeatures);
+
   const connectedSubgraphs = induceConnectedComponentSubgraphs(graph);
 
-  const lineStrings = connectedSubgraphs.reduce(
-    (acc: turf.Feature<turf.LineString>[], cGraph) => {
+  const lineStrings = connectedSubgraphs
+    // For each connected subgraph
+    .reduce((acc: turf.Feature<turf.LineString>[], cGraph) => {
       const traversals = getTraversalPaths(cGraph);
 
       for (let i = 0; i < traversals.length; ++i) {
@@ -338,9 +341,22 @@ export default function lineMerge(
         acc.push(lineString);
       }
       return acc;
-    },
-    [],
-  );
+    }, [])
+    .sort((a, b) => {
+      // FIXME: Should use dynamic programming to determine the ideal sequence.
+      // This heuristinc may break when the number of lineString >= 3
+      const coordsA = turf.getCoords(a);
+      const coordsB = turf.getCoords(b);
+
+      const abLstr = turf.lineString([...coordsA, ...coordsB]);
+      const baLstr = turf.lineString([...coordsB, ...coordsA]);
+
+      const abLen = turf.length(abLstr);
+      const baLen = turf.length(baLstr);
+
+      // console.log(JSON.stringify({ id: feature.id, abLen, baLen }, null, 4));
+      return abLen - baLen;
+    });
 
   return lineStrings;
 }

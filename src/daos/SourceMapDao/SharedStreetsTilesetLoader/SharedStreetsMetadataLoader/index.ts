@@ -51,7 +51,7 @@ export default class SharedStreetsMetadataLoader {
     this.preparedWriteStatements.insertShstMetadataStmt =
       this.preparedWriteStatements.insertShstMetadataStmt ||
       this.dbWriteConnection.prepare(`
-        INSERT INTO shst.shst_metadata (
+        INSERT OR IGNORE INTO shst.shst_metadata (
           geometry_id,
           osm_metadata_name
         ) VALUES (?, ?);
@@ -68,10 +68,11 @@ export default class SharedStreetsMetadataLoader {
 
     // lastInsertRowid is the autoincrement id
     const {
+      changes: success,
       lastInsertRowid: shstMetadataId,
     } = this.insertShstMetadataStmt.run([geometryId, osmMetadataName]);
 
-    return shstMetadataId;
+    return success ? shstMetadataId : null;
   };
 
   protected get insertShstMetadataOsmMetadataWaySectionsStmt(): Statement {
@@ -277,8 +278,10 @@ export default class SharedStreetsMetadataLoader {
       for await (const shstMetadata of shstMetadataIter) {
         const shstMetadataId = this.insertShstMetadata(shstMetadata);
 
-        this.insertWaySections(shstMetadata, +shstMetadataId);
-        this.insertGisMetadata(shstMetadata, +shstMetadataId);
+        if (shstMetadataId !== null) {
+          this.insertWaySections(shstMetadata, +shstMetadataId);
+          this.insertGisMetadata(shstMetadata, +shstMetadataId);
+        }
       }
 
       this.dbWriteConnection.exec('COMMIT;');

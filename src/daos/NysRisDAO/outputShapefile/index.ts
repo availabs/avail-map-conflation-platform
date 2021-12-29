@@ -66,6 +66,12 @@ const addRawNysRisLayer = (
       fieldName: 'fips_co',
       type: gdal.OFTInteger,
     },
+
+    // From JOIN with count_station_directions
+    fed_dir: {
+      fieldName: 'fips_co',
+      type: gdal.OFTInteger,
+    },
     // county_name: {
     // fieldName: 'county_name',
     // type: gdal.OFTString,
@@ -690,7 +696,7 @@ const addShstMatchesLayer = (
 };
 
 /*
-const addChosenShstMatchesLayer = (
+const addChosenMatchesLayer = (
   targetMapBBDao: TargetMapConflationBlackboardDao,
   dataset: gdal.Dataset,
 ) => {
@@ -770,7 +776,7 @@ export default function outputShapefile({
   addShstMatchesLayer(targetMapDao, dataset);
 
   // Uses deprecated method
-  // addChosenShstMatchesLayer(targetMapBBDao, dataset);
+  // addChosenMatchesLayer(targetMapBBDao, dataset);
 
   dataset.close();
 }
