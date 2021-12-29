@@ -5,15 +5,22 @@ FROM debian:11.2
 ENV DEBIAN_FRONTEND="noninteractive" 
 
 RUN apt-get update \
-    && apt-get -y upgrade
+    && apt-get -y upgrade \
+    && apt-get install -y \
+        build-essential \
+        curl \
+        gdal-bin \
+        jq \
+        less \
+        pip \
+        sqlite3 \
+        sqlite3-doc \
+        sudo \
+        tmux
 
 RUN apt-get install -y \
-    build-essential \
-    curl \
-    jq \
-    less \
-    spatialite-bin \
-    sudo
+      libsqlite3-mod-spatialite \
+      spatialite-bin
 
 RUN apt-get install -y npm \
   && npm install -g npm n \
@@ -42,3 +49,11 @@ RUN adduser --disabled-password --gecos '' avail \
 # Change to avail user
 USER avail
 
+RUN sudo pip install -U litecli
+
+# "A config file is automatically created at ~/.config/litecli/config at first launch."
+RUN bash -c "litecli ':memory:' <<< '\dt'" \
+  && sed \
+      -i \
+      's/^key_bindings =.*/key_bindings = vi/' \
+      /home/avail/.config/litecli/config
