@@ -16,7 +16,9 @@ RUN apt-get update \
         sqlite3 \
         sqlite3-doc \
         sudo \
-        tmux
+        tmux \
+        unzip \
+        zip
 
 RUN apt-get install -y \
       libsqlite3-mod-spatialite \
