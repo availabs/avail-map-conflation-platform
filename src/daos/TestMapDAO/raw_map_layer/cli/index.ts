@@ -3,6 +3,8 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
+import * as turf from '@turf/turf';
+
 import db from '../../../../services/DbService';
 
 import SourceMap from '../../../SourceMapDao';
@@ -23,7 +25,17 @@ const getOsmMeta = ({ osm_way_tags: { way_id, ref, name } }) => ({
   name: name || null,
 });
 
-export default function loadTestMap() {
+const getBoundingPolygon = (
+  subnet_polygon_geojson: string | null,
+): turf.Feature<turf.Polygon> | null =>
+  subnet_polygon_geojson &&
+  JSON.parse(readFileSync(subnet_polygon_geojson, { encoding: 'utf8' }));
+
+export default function loadTestMap({
+  subnet_polygon_geojson,
+}: {
+  subnet_polygon_geojson: string | null;
+}) {
   const xdb = db.openLoadingConnectionToDb(SCHEMA);
 
   // @ts-ignore
@@ -41,7 +53,13 @@ export default function loadTestMap() {
       ) VALUES (?, json(?)) ;
     `);
 
-    const shstRefIter = SourceMap.makeSharedStreetsReferenceFeaturesIterator();
+    const boundingPoly = getBoundingPolygon(subnet_polygon_geojson);
+
+    const shstRefIter = boundingPoly
+      ? SourceMap.makeSharedStreetsReferenceFeaturesOverlappingPolygonIterator(
+          boundingPoly,
+        )
+      : SourceMap.makeSharedStreetsReferenceFeaturesIterator();
 
     let id = 0;
 

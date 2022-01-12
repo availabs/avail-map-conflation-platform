@@ -13,18 +13,12 @@ const builder = {
   // demand: false,
   // default: false,
   // },
-  // pt_aggitation_meters: {
-  // desc: 'aggitate the map points by random() * pt_aggitation_meters',
-  // type: 'number',
-  // demand: false,
-  // default: 0,
-  // },
-  // line_offset_meters: {
-  // desc: 'offset the map lines by random() * line_offset_meters',
-  // type: 'number',
-  // demand: false,
-  // default: 0,
-  // },
+  subnet_polygon_geojson: {
+    desc: 'Path to an optional GeoJSON file containing the subnet polygon',
+    type: 'string',
+    demand: false,
+    default: null,
+  },
 };
 
 export const loadTestMap = {
