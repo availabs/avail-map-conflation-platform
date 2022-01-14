@@ -1,0 +1,25 @@
+#!/bin/bash
+
+set -e
+
+COUNTY='albany'
+
+# for year in 2017 2018 2019 2020; do
+for year in 2020 ; do
+  echo "=== $COUNTY $year ==="
+
+  export AVAIL_MAP_CONFLATION_INPUT_DIR="$PWD/input.$COUNTY-county-$year/"
+  export AVAIL_MAP_CONFLATION_OUTPUT_DIR="$PWD/output.$COUNTY-county-$year/"
+
+  # rm -f ./output.albany-county-2020/sqlite/test_map
+  # # ./run load_test_map --subnet_polygon_geojson ./testing_utils/subnets/AlbanySouthMallInterchange.geojson
+  # ./src/daos/TestMapDAO/cli/run load_test_map
+  # ./src/daos/TestMapDAO/cli/run load_test_target_map
+
+  # rm -f ./output.albany-county-2020/sqlite/test_map_conflation_blackboard
+  # ./src/daos/TestMapDAO/cli/run load_test_map_matches
+
+  rm -f ./output.albany-county-2020/sqlite/test_map_qa
+  ./src/daos/TestMapDAO/cli/run load_test_map_qa_tables
+
+done
