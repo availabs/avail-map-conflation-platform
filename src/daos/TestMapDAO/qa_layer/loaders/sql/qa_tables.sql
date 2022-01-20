@@ -188,6 +188,28 @@ INSERT INTO test_map_qa.assigned_match_analysis (
     WHERE ( b.shst_reference_id IS NULL )
 ;
 
+INSERT INTO test_map_qa.assigned_match_analysis (
+  shst_reference,
+  section_start,
+  section_end,
+  match_taxonomy
+)
+  SELECT
+      a.shst_reference_id AS shst_reference,
+      a.section_start,
+      a.section_end,
+      json('["NOT_YET_CLASSIFIED"]') AS match_taxonomy
+    FROM test_map_bb.target_map_edge_assigned_matches AS a
+      LEFT OUTER JOIN test_map_qa.assigned_match_analysis AS b
+        ON (
+          ( a.shst_reference_id = b.shst_reference )
+          AND
+          ( a.section_start = b.section_start )
+          AND
+          ( a.section_end = b.section_end )
+      )
+    WHERE ( b.id IS NULL )
+;
 
 COMMIT ;
 
