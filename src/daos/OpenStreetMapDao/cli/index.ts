@@ -26,16 +26,29 @@ const main = async ({ osm_version }: { osm_version: OsmVersion }) => {
   OsmDao.setOsmVersion(osm_version);
 
   const osmElementEmitter = new EventEmitter();
-  const osmNodesIterator = pEvent.iterator(osmElementEmitter, ['node']);
-  const osmWaysIterator = pEvent.iterator(osmElementEmitter, ['way']);
+  const osmNodesIterator = pEvent.iterator(osmElementEmitter, ['node'], {
+    resolutionEvents: ['done'],
+  });
+  const osmWaysIterator = pEvent.iterator(osmElementEmitter, ['way'], {
+    resolutionEvents: ['done'],
+  });
+  const osmRelationsIterator = pEvent.iterator(
+    osmElementEmitter,
+    ['relation'],
+    { resolutionEvents: ['done'] },
+  );
 
   // @ts-ignore
-  OsmDao.bulkLoadOsmNodesAsync(osmNodesIterator);
+  const nodesLoadDone = OsmDao.bulkLoadOsmNodesAsync(osmNodesIterator);
   // @ts-ignore
-  OsmDao.bulkLoadOsmWaysAsync(osmWaysIterator);
+  const wayLoadDone = OsmDao.bulkLoadOsmWaysAsync(osmWaysIterator);
+  // @ts-ignore
+  const relationsLoadDone =
+    OsmDao.bulkLoadOsmRelationsAsync(osmRelationsIterator);
 
   let nodeCt = 0;
   let wayCt = 0;
+  let relationsCt = 0;
 
   function emitNode({ id, lat, lon, tags }) {
     ++nodeCt;
@@ -45,6 +58,11 @@ const main = async ({ osm_version }: { osm_version: OsmVersion }) => {
   function emitWay({ id, refs: nodeIds, tags }) {
     ++wayCt;
     osmElementEmitter.emit('way', { id, nodeIds, tags });
+  }
+
+  function emitRelation({ id, tags, members }) {
+    ++relationsCt;
+    osmElementEmitter.emit('relation', { id, tags, members });
   }
 
   pipeline(
@@ -59,12 +77,23 @@ const main = async ({ osm_version }: { osm_version: OsmVersion }) => {
         if (item.type === 'way') {
           emitWay(item);
         }
+
+        if (item.type === 'relation') {
+          emitRelation(item);
+        }
       });
 
       next();
     }),
-    (err) => {
-      console.log('Nodes:', nodeCt, ', Ways:', wayCt);
+    async (err) => {
+      console.log(
+        'Nodes:',
+        nodeCt,
+        ', Ways:',
+        wayCt,
+        'Relations:',
+        relationsCt,
+      );
 
       if (err) {
         return osmElementEmitter.emit('error', err);
@@ -72,7 +101,9 @@ const main = async ({ osm_version }: { osm_version: OsmVersion }) => {
 
       osmElementEmitter.emit('done');
 
-      return OsmDao.loadOsmWayNodeIdsTable();
+      await Promise.all([nodesLoadDone, wayLoadDone, relationsLoadDone]);
+
+      return OsmDao.finalizeDatabase();
     },
   );
 };

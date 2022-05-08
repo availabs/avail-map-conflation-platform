@@ -1,3 +1,5 @@
+BEGIN ;
+
 DROP TABLE IF EXISTS osm.osm_version ;
 DROP TABLE IF EXISTS osm.osm_nodes ;
 DROP TABLE IF EXISTS osm.osm_ways ;
@@ -46,3 +48,23 @@ CREATE TABLE osm.osm_way_node_ids (
 CREATE INDEX osm.osm_way_node_id_idx
   ON osm_way_node_ids (osm_node_id)
 ;
+
+CREATE TABLE osm.osm_route_relations (
+  osm_route_id        INTEGER PRIMARY KEY,
+  tags                TEXT, -- JSON Object
+  members             TEXT, -- JSON Array
+
+  CHECK(
+    ( tags IS NULL )
+    OR
+    ( json_valid(tags) )
+  ),
+
+  CHECK(
+    ( members IS NULL )
+    OR
+    ( json_array_length(members) > 1 )
+  )
+) WITHOUT ROWID ;
+
+COMMIT;
