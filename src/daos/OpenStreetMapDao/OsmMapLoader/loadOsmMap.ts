@@ -8,22 +8,26 @@ import through from 'through2';
 
 import pEvent from 'p-event';
 
-import OsmDao from '..';
+import OsmLoaderDAO from './OsmMapLoaderDAO';
 
 import getExpectedOsmVersionPbfPath from '../utils/getExpectedOsmVersionPbfPath';
 
 import { OsmVersion } from '../domain/types';
 
-const main = async ({ osm_version }: { osm_version: OsmVersion }) => {
+export default async function load({
+  osm_version,
+}: {
+  osm_version: OsmVersion;
+}) {
   const osmPbfPath = getExpectedOsmVersionPbfPath(osm_version);
 
   if (!existsSync(osmPbfPath)) {
     throw new Error(`${osmPbfPath} does not exist`);
   }
 
-  OsmDao.initializeDatabase();
+  OsmLoaderDAO.initializeDatabase();
 
-  OsmDao.setOsmVersion(osm_version);
+  OsmLoaderDAO.setOsmVersion(osm_version);
 
   const osmElementEmitter = new EventEmitter();
   const osmNodesIterator = pEvent.iterator(osmElementEmitter, ['node'], {
@@ -39,12 +43,12 @@ const main = async ({ osm_version }: { osm_version: OsmVersion }) => {
   );
 
   // @ts-ignore
-  const nodesLoadDone = OsmDao.bulkLoadOsmNodesAsync(osmNodesIterator);
+  const nodesLoadDone = OsmLoaderDAO.bulkLoadOsmNodesAsync(osmNodesIterator);
   // @ts-ignore
-  const wayLoadDone = OsmDao.bulkLoadOsmWaysAsync(osmWaysIterator);
-  // @ts-ignore
+  const wayLoadDone = OsmLoaderDAO.bulkLoadOsmWaysAsync(osmWaysIterator);
   const relationsLoadDone =
-    OsmDao.bulkLoadOsmRelationsAsync(osmRelationsIterator);
+    // @ts-ignore
+    OsmLoaderDAO.bulkLoadOsmRelationsAsync(osmRelationsIterator);
 
   let nodeCt = 0;
   let wayCt = 0;
@@ -103,9 +107,7 @@ const main = async ({ osm_version }: { osm_version: OsmVersion }) => {
 
       await Promise.all([nodesLoadDone, wayLoadDone, relationsLoadDone]);
 
-      return OsmDao.finalizeDatabase();
+      return OsmLoaderDAO.finalizeDatabase();
     },
   );
-};
-
-export default main;
+}

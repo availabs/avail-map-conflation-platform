@@ -1,6 +1,6 @@
 /* eslint-disable import/prefer-default-export */
 
-import handler from '.';
+import handler from '../OsmMapLoader/loadOsmMap';
 
 import osmInputDirectory from '../constants/osmInputDirectory';
 
