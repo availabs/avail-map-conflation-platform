@@ -90,6 +90,10 @@ any advances in the the state-of-the-art to improve the pipeline's performance.
 
 To achieve above described openness, we chose the Blackboard architecture pattern:
 
+![blackboard pattern](./images/blackboard-pattern.png)
+
+From [NUClear: A Loosely Coupled Software Architecture for Humanoid Robot Systems](https://www.researchgate.net/figure/In-a-blackboard-architecture-all-modules-communicate-by-reading-from-and-writing-to-a_fig5_301358808)
+
 > A blackboard system is an artificial intelligence approach based on the
 > blackboard architectural model, where a common knowledge base, the
 > "blackboard", is iteratively updated by a diverse group of specialist
@@ -208,7 +212,7 @@ this assumption "Routability" and it plays a central role in its map matching
 algorithms.
 
 Furthermore, the GPS traces would usually entail traversing more of the road
-network than a single block or exit ramp. Refering to the animation above,
+network than a single block or exit ramp. Referring to the animation above,
 notice how the algorithm remains undecided around exit ramps and smaller
 road sections until after the vehicle has traversed further along its route.
 
