@@ -2,7 +2,7 @@
 
 ## Software Engineering/Architecture
 
-These followig design princples and patterns were adopted early and played a critical
+These following design princples and patterns were adopted early and played a critical
 role in our incremental improvement of the conflation system over time. They
 facilitate experimentation, analysis, and continuous improvement of the of system.
 Their importance to the final product is just as important as the algorithms employed.
