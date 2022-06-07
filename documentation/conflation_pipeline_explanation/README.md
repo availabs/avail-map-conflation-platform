@@ -226,6 +226,9 @@ NYS RIS also includes service roads and trails that are not routable for
 normal traffic and thus ignored by OSRM's map matching algorithm without
 special configuration.
 
+![Watervliet_alley_v][./images/watervliet_alley_v.png]
+![Watervliet_alley_v_zoomed][./images/watervliet_alley_v_zoomed.png]
+
 #### TargetMapPaths
 
 As mentioned above, the input TargetMaps (NYS RIS, NPMRDS, GTFS)
