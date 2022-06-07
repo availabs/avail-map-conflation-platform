@@ -243,6 +243,9 @@ information available in the map metadata
   process." -- [HPMS
   Documentation](https://www.fhwa.dot.gov/policyinformation/hpms/shapefiles.cfm)
 
+  DOT_IDs span many map segments. With NYS RIS, the beginning milepoints are
+  used to order the road segments (TargetMapEdges) along the TargetMapPath.
+
 - NPMRDS **TmcLinear**: "A reference to the “Linear TMC” that includes the TMC
   Segment. Typically, several TMC Segments are part of a Linear TMC, which
   usually represents a road corridor through a single county. The purpose of
@@ -251,6 +254,9 @@ information available in the map metadata
   care must be taken when linking consecutive TMC Segments in the exception
   cases where multiple TMC Codes refer to the same stretch of road."
   -- [NPMRDS Documentation](https://npmrds.ritis.org/static/help/docs/NPMRDS.pdf)
+
+  As NPMRDS does not include milepoints, graph algorithms are used to order the
+  TMCs into a TargetMapPath.
 
 - For GTFS, the route shapes are already paths.
 
@@ -271,9 +277,8 @@ TargetMapPath.
 
 The Chooser uses geospatial heuristics to choose an optimal path through the
 OSM road network to represent TargetMapPath. We then break down the OSM Way
-matches recommended for a TargetMapPath by TargetMapPathEdges (the individual road
-network segments found in the input map) using an algorithm that minimizes
-root-mean-square deviation of distance.
+matches recommended for a TargetMapPath to recommendations by TargetMapEdge
+using an algorithm that minimizes root-mean-square deviation of distance.
 
 The output of the Chooser is a sigle OSM match suggestion for each road segment
 represented by a TargetMapPath.
