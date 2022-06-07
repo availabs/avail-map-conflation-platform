@@ -128,7 +128,7 @@ Map conflation algorithm consists of 3 stages.
 2. Choosing
 3. Assigning
 
-### Hidden Markov Map Matching Algorithm
+### Matching: the Hidden Markov Map Matching Algorithm
 
 AVAIL currently uses SharedStreets to get initial suggestions for NYS RIS,
 NPMRDS, and GTFS to OSM map matching. SharedStreets, in turn, uses the Open
@@ -225,3 +225,72 @@ where the actual road network may involve a discontinuity for a street.
 NYS RIS also includes service roads and trails that are not routable for
 normal traffic and thus ignored by OSRM's map matching algorithm without
 special configuration.
+
+#### TargetMapPaths
+
+As mentioned above, the input TargetMaps (NYS RIS, NPMRDS, GTFS)
+are transformed into Path Property Graphs during injest.
+For NYS RIS and NPMRDS, these TargetMapPaths are assembled using
+information available in the map metadata
+
+- NYS RIS **DOT_ID**: "A computer system ID used by NYSDOT as a unique reference
+  for a particular route or road." -- [NYS RIS
+  Documentation](https://gis.ny.gov/gisdata/metadata/dot.Field-Descriptions-Codes-Roadway-Inventory.xls)
+
+  This seems equivalent to the HPMS "ROUTE_ID", which is described in the
+  documentation as "the unique identifier for a given roadway (i.e., route).
+  Used for linear referencing attributtes through the Dynamic Segmentation
+  process." -- [HPMS
+  Documentation](https://www.fhwa.dot.gov/policyinformation/hpms/shapefiles.cfm)
+
+- NPMRDS **TmcLinear**: "A reference to the “Linear TMC” that includes the TMC
+  Segment. Typically, several TMC Segments are part of a Linear TMC, which
+  usually represents a road corridor through a single county. The purpose of
+  this column is to provide assistance for filtering and locating TMC Segments
+  and simplifying the process of linking consecutive TMC Segments. Note that
+  care must be taken when linking consecutive TMC Segments in the exception
+  cases where multiple TMC Codes refer to the same stretch of road."
+  -- [NPMRDS Documentation](https://npmrds.ritis.org/static/help/docs/NPMRDS.pdf)
+
+- For GTFS, the route shapes are already paths.
+
+Feeding the HMM matching algorithm long TargetMapPaths (Routes) rather than
+small TargetMapEdges (blocks, ramps, etc) vastly improves the matching
+performance.
+
+For the NYS RIS centerline map, the TargetMapPath is reversed and fed through
+the HMM matcher to get directed match recommendations.
+
+### Choosing Matches
+
+During the HMM Matching stage of the pipeline, any recommendation is better
+than no recommendation. Therefore, we pass the HMM algorithm different
+configurations as well as mutations of the TargetMapPaths. The Matcher may thus
+recommend multiple OSM Ways (road network segments) for a given section of the
+TargetMapPath.
+
+The Chooser uses geospatial heuristics to choose an optimal path through the
+OSM road network to represent TargetMapPath. We then break down the OSM Way
+matches recommended for a TargetMapPath by TargetMapPathEdges (the individual road
+network segments found in the input map) using an algorithm that minimizes
+root-mean-square deviation of distance.
+
+The output of the Chooser is a sigle OSM match suggestion for each road segment
+represented by a TargetMapPath.
+
+### Assigning Matches
+
+The HMM algorithm works extremely well for TargetMapEdges internal to the TargetMapPath,
+not as well for the external (first and last) edges of a TargetMapPath.
+
+It is the job of the Assigner to resolve conflicts between TargetMapEdge ChosenMatches.
+The Assigner applies a myriad of rules, such as
+
+- prefer ChosenMatches of internal TargetMapPathEdges over external TargetMapPathEdges.
+- prefer higher level (major) roadways over lower level (local) roadways
+- prefer ChosenMatches for unreversed TargetMapPathEdges over reversed TargetMapPathEdges
+
+At the end of the Assigner stage, there is one OSM road segment assigned to any
+TargetMap segment, and one TargetMap segment assigned to any OSM road segment.
+
+## Future Work
