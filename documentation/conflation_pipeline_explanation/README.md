@@ -20,7 +20,7 @@ The high-level structure of the conflation pipeline shown below:
 ```mermaid
 graph LR
 A[Injest & Normalize] --> B(Matcher)
-subgraph ''
+subgraph 'The Map Matching Process'
     B --> C[Chooser];
     C --> D[Assigner];
 end
@@ -280,7 +280,7 @@ OSM road network to represent TargetMapPath. We then break down the OSM Way
 matches recommended for a TargetMapPath to recommendations by TargetMapEdge
 using an algorithm that minimizes root-mean-square deviation of distance.
 
-The output of the Chooser is a sigle OSM match suggestion for each road segment
+The output of the Chooser is a single OSM match suggestion for each road segment
 represented by a TargetMapPath.
 
 ### Assigning Matches
