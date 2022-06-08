@@ -308,8 +308,8 @@ TargetMap segment, and one TargetMap segment assigned to any OSM road segment.
 
 ### Improving completeness and connectivity of matches
 
-Junctions rank high in transportation network analysis, but
-rank poorly in input map cartography. Currently, cartography errors near junctions
+Junctions rank high in transportation network analysis importance, but
+rank low in input map cartography. Currently, cartography errors near junctions
 result in conflation map gaps. A closer look at the HMM visualization
 above helps explain why.
 
@@ -334,3 +334,14 @@ _NYS RIS near the NYC Brooklyn Bridge. The black lines are the original NYS RIS 
 _NPMRDS near NYC Lincon Tunnel. The blue lines are the original NPMRDS map. The green lines are their matches in the conflation map._
 
 ---
+
+### Leveraging the all map metadata during HMM matching
+
+Currently, the HMM matching stage of the conflation pipeline
+uses only the OSM map routing rules and the input map geometries.
+
+We have much more metadata available in OSM, NYS RIS, and NPMRDS
+maps to guide matching.
+
+We are currently researching ways to leverage that currently unused information
+to improve matching results.
