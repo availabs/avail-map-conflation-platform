@@ -226,6 +226,9 @@ NYS RIS also includes service roads and trails that are not routable for
 normal traffic and thus ignored by OSRM's map matching algorithm without
 special configuration.
 
+Alley V in Watervliet, NY. Notice how the alley's representation
+actually traverses through buildings.
+
 ![Watervliet_alley_v](./images/watervliet_alley_v.png)
 ![Watervliet_alley_v_zoomed](./images/watervliet_alley_v_zoomed.png)
 
@@ -302,3 +305,32 @@ At the end of the Assigner stage, there is one OSM road segment assigned to any
 TargetMap segment, and one TargetMap segment assigned to any OSM road segment.
 
 ## Future Work
+
+### Improving completeness and connectivity of matches
+
+Junctions rank high in transportation network analysis, but
+rank poorly in input map cartography. Currently, cartography errors near junctions
+result in conflation map gaps. A closer look at the HMM visualization
+above helps explain why.
+
+![HMM Starting Near Intersection](./images/zoom_hmm_near_intersection.png)
+
+The next iteration of AVAIL's conflation pipeline will expand the Assigner stage
+with additional graph algorithms to more aggressively search for gaps in the
+conflation output and fill them.
+
+Examples:
+
+---
+
+![NYS RIS by Brooklyn Bridge](./images/nys_ris_near_brooklyn_bridge.png)
+
+_NYS RIS near the NYC Brooklyn Bridge. The black lines are the original NYS RIS map. The green lines are their matches in the conflation map._
+
+---
+
+![NPMRDS by Lincon Tunnel](./images/lincon_tunnel_npmrds.png)
+
+_NPMRDS near NYC Lincon Tunnel. The blue lines are the original NPMRDS map. The green lines are their matches in the conflation map._
+
+---
