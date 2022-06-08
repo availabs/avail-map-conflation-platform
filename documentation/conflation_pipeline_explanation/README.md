@@ -226,11 +226,14 @@ NYS RIS also includes service roads and trails that are not routable for
 normal traffic and thus ignored by OSRM's map matching algorithm without
 special configuration.
 
-Alley V in Watervliet, NY. Notice how the alley's representation
-actually traverses through buildings.
+---
 
 ![Watervliet_alley_v](./images/watervliet_alley_v.png)
 ![Watervliet_alley_v_zoomed](./images/watervliet_alley_v_zoomed.png)
+
+_Alley V in Watervliet, NY. Notice how the alley's representation actually traverses through buildings._
+
+---
 
 #### TargetMapPaths
 
