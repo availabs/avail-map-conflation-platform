@@ -231,7 +231,7 @@ special configuration.
 ![Watervliet_alley_v](./images/watervliet_alley_v.png)
 ![Watervliet_alley_v_zoomed](./images/watervliet_alley_v_zoomed.png)
 
-_Alley V in Watervliet, NY. Notice how the alley's representation actually traverses through buildings._
+_Alley V in Watervliet, NY. Notice how the alley's representation actually traverses through a building._
 
 ---
 
