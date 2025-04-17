@@ -146,9 +146,8 @@ const loadNysRisGeodatabase = (
 
   const updateGeoPolyIdxStmt = prepareGeoPolyIdxStmt(db);
 
-  const insertGdbEntryMissingGeometryStmt = prepareInsertGdbEntryMissingGeometryStmt(
-    db,
-  );
+  const insertGdbEntryMissingGeometryStmt =
+    prepareInsertGdbEntryMissingGeometryStmt(db);
 
   let comparedSchemas = false;
   // eslint-disable-next-line no-restricted-syntax

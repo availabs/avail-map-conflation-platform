@@ -4,10 +4,15 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 import _ from 'lodash';
+import * as turf from '@turf/turf';
 
 import { Database, Statement } from 'better-sqlite3';
 
 import db from '../../../services/DbService';
+
+import getBufferPolygonCoords from '../../../utils/getBufferPolygonCoords';
+
+import OpenStreetMapDAO from '../index';
 
 import { OSM } from '../../../constants/databaseSchemaNames';
 
@@ -17,6 +22,7 @@ import {
   OsmVersion,
   OsmNode,
   OsmWay,
+  OsmWayFeature,
   OsmRelation,
   OsmRouteRelation,
 } from '../domain/types';
@@ -32,6 +38,7 @@ class OpenStreetMapLoaderDao {
 
   protected readonly preparedReadStatements!: {
     getOsmVersionStmt?: Statement;
+    osmRoadwayMetadataStmt?: Statement;
   };
 
   protected readonly preparedWriteStatements!: {
@@ -40,6 +47,9 @@ class OpenStreetMapLoaderDao {
     insertOsmRouteRelationStmt?: Statement;
     loadOsmWayNodeIdsTableStmt?: Statement;
     loadOsmRouteWaysTableStmt?: Statement;
+    insertOsmRoadwayFeatureStmt?: Statement;
+    updateOsmRoadwayGeopolyIndexStmt?: Statement;
+    updateOsmRoadwayMetadataSpatialColumnsStmt?: Statement;
   };
 
   constructor() {
@@ -336,11 +346,120 @@ class OpenStreetMapLoaderDao {
     this.dbWriteConnection.exec(sql);
   }
 
+  protected get insertOsmRoadwayFeatureStmt(): Statement {
+    this.preparedWriteStatements.insertOsmRoadwayFeatureStmt =
+      this.preparedWriteStatements.insertOsmRoadwayFeatureStmt ||
+      this.dbWriteConnection.prepare(`
+        INSERT INTO osm.osm_roadway_features (
+          osm_way_id,
+          feature
+        ) VALUES (?, json(?)) ;
+      `);
+
+    return this.preparedWriteStatements.insertOsmRoadwayFeatureStmt;
+  }
+
+  protected get updateOsmRoadwayGeopolyIndexStmt(): Statement {
+    this.preparedWriteStatements.updateOsmRoadwayGeopolyIndexStmt =
+      this.preparedWriteStatements.updateOsmRoadwayGeopolyIndexStmt ||
+      this.dbWriteConnection.prepare(`
+        INSERT INTO osm.osm_roadway_features_geopoly_idx (
+          _shape,
+          osm_way_id
+        ) VALUES (?, ?) ;
+      `);
+
+    return this.preparedWriteStatements.updateOsmRoadwayGeopolyIndexStmt;
+  }
+
+  protected get updateOsmRoadwayMetadataSpatialColumnsStmt(): Statement {
+    this.preparedWriteStatements.updateOsmRoadwayMetadataSpatialColumnsStmt =
+      this.preparedWriteStatements.updateOsmRoadwayMetadataSpatialColumnsStmt ||
+      this.dbWriteConnection.prepare(`
+        UPDATE osm.osm_roadways_metadata
+          SET
+              kilometers          = b.feature->'properties'->>'kilometers',
+              osm_nodes_km_along  = b.feature->'properties'->>'osmNodesKmAlong'
+          FROM osm.osm_roadway_features AS b
+          WHERE (osm_roadways_metadata.osm_way_id = b.osm_way_id)
+      `);
+
+    return this.preparedWriteStatements
+      .updateOsmRoadwayMetadataSpatialColumnsStmt;
+  }
+
+  loadOsmWayFeatures() {
+    const OsmWayMetadataIter =
+      OpenStreetMapDAO.makeOsmRoadwayMetadataIterator();
+
+    for (const osmWayMetadata of OsmWayMetadataIter) {
+      const { osmWayId, osmNodeIds } = osmWayMetadata;
+      const osmNodeFeatures =
+        OpenStreetMapDAO.getOsmNodeFeaturesById(osmNodeIds);
+
+      const coords = osmNodeFeatures.map((pt) => turf.getCoord(pt));
+
+      const osmNodesKmAlong = coords
+        .reduce((acc, coord, i) => {
+          const prevDist = _.last(acc) || 0;
+          const distFromPrevCoord = i ? turf.distance(coords[i - 1], coord) : 0;
+
+          acc.push(prevDist + distFromPrevCoord);
+          return acc;
+        }, [])
+        .map((dist) => _.round(dist, 6));
+
+      const osmWayFeature = <OsmWayFeature>turf.lineString(
+        coords,
+        osmWayMetadata,
+        {
+          id: osmWayId,
+        },
+      );
+
+      //  We need the following INVARIANTS:
+      //    * the last osmNodesKmAlong equals the kilometers
+      //    * osmNodesKmAlong are monotonically increasing
+      //  We will tolerate a bit of impression to ensure this.
+      const kilometers = Math.max(
+        _.round(turf.length(osmWayFeature), 6),
+        // @ts-ignore
+        _.last(osmNodesKmAlong),
+      );
+
+      osmNodesKmAlong[osmNodesKmAlong.length - 1] = kilometers;
+
+      osmWayFeature.properties.osmNodesKmAlong = osmNodesKmAlong;
+      osmWayFeature.properties.kilometers = kilometers;
+
+      try {
+        this.insertOsmRoadwayFeatureStmt.run([
+          osmWayId,
+          JSON.stringify(osmWayFeature),
+        ]);
+      } catch (err) {
+        console.log(JSON.stringify(osmWayFeature, null, 4));
+        throw err;
+      }
+
+      // @ts-ignore
+      const polyCoords = getBufferPolygonCoords(osmWayFeature);
+
+      this.updateOsmRoadwayGeopolyIndexStmt.run([
+        JSON.stringify(_.first(polyCoords)),
+        osmWayId,
+      ]);
+    }
+
+    this.updateOsmRoadwayMetadataSpatialColumnsStmt.run();
+  }
+
   finalizeDatabase() {
     this.createOsmRoutesMetadataTable();
     // createOsmRoadWaysMetadataTable depends on createOsmRoutesMetadataTable
     this.createOsmRoadWaysMetadataTable();
     this.deleteNonRoadWayNodes();
+    this.loadOsmWayFeatures();
   }
 }
 

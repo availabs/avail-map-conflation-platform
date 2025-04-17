@@ -86,9 +86,10 @@ export default function getShstReferencesChainForOsmNodesSequence(
   }
 
   // NOTE: result ORDERed BY osm_node_seq_idx
-  const result: Response1Row[] = getAllShstWaySectionNodeMetadataForOsmNodesSeqStmt
-    .call(this)
-    .all([JSON.stringify(osmNodeIdsSequence)]);
+  const result: Response1Row[] =
+    getAllShstWaySectionNodeMetadataForOsmNodesSeqStmt
+      .call(this)
+      .all([JSON.stringify(osmNodeIdsSequence)]);
 
   if (!result.length) {
     console.error('RESULT LENGTH === 0');

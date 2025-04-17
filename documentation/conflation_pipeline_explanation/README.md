@@ -219,7 +219,7 @@ road sections until after the vehicle has traversed further along its route.
 When performing the map matching for NYS RIS and NPMRDS, there are no timestamps.
 These maps include very short segments around intersections and junctions for
 which pure HMM performs poorly. Furthermore, the RIS map is a centerline map
-that excludes one direction of divided roadways. In some cases, cartography
+that excludes one direction for divided roadways. In some cases, cartography
 simplifications result in a road's representation traversing through buildings
 where the actual road network may involve a discontinuity for a street.
 NYS RIS also includes service roads and trails that are not routable for

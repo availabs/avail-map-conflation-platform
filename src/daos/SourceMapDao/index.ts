@@ -45,9 +45,8 @@ class SourceMapDao {
     this.preparedReadStatements = {};
 
     // This is rather complicated. Better off decomposing into modules.
-    this.getShstReferencesForOsmNodeSequences = getShstReferencesForOsmNodeSequences.bind(
-      this,
-    );
+    this.getShstReferencesForOsmNodeSequences =
+      getShstReferencesForOsmNodeSequences.bind(this);
   }
 
   get dbReadConnection(): Database {
@@ -306,9 +305,10 @@ class SourceMapDao {
     const boundingPolyHull = getGeometriesConcaveHull([boundaryPolygon]);
     const [boundingPolyCoords] = turf.getCoords(boundingPolyHull);
 
-    const shstReferencesIter = this.allShstReferenceFeaturesOverlappingPolygonStmt
-      .raw()
-      .iterate([JSON.stringify(boundingPolyCoords)]);
+    const shstReferencesIter =
+      this.allShstReferenceFeaturesOverlappingPolygonStmt
+        .raw()
+        .iterate([JSON.stringify(boundingPolyCoords)]);
 
     for (const [featureStr] of shstReferencesIter) {
       const feature = JSON.parse(featureStr);
@@ -316,6 +316,18 @@ class SourceMapDao {
       yield feature;
     }
   }
+
+  getOsmWaySegmentFeaturesForShstReference(
+    shstRefId: SharedStreetsReferenceId,
+  ): {
+    //  Get all the OSM ways with
+    //    osm_way_section_idx   INTEGER NOT NULL,
+    //    osm_way_id            INTEGER NOT NULL,
+    //    osm_node_ids          TEXT NOT NULL, -- JSON INTEGER[]
+    //    osm_fwd               INTEGER NOT NULL,
+    //    section_start         REAL NOT NULL,
+    //    section_end           REAL NOT NULL,
+  };
 }
 
 export default new SourceMapDao();

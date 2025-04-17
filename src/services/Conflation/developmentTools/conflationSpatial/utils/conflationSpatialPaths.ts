@@ -41,14 +41,13 @@ export const conflationInputMapsGpkgPath = join(
   'conflation_input_maps.gpkg',
 );
 
-export const conflationBlkbrdSnapshotsGpkgFsUtils = new SnapshotsByTargetMapFsUtils(
-  {
+export const conflationBlkbrdSnapshotsGpkgFsUtils =
+  new SnapshotsByTargetMapFsUtils({
     dir: conflationSpatialBlkbrdSnapshotsDir,
     nameCore: 'conflation_blackboard_snapshot',
     ext: 'gpkg',
     autoUpdateSymlinks: true,
-  },
-);
+  });
 
 export const conflationBlkbrdDiffsGpkgFsUtils = new DiffsByTargetMapFsUtils({
   dir: conflationSpatialSnapshotDiffDir,

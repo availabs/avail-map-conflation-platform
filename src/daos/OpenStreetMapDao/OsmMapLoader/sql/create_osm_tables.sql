@@ -37,6 +37,44 @@ CREATE TABLE osm.osm_ways (
   tags                TEXT  -- JSON Object
 ) WITHOUT ROWID ;
 
+CREATE TABLE osm.osm_roadway_features (
+  osm_way_id        INTEGER PRIMARY KEY,
+  feature           TEXT NOT NULL, --JSON
+
+  CHECK(
+    feature->'properties'->>'roadClass' IN (
+      'Motorway',
+      'Trunk',
+      'Primary',
+      'Secondary',
+      'Tertiary',
+      'Residential',
+      'Unclassified',
+      'Service',
+      'Other'
+    )
+  ),
+
+  CHECK(
+    feature->'properties'->>'formOfWay' IN (
+      'Undefined',
+      'Motorway',
+      'MultipleCarriageway',
+      'SingleCarriageway',
+      'Roundabout',
+      'TrafficSquare',
+      'SlipRoad',
+      'Other'
+    )
+  ),
+
+  CHECK(json_type(feature->'properties'->>'oneWay') IN ('true', 'false')),
+
+  CHECK(feature->'geometry'->>'type' = 'LineString'),
+  CHECK(json_array_length(feature->'geometry'->'coordinates') >= 2)
+
+) WITHOUT ROWID ;
+
 CREATE TABLE osm.osm_way_node_ids (
   osm_way_id          INTEGER NOT NULL,
   osm_node_idx        INTEGER NOT NULL,
@@ -66,5 +104,58 @@ CREATE TABLE osm.osm_route_relations (
     ( json_array_length(members) > 1 )
   )
 ) WITHOUT ROWID ;
+
+DROP TABLE IF EXISTS osm.osm_roadway_features;
+
+CREATE TABLE osm.osm_roadway_features (
+  osm_way_id        INTEGER PRIMARY KEY,
+  feature           TEXT NOT NULL, --JSON
+
+  CHECK(
+    json_extract(feature, '$.properties.roadClass') IN (
+      'Motorway',
+      'Trunk',
+      'Primary',
+      'Secondary',
+      'Tertiary',
+      'Residential',
+      'Unclassified',
+      'Service',
+      'Other'
+    )
+  ),
+
+  CHECK(
+    json_extract(feature, '$.properties.formOfWay') IN (
+      'Undefined',
+      'Motorway',
+      'MultipleCarriageway',
+      'SingleCarriageway',
+      'Roundabout',
+      'TrafficSquare',
+      'SlipRoad',
+      'Other'
+    )
+  ),
+
+  --  CHECK(
+    --  json_type(
+      --  json_extract(feature, '$.properties.oneWay')
+    --  ) IN (0, 1)
+  --  ),
+
+  CHECK( json_extract(feature, '$.geometry.type') = 'LineString' ),
+  CHECK(
+    json_array_length(
+      json_extract(feature, '$.geometry.coordinates')
+    ) >= 2
+  )
+
+) WITHOUT ROWID ;
+
+DROP TABLE IF EXISTS osm.osm_roadway_features_geopoly_idx ;
+
+CREATE VIRTUAL TABLE osm.osm_roadway_features_geopoly_idx
+  USING geopoly(osm_way_id) ;
 
 COMMIT;

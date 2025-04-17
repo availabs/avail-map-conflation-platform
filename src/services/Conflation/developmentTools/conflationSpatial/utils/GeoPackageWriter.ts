@@ -25,6 +25,8 @@ export default class GeoPackageWriter {
 
     this.gpkgPath = join(conflationSpatialArbitraryDir, `${baseName}.gpkg`);
 
+    console.log(this.gpkgPath);
+
     if (existsSync(this.gpkgPath)) {
       unlinkSync(this.gpkgPath);
     }

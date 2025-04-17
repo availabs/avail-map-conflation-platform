@@ -51,12 +51,14 @@ const main = async () => {
   try {
     const shst_osm_tile_source = OpenStreetMapDao.osmVersion;
 
-    const shstTilesetDir = SharedStreetsTilesetLoader.getSharedStreetsTilesetDirectory(
-      shst_osm_tile_source,
-    );
-    const shstTilesetBuildMetaPath = SharedStreetsTilesetLoader.getSharedStreetsTilesetBuildMetadataPath(
-      shst_osm_tile_source,
-    );
+    const shstTilesetDir =
+      SharedStreetsTilesetLoader.getSharedStreetsTilesetDirectory(
+        shst_osm_tile_source,
+      );
+    const shstTilesetBuildMetaPath =
+      SharedStreetsTilesetLoader.getSharedStreetsTilesetBuildMetadataPath(
+        shst_osm_tile_source,
+      );
 
     if (!existsSync(shstTilesetDir)) {
       throw new Error(

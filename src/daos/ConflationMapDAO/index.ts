@@ -62,9 +62,8 @@ export type TargetMapConflationBlackboardDaoConfig = {
   databaseSchemaName?: DatabaseSchemaName | null;
 };
 
-const NYS_RIS_BB = TargetMapConflationBlackboardDao.getBlackboardSchemaName(
-  NYS_RIS,
-);
+const NYS_RIS_BB =
+  TargetMapConflationBlackboardDao.getBlackboardSchemaName(NYS_RIS);
 
 function getSql(fName: string) {
   return readFileSync(join(__dirname, './sql/', fName), {
@@ -211,13 +210,14 @@ export default class ConflationMapDAO {
 
   private get queryConflationMapMetadataStmt(): Statement {
     if (!this.preparedReadStatements.queryConflationMapMetadataStmt) {
-      this.preparedReadStatements.queryConflationMapMetadataStmt = this.dbReadConnection.prepare(
-        `
+      this.preparedReadStatements.queryConflationMapMetadataStmt =
+        this.dbReadConnection.prepare(
+          `
           SELECT
               metadata
             FROM conflation_map.conflation_map_metadata ;
         `,
-      );
+        );
     }
 
     // @ts-ignore
@@ -230,12 +230,13 @@ export default class ConflationMapDAO {
 
   protected get updateConflationMapMetadataStmt(): Statement {
     if (!this.preparedWriteStatements.updateConflationMapMetadataStmt) {
-      this.preparedWriteStatements.updateConflationMapMetadataStmt = this.dbWriteConnection.prepare(
-        `
+      this.preparedWriteStatements.updateConflationMapMetadataStmt =
+        this.dbWriteConnection.prepare(
+          `
           UPDATE conflation_map.conflation_map_metadata
             SET metadata = json_set(metadata, '$.' || ?, json(?))
         `,
-      );
+        );
     }
 
     // @ts-ignore
@@ -567,14 +568,12 @@ export default class ConflationMapDAO {
       const iter = this.makeOsmWaysWithShstReferencesIterator();
 
       for (const { osmWayId, osmNodeIds, shstReferences } of iter) {
-        const {
-          chosenForward,
-          chosenBackward,
-        } = getChosenShstReferenceSegmentsForOsmWay({
-          osmWayId,
-          osmNodeIds,
-          shstReferences,
-        });
+        const { chosenForward, chosenBackward } =
+          getChosenShstReferenceSegmentsForOsmWay({
+            osmWayId,
+            osmNodeIds,
+            shstReferences,
+          });
 
         for (let i = 0; i < chosenForward.length; ++i) {
           const {
@@ -829,9 +828,8 @@ export default class ConflationMapDAO {
       if (i++ === 0) {
         console.timeEnd('query');
       }
-      const shstReference: SharedStreetsReferenceFeature = JSON.parse(
-        shstRefStr,
-      );
+      const shstReference: SharedStreetsReferenceFeature =
+        JSON.parse(shstRefStr);
       const assignments: Record<
         TargetMap,
         ShstReferenceTargetMapEdgesAssignment

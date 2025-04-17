@@ -16,4 +16,6 @@ const defaultOutputDirPath = join(__dirname, '../../output/');
 
 const outputDirectory = envVaribleOutputDirPath || defaultOutputDirPath;
 
+console.log('outputDirectory:', outputDirectory);
+
 export default outputDirectory;

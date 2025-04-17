@@ -1,0 +1,44 @@
+#!/bin/bash
+
+set -e
+
+COUNTY='albany'
+
+# for year in 2017 2018 2019 2020; do
+for year in 2020 ; do
+  echo "=== $COUNTY $year ==="
+
+  export AVAIL_MAP_CONFLATION_INPUT_DIR="$PWD/input.$COUNTY-county-$year/"
+  export AVAIL_MAP_CONFLATION_OUTPUT_DIR="$PWD/output.$COUNTY-county-$year/"
+
+  # CLEAN
+  rm -rf "$AVAIL_MAP_CONFLATION_OUTPUT_DIR"
+
+  # rm -f "$AVAIL_MAP_CONFLATION_OUTPUT_DIR/sqlite/osm"
+  ./run load_osm
+  ./run shrinkwrap_osm_database
+
+  # # rm -rf "$AVAIL_MAP_CONFLATION_OUTPUT_DIR/osrm/"
+  ./run run_osrm_tool_chain
+
+  ./run load_shst_tileset
+  ./run shrinkwrap_source_map_database
+
+  # ./run nys_ris_all
+  # # ./run load_nys_traffic_count_stations
+  # ./run shrinkwrap_nys_ris_database
+
+  # ./run npmrds_all
+  # # ./run load_npmrds
+  # # # ./run load_npmrds_target_map
+  # ./run shrinkwrap_npmrds_database
+
+  # ./run initialize_conflation_map_database
+  # ./run output_conflation_map_shapefile
+  # ./run output_conflation_map_mbtiles
+
+  # ./run output_nys_ris_qa_mbtiles
+  # ./run output_npmrds_qa_mbtiles
+  # ./run output_conflation_map_qa_mbtiles
+
+done
